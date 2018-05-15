@@ -12,6 +12,8 @@
 #include <chrono>
 #include <ratio>
 
+#include <valgrind/valgrind.h>
+
 #include "renderer.h"
 #include "rendererSDL.h"
 
@@ -148,7 +150,7 @@ static void mainLoop(Core &core) {
 static void run() {
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
-    if (true) {
+    if (0 == RUNNING_ON_VALGRIND) {
         renderer = std::make_unique< RendererSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
         input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
     } else {
