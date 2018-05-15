@@ -66,7 +66,7 @@ void PythonData::setString(const std::string &key, const std::string &val) {
 bool PythonData::getBool(const std::string &key) {
     rassert(PyHas(dict, key), key);
     PyObject *str = PyUnicode_FromString(key.c_str());
-    const bool b = PyFloat_AsDouble(PyDict_GetItem(dict, str));
+    const bool b = PyObject_IsTrue(PyDict_GetItem(dict, str));
     Py_DECREF(str);
     return b;
 }
