@@ -1,0 +1,86 @@
+#pragma once
+
+#include <gmtl/Vec.h>
+#include <gmtl/VecOps.h>
+#include <gmtl/Output.h>
+
+#include <stdlib.h>
+
+#include <algorithm>
+#include <iostream>
+#include <utility>
+#include <sstream>
+#include <string>
+#include <vector>
+
+template< typename T >
+std::string str(const T &x) {
+    std::stringstream ss;
+    ss << x;
+    return ss.str();
+}
+
+template< typename T >
+std::string sp(const T &x) {
+    std::stringstream ss;
+    ss << x << ' ';
+    return ss.str();
+}
+
+typedef gmtl::Vec2d Vec;
+typedef gmtl::Vec3d Vec3;
+
+template< typename T >
+constexpr T pi = T(3.1415926535897932385);
+
+template< typename T >
+T clamp(const T low, const T high, const T val) {
+    return std::min(high, std::max(low, val));
+}
+
+double diffLength(const Vec a, const Vec b);
+
+double diffLength2(const Vec a, const Vec b);
+
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
+    os << "[ ";
+    for (const auto &x : v) {
+        os << x << ' ';
+    }
+    os << ']';
+    return os;
+}
+
+
+#define assert(expr, ...) \
+    _assert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
+            # __VA_ARGS__, '\x00', ## __VA_ARGS__);
+template< typename... Args >
+bool _assert(bool pass, const char *expr, const char *file, const char *func, size_t line,
+             Args &&...args) {
+    if (pass) { return false; }
+    std::cerr << "At: " << file << " : " << func << " : " << line << '\n';
+    std::cerr << "Assert failed: " << expr << std::endl;
+    std::stringstream info;
+    ((info << args << ", "), ...);
+    const std::string infos = info.str();
+    const auto split = infos.find('\x00');
+    const std::string head = infos.substr(0, split - 2);
+    const std::string tail = infos.substr(split + 3, infos.size() - split - 5);
+    if (!head.empty()) {
+        std::cerr << "Info:\n" << head << '\n' << tail << std::endl;
+    }
+    
+    if (false) {
+        // Approximately safely triggers an invalid read
+        // so valgrind will print a call stack
+        uint8_t * byte = static_cast< uint8_t * >(malloc(1));
+        *byte = 4;
+        free(byte);
+        volatile uint8_t dummy = *byte;
+        dummy *= 2;
+    }
+
+    abort();
+}
