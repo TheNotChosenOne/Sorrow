@@ -4,8 +4,6 @@
 #include <gmtl/VecOps.h>
 #include <gmtl/Output.h>
 
-#include <stdlib.h>
-
 #include <algorithm>
 #include <iostream>
 #include <utility>
@@ -52,14 +50,13 @@ std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
     return os;
 }
 
-
-#define assert(expr, ...) \
-    _assert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
+#define rassert(expr, ...) \
+    _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
             # __VA_ARGS__, '\x00', ## __VA_ARGS__);
 template< typename... Args >
-bool _assert(bool pass, const char *expr, const char *file, const char *func, size_t line,
+void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line,
              Args &&...args) {
-    if (pass) { return false; }
+    if (pass) { return; }
     std::cerr << "At: " << file << " : " << func << " : " << line << '\n';
     std::cerr << "Assert failed: " << expr << std::endl;
     std::stringstream info;

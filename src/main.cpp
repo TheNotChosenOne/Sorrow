@@ -12,6 +12,8 @@
 #include <chrono>
 #include <ratio>
 
+#include <valgrind/valgrind.h>
+
 #include "renderer.h"
 #include "rendererSDL.h"
 
@@ -148,7 +150,7 @@ static void mainLoop(Core &core) {
 static void run() {
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
-    if (true) {
+    if (0 == RUNNING_ON_VALGRIND) {
         renderer = std::make_unique< RendererSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
         input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
     } else {
@@ -231,9 +233,9 @@ static void run() {
         phys.gather = true;
         core.visuals.get(e).colour = Vec3(0, 0, 0);
         auto &log = core.logic.get(e);
-        log["hp"] = 100;
-        log["speed"] = 900 * phys.mass;
-        log[control] = 1;
+        log.setDouble("hp", 100);
+        log.setDouble("speed", 900 * phys.mass);
+        log.setString("controller", control);
         return e;
     };
 
@@ -251,11 +253,11 @@ static void run() {
     Entity e = putActor(core.renderer.getWidth() / 2, y + 250, 10, "player");
     std::cout << "Player: " << e << '\n';
     auto &log = core.logic.get(e);
-    log["speed"] = 150;
-    log["reload"] = 0.0;
-    log["reloadTime"] = 0.01;
-    log["bulletForce"] = 1000;
-    log["blifetime"] = 5;
+    log.setDouble("speed", 150);
+    log.setDouble("reload", 0.0);
+    log.setDouble("reloadTime", 0.01);
+    log.setDouble("bulletForce", 1000);
+    log.setDouble("blifetime", 5);
     core.player = core.entities.getHandle(e);
     core.player = e;
     core.physics.get(core.player).gather = true;
