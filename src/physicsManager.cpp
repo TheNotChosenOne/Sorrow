@@ -209,6 +209,17 @@ static void collide(Comps &comps, const Comps &) {
 
 }
 
+template<>
+PyObject *toPython< Shape >(Shape &v) {
+    return Py_BuildValue("s", Shape::Circle == v ? "circle" : "box");
+}
+
+std::ostream &operator<<(std::ostream &os, const Contact &k) {
+    os << k.which << " hit at " << k.where << ' ' << k.norm << " (";
+    os << k.depth << ", " << k.force << ")";
+    return os;
+}
+
 PhysicsComponent PhysicsManager::makeDefault() const {
     return {
         Vec(0, 0), Vec(0, 0), Vec(0, 0), Vec(0, 0), Vec(0, 0), Vec(0, 0),

@@ -11,6 +11,7 @@
 #include "visualManager.h"
 #include "logicManager.h"
 #include "utility.h"
+#include "mirror.h"
 
 namespace {
 
@@ -94,7 +95,7 @@ std::string PythonData::getString(const std::string &key) {
     PyObject *str = PyUnicode_FromString(key.c_str());
     Py_ssize_t length;
     const char *data = PyUnicode_AsUTF8AndSize(PyDict_GetItem(dict, str), &length);
-    std::string s(data, length - 1);
+    std::string s(data, length);
     rassert(!PyErr_Occurred())
     Py_DECREF(str);
     return s;
@@ -115,6 +116,8 @@ LogicManager::LogicManager() {
     rassert(PyCallable_Check(controlFunc), "Script must define control function");
     Py_DECREF(mainString);
     Py_DECREF(funcString);
+
+    PyTypesInit();
 }
 
 LogicManager::~LogicManager() {
@@ -168,11 +171,18 @@ void LogicManager::logicUpdate(Core &core) {
     for (size_t i = 0; i < components.size(); ++i) {
         PyObject *dict = components[i]->dict;
         if (1 == PyDict_Size(dict)) { continue; }
-        //auto &phys = core.physics.get(i);
+        auto &phys = core.physics.get(i);
         Py_INCREF(dict);
+        PyObject *str = PyUnicode_FromString("phys");
+        PyDict_SetItem(dict, str, PyMirrorMake(new HanaMirror< PhysicsComponent >(&phys)));
+        Py_DECREF(str);
         PyTuple_SetItem(args, 0, dict);
         PyObject *result = PyObject_CallObject(controlFunc, args);
-        Py_DECREF(result);
+        if (!result) {
+            PyErr_Print();
+            exit(1);
+        }
+        Py_XDECREF(result);
 
         /*
         if (log.count("drone")) {
