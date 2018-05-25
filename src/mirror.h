@@ -9,6 +9,7 @@
 #include <boost/hana.hpp>
 
 #include "utility.h"
+#include "forwardMirror.h"
 
 class Mirror {
     public:
