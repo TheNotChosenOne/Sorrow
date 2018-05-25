@@ -1,6 +1,7 @@
 #include "input.h"
 
 #include <Python.h>
+#include <functional>
 #include <structmember.h>
 
 Input::Input() {
@@ -28,15 +29,15 @@ bool Input::isReleased(size_t) const {
     return false;
 }
 
-bool Input::mouseHeld(uint8_t) const {
+bool Input::mouseHeld(size_t) const {
     return false;
 }
 
-bool Input::mousePressed(uint8_t) const {
+bool Input::mousePressed(size_t) const {
     return false;
 }
 
-bool Input::mouseReleased(uint8_t) const {
+bool Input::mouseReleased(size_t) const {
     return false;
 }
 
@@ -51,29 +52,29 @@ struct PyInput {
     Input *input;
 };
 
-static PyObject *pyIsHeld(PyInput *self, PyObject *args) {
-    size_t key;
+#define LinkPythonInput(func) \
+    static PyObject *Py_ ## func (PyInput *self, PyObject *args) {\
+        size_t key; \
+        if (PyArg_ParseTuple(args, "K", &key)) { \
+            Py_RETURN_BOOL(self->input->func (key)); \
+        } \
+        return nullptr; \
+    }
 
-    self->input->
-}
-static PyObject *pyIsPressed(PyInput *self, PyObject *args) {
-}
-static PyObject *pyIsReleased(PyInput *self, PyObject *args) {
-}
-static PyObject *pyMouseHeld(PyInput *self, PyObject *args) {
-}
-static PyObject *pyMousePressed(PyInput *self, PyObject *args) {
-}
-static PyObject *pyMouseReleased(PyInput *self, PyObject *args) {
-}
+LinkPythonInput(isHeld);
+LinkPythonInput(isPressed);
+LinkPythonInput(isReleased);
+LinkPythonInput(mouseHeld);
+LinkPythonInput(mousePressed);
+LinkPythonInput(mouseReleased);
 
 static PyMethodDef inputMethods[] = {
-    { "isHeld", reinterpret_cast< PyCFunction >(pyIsHeld), READONLY, "Is the key held" },
-    { "isHeld", reinterpret_cast< PyCFunction >(pyIsPressed), READONLY, "Is the key held" },
-    { "isHeld", reinterpret_cast< PyCFunction >(pyIsReleased), READONLY, "Is the key held" },
-    { "isHeld", reinterpret_cast< PyCFunction >(pyMouseHeld), READONLY, "Is the key held" },
-    { "isHeld", reinterpret_cast< PyCFunction >(pyMousePressed), READONLY, "Is the key held" },
-    { "isHeld", reinterpret_cast< PyCFunction >(pyMouseReleased), READONLY, "Is the key held" },
+    { "isHeld", reinterpret_cast< PyCFunction >(Py_isHeld), READONLY, "Is the key held" },
+    { "isPressed", reinterpret_cast< PyCFunction >(Py_isPressed), READONLY, "Was the ky pressed" },
+    { "isReleased", reinterpret_cast< PyCFunction >(Py_isReleased), READONLY, "Was the key released" },
+    { "mouseHeld", reinterpret_cast< PyCFunction >(Py_mouseHeld), READONLY, "Is the button held" },
+    { "mousePressed", reinterpret_cast< PyCFunction >(Py_mousePressed), READONLY, "Was the button pressed" },
+    { "mouseReleased", reinterpret_cast< PyCFunction >(Py_mouseReleased), READONLY, "Was the button released" },
     { nullptr, nullptr, 0, nullptr }
 };
 
@@ -105,7 +106,7 @@ static PyTypeObject inputType {
     .tp_weaklistoffset = 0,
     .tp_iter = 0,
     .tp_iternext = 0,
-    .tp_methods = 0,
+    .tp_methods = inputMethods,
     .tp_members = 0,
     .tp_getset = 0,
     .tp_base = 0,
@@ -130,7 +131,11 @@ static PyTypeObject inputType {
 
 }
 template<>
-PyObject *toPython< Input >(Input &t) {
-    
-
+PyObject *toPython< Input >(Input &in) {
+    PyInput *pin;
+    pin = reinterpret_cast< PyInput * >(inputType.tp_alloc(&inputType, 0));
+    if (pin) {
+        pin->input = &in;
+    }
+    return reinterpret_cast< PyObject * >(pin);
 }

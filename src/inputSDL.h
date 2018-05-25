@@ -13,9 +13,9 @@ class InputSDL: public Input {
         std::vector< bool > held;
         std::vector< bool > pressed;
         std::vector< bool > released;
-        std::map< uint8_t, bool > mHeld;
-        std::map< uint8_t, bool > mPressed;
-        std::map< uint8_t, bool > mReleased;
+        std::map< size_t, bool > mHeld;
+        std::map< size_t, bool > mPressed;
+        std::map< size_t, bool > mReleased;
         Vec mouse;
 
     public:
@@ -27,8 +27,8 @@ class InputSDL: public Input {
         bool isHeld(size_t key) const override;
         bool isPressed(size_t key) const override;
         bool isReleased(size_t key) const override;
-        bool mouseHeld(uint8_t button) const override;
-        bool mousePressed(uint8_t button) const override;
-        bool mouseReleased(uint8_t button) const override;
+        bool mouseHeld(size_t button) const override;
+        bool mousePressed(size_t button) const override;
+        bool mouseReleased(size_t button) const override;
         Vec mousePos() const override;
 };

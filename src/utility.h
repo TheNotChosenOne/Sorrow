@@ -50,6 +50,9 @@ std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
     return os;
 }
 
+#define RUN_ONCE(expr) { static bool _run_once_first = true; \
+    if (_run_once_first) { _run_once_first = false; expr; } }
+
 #define rassert(expr, ...) \
     _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
             # __VA_ARGS__, '\x00', ## __VA_ARGS__);

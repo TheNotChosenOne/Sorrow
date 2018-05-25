@@ -6,6 +6,7 @@
 #include <map>
 
 #include "componentManager.h"
+#include "forwardMirror.h"
 
 typedef size_t Entity;
 typedef size_t EntityHandle;
@@ -35,3 +36,8 @@ class EntityManager {
 
         const std::set< Entity > &all() const;
 };
+
+/*
+template<>
+PyObject *toPython< EntityManager >(EntityManager &ent);
+*/

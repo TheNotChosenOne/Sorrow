@@ -46,6 +46,13 @@ void fromPython(T& t, PyObject *) {
     std::cout << "Cannot find assignment for: " << t << '\n';
 }
 
+template< typename T >
+T fromPython(PyObject *obj) {
+    T t;
+    fromPython(t, obj);
+    return t;
+}
+
 template<> PyObject *toPython< Vec > (Vec &v);
 template<> PyObject *toPython< bool >(bool &b);
 template<> PyObject *toPython< Vec3 > (Vec3 &v);
@@ -70,6 +77,15 @@ template<> void fromPython< std::string >(std::string &v, PyObject *obj);
 
 template< typename T >
 PyObject *toPython(std::vector< T > &v) {
+    PyObject *listy = PyList_New(v.size());
+    for (size_t i = 0; i < v.size(); ++i) {
+        PyList_SetItem(listy, i, toPython(v[i]));
+    }
+    return listy;
+}
+
+template< typename T >
+PyObject *toPython(const std::vector< T > &v) {
     PyObject *listy = PyList_New(v.size());
     for (size_t i = 0; i < v.size(); ++i) {
         PyList_SetItem(listy, i, toPython(v[i]));

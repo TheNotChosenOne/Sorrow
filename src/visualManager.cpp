@@ -61,7 +61,6 @@ void VisualManager::updater(Core &core, const Components &lasts, Components &nex
     gmtl::setTrans(viewMat, -(viewMat * cam));
 
     gather(shaped, next, core, viewMat);
-    core.renderer.clear();
     for (const MinVis &mv : shaped[1]) { // Boxes
         core.renderer.drawBox(mv.pos, mv.rad, mv.col);
     }
@@ -69,6 +68,7 @@ void VisualManager::updater(Core &core, const Components &lasts, Components &nex
         core.renderer.drawCircle(mv.pos, mv.rad, mv.col);
     }
     core.renderer.update();
+    core.renderer.clear();
 }
 
 VisualManager::VisualManager()

@@ -12,6 +12,7 @@
 #include "logicManager.h"
 #include "utility.h"
 #include "mirror.h"
+#include "renderer.h"
 
 namespace {
 
@@ -175,6 +176,9 @@ void LogicManager::logicUpdate(Core &core) {
         Py_INCREF(dict);
         PyObject *str = PyUnicode_FromString("phys");
         PyDict_SetItem(dict, str, PyMirrorMake(new HanaMirror< PhysicsComponent >(&phys)));
+        Py_DECREF(str);
+        str = PyUnicode_FromString("vis");
+        PyDict_SetItem(dict, str, toPython(core.renderer));
         Py_DECREF(str);
         PyTuple_SetItem(args, 0, dict);
         PyObject *result = PyObject_CallObject(controlFunc, args);
