@@ -85,58 +85,18 @@ static PyMethodDef inputMethods[] = {
     { nullptr, nullptr, 0, nullptr }
 };
 
-static PyTypeObject rendererType {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "renderer",
-    .tp_basicsize = sizeof(PyRenderer),
-    .tp_itemsize = 0,
-    .tp_dealloc = nullptr,
-    .tp_print = nullptr,
-    .tp_getattr = nullptr,
-    .tp_setattr = nullptr,
-    .tp_as_async = nullptr,
-    .tp_repr = nullptr,
-    .tp_as_number = nullptr,
-    .tp_as_sequence = nullptr,
-    .tp_as_mapping = nullptr,
-    .tp_hash = nullptr,
-    .tp_call = nullptr,
-    .tp_str = nullptr,
-    .tp_getattro = nullptr,
-    .tp_setattro = nullptr,
-    .tp_as_buffer = nullptr,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_doc = "What do you think the artist was trying to say when they chose this colour?",
-    .tp_traverse = nullptr,
-    .tp_clear = nullptr,
-    .tp_richcompare = nullptr,
-    .tp_weaklistoffset = 0,
-    .tp_iter = 0,
-    .tp_iternext = 0,
-    .tp_methods = inputMethods,
-    .tp_members = 0,
-    .tp_getset = 0,
-    .tp_base = 0,
-    .tp_dict = 0,
-    .tp_descr_get = 0,
-    .tp_descr_set = 0,
-    .tp_dictoffset = 0,
-    .tp_init = 0,
-    .tp_alloc = 0,
-    .tp_new = nullptr,
-    .tp_free = nullptr,
-    .tp_is_gc = nullptr,
-    .tp_bases = nullptr,
-    .tp_mro = nullptr,
-    .tp_cache = nullptr,
-    .tp_subclasses = nullptr,
-    .tp_weaklist = nullptr,
-    .tp_del = nullptr,
-    .tp_version_tag = 0,
-    .tp_finalize = nullptr,
-};
+static PyTypeObject rendererType = [](){
+    PyTypeObject obj;
+    obj.tp_name = "renderer";
+    obj.tp_basicsize = sizeof(PyRenderer);
+    obj.tp_doc = "What do you think the artist was trying to say when they chose this colour?";
+    obj.tp_flags = Py_TPFLAGS_DEFAULT;
+    obj.tp_methods = inputMethods;
+    return obj;
+}();
 
 }
+
 template<>
 PyObject *toPython< Renderer >(Renderer &rend) {
     RUN_ONCE(PyType_Ready(&rendererType));
