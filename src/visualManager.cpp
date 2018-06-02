@@ -1,5 +1,6 @@
 #include "physicsManager.h"
 #include "visualManager.h"
+#include "entityManager.h"
 #include "renderer.h"
 
 #include <gmtl/MatrixOps.h>
@@ -8,6 +9,9 @@
 #include <gmtl/Matrix.h>
 #include <gmtl/Xforms.h>
 #include <gmtl/Coord.h>
+
+#include <Python.h>
+#include <structmember.h>
 
 #include <algorithm>
 #include <vector>
@@ -36,7 +40,7 @@ static void gather(DrawLists &dl, const VisualManager::Components &comps,
             vis.colour, view * gmtl::Point2d(phys.pos), view * phys.rad
         });
     }
-    const auto &contacts = core.physics.get(core.player).contacts;
+    const auto &contacts = core.player->getPhys().contacts;
     for (const auto &k : contacts) {
         const double d = std::max(k.depth, 0.5);
         const Vec rad(d, d);
@@ -85,4 +89,44 @@ void VisualManager::visualUpdate(Core &core) {
 Vec VisualManager::screenToWorld(const Vec v) const {
     const Vec scaled(FOV[0] * v[0], FOV[1] * v[1]);
     return cam + scaled;
+}
+
+namespace {
+
+struct PyVisualManager {
+    PyObject_HEAD
+    VisualManager *visMan;
+};
+
+static PyObject *Py_screenToWorld(PyVisualManager *self, PyObject *args) {
+    const Vec v = fromPython< Vec >(PyTuple_GetItem(args, 0));
+    return toPython(self->visMan->screenToWorld(v));
+}
+
+static PyMethodDef visManMethods[] = {
+    { "screenToWorld", reinterpret_cast< PyCFunction >(Py_screenToWorld), READONLY, "Get world pos" },
+    { nullptr, nullptr, 0, nullptr }
+};
+
+static PyTypeObject visManType = [](){
+    PyTypeObject obj;
+    obj.tp_name = "visualManager";
+    obj.tp_basicsize = sizeof(PyVisualManager);
+    obj.tp_doc = "BEHOLD!";
+    obj.tp_flags = Py_TPFLAGS_DEFAULT;
+    obj.tp_methods = visManMethods;
+    return obj;
+}();
+
+}
+
+template<>
+PyObject *toPython< VisualManager >(VisualManager &visMan) {
+    RUN_ONCE(PyType_Ready(&visManType));
+    PyVisualManager *pvm;
+    pvm = reinterpret_cast< PyVisualManager * >(visManType.tp_alloc(&visManType, 0));
+    if (pvm) {
+        pvm->visMan = &visMan;
+    }
+    return reinterpret_cast< PyObject * >(pvm);
 }
