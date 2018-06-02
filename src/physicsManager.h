@@ -11,6 +11,9 @@
 #include <boost/hana.hpp>
 #include <Python.h>
 
+const double STEPS_PER_SECOND = 250.0;
+const double PHYSICS_TIMESTEP = 1.0 / STEPS_PER_SECOND;
+
 enum Shape {
     Box    = 0,
     Circle = 1
@@ -25,6 +28,7 @@ struct Contact {
         (double, force));
 };
 std::ostream &operator<<(std::ostream &os, const Contact &k);
+bool operator==(const Contact &a, const Contact &b);
 
 struct PhysicsComponent {
     BOOST_HANA_DEFINE_STRUCT(PhysicsComponent,
@@ -47,6 +51,11 @@ struct PhysicsComponent {
 template<>
 PyObject *toPython< Shape >(Shape &s);
 
+template<>
+void fromPython< Shape >(Shape &s, PyObject *obj);
+
+class Core;
+
 class PhysicsManager: public ComponentManager< PhysicsComponent > {
     private:
         struct Bind {
@@ -57,14 +66,18 @@ class PhysicsManager: public ComponentManager< PhysicsComponent > {
         std::vector< Bind > bindings;
 
         void bind(Components &);
-        void physicsUpdate(const Components &lasts, Components &nexts);
+        void physicsUpdate(Core &core, const Components &lasts, Components &nexts);
 
     protected:
         PhysicsComponent makeDefault() const override;
 
     public:
+        const double timestep = PHYSICS_TIMESTEP;
+        const double stepsPerSecond = STEPS_PER_SECOND;
+
         void addBinding(Entity which, Entity to, Vec offset);
-        void updatePhysics();
+        void updatePhysics(Core &core);
 };
 
-const double PHYSICS_TIMESTEP = 1.0 / 250.0;
+template<>
+PyObject *toPython< PhysicsManager >(PhysicsManager &pm);

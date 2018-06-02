@@ -1,7 +1,13 @@
 #include "physicsManager.h"
 
+#include "mirror.h"
+#include "core.h"
+#include "entityManager.h"
+
 #include <algorithm>
 #include <vector>
+#include <Python.h>
+#include <structmember.h>
 
 namespace {
 
@@ -46,7 +52,7 @@ static inline void populate(std::vector< std::vector< size_t > > &select, Comps 
     }
 }
 
-static void collide(Comps &comps, const Comps &) {
+static void collide(Core &core, Comps &comps, const Comps &) {
     static std::vector< std::vector< size_t > > select;
     populate(select, comps);
     const auto &dynamics = select[0];
@@ -74,9 +80,9 @@ static void collide(Comps &comps, const Comps &) {
                 const double trad = rad * rad;
                 Vec diff = a.pos - Vec(bestX, bestY);
                 const double depth2 = gmtl::lengthSquared(diff);
-                if (a.pos[1] <= bot - rad || a.pos[1] >= top + rad ||
-                    a.pos[0] <= left - rad || a.pos[0] >= rite + rad||
-                    depth2 >= trad) { continue; }
+                if ((a.pos[1] <= bot  - rad) | (a.pos[1] >= top  + rad) |
+                    (a.pos[0] <= left - rad) | (a.pos[0] >= rite + rad) |
+                    (depth2 >= trad)) { continue; }
 
                 const Vec topPoint(clamp(left, rite, a.pos[0]), top);
                 const Vec botPoint(clamp(left, rite, a.pos[0]), bot);
@@ -99,12 +105,13 @@ static void collide(Comps &comps, const Comps &) {
                 elasticity += b.elasticity;
                 ++contactCount;
                 if (a.gather) {
-                    a.contacts.push_back({ j, Vec(bestX, bestY), norm,
+                    a.contacts.push_back({ core.entities.getHandleFromLow(j)->id(),
+                                           Vec(bestX, bestY), norm,
                                            dep, gmtl::length(a.vel) * a.mass });
                 }
             } else {
                 const double trad = a.rad[0] + b.rad[0];
-                if ((std::abs(a.pos[0] - b.pos[0]) >= trad) ||
+                if ((std::abs(a.pos[0] - b.pos[0]) >= trad) |
                     (std::abs(a.pos[1] - b.pos[1]) >= trad)) { continue; }
                 Vec diff = a.pos - b.pos;
                 const double len2 = gmtl::lengthSquared(diff);
@@ -116,7 +123,8 @@ static void collide(Comps &comps, const Comps &) {
                 elasticity += b.elasticity;
                 ++contactCount;
                 if (a.gather) {
-                    a.contacts.push_back({ j, b.pos + b.rad[0] * diff, diff,
+                    a.contacts.push_back({ core.entities.getHandleFromLow(j)->id(),
+                                           b.pos + b.rad[0] * diff, diff,
                                            dep, gmtl::length(a.vel) * a.mass });
                 }
             }
@@ -159,14 +167,16 @@ static void collide(Comps &comps, const Comps &) {
             const double closingSpeed = std::abs(gmtl::dot(norm, a.vel)) +
                                         std::abs(gmtl::dot(norm, b.vel));
             if (a.gather) {
-                a.contacts.push_back({ dynamics[j], b.pos + b.rad[0] * norm, norm,
+                a.contacts.push_back({ core.entities.getHandleFromLow(dynamics[j])->id(),
+                                       b.pos + b.rad[0] * norm, norm,
                                        depth, closingSpeed * b.mass });
             }
             if (b.gather) {
-                b.contacts.push_back({ dynamics[i], b.pos + b.rad[0] * norm, -norm,
+                b.contacts.push_back({ core.entities.getHandleFromLow(dynamics[i])->id(),
+                                       b.pos + b.rad[0] * norm, -norm,
                                        depth, closingSpeed * a.mass });
             }
-            if (a.phased || b.phased) { continue; }
+            if (a.phased | b.phased) { continue; }
 
             const double massP = a.mass / (a.mass + b.mass);
             a.pos += norm * depth * massP;
@@ -214,10 +224,20 @@ PyObject *toPython< Shape >(Shape &v) {
     return Py_BuildValue("s", Shape::Circle == v ? "circle" : "box");
 }
 
+template<>
+void fromPython< Shape >(Shape &s, PyObject *obj) {
+    s = fromPython< std::string >(obj) == "box" ? Shape::Box : Shape::Circle;
+}
+
 std::ostream &operator<<(std::ostream &os, const Contact &k) {
     os << k.which << " hit at " << k.where << ' ' << k.norm << " (";
     os << k.depth << ", " << k.force << ")";
     return os;
+}
+
+bool operator==(const Contact &a, const Contact &b) {
+    return a.which == b.which && a.where == b.where && a.norm == b.norm &&
+           a.depth == b.depth && a.force == b.force;
 }
 
 PhysicsComponent PhysicsManager::makeDefault() const {
@@ -245,13 +265,63 @@ void PhysicsManager::bind(Comps &next) {
 }
 
 
-void PhysicsManager::physicsUpdate(const Comps &lasts, Comps &nexts) {
+void PhysicsManager::physicsUpdate(Core &core, const Comps &lasts, Comps &nexts) {
     if (nexts.empty()) { return; }
     move(lasts, nexts);
     bind(nexts);
-    collide(nexts, lasts);
+    collide(core, nexts, lasts);
 }
 
-void PhysicsManager::updatePhysics() {
-    ComponentManager::update([this](const Comps &l, Comps &n) { physicsUpdate(l, n); });
+void PhysicsManager::updatePhysics(Core &core) {
+    ComponentManager::update([this, &core](const Comps &l, Comps &n) { physicsUpdate(core, l, n); });
+}
+
+namespace {
+
+struct PyPhysicsManager {
+    PyObject_HEAD
+    PhysicsManager *pm;
+};
+
+static PyObject *Py_get(PyPhysicsManager *self, PyObject *args) {
+    const size_t i = fromPython< int64_t >(PyTuple_GetItem(args, 0));
+    return toPython(self->pm->get(i));
+}
+
+static PyObject *Py_timestep(PyPhysicsManager *self, PyObject *) {
+    return toPython(self->pm->timestep);
+}
+
+static PyObject *Py_stepsPerSecond(PyPhysicsManager *self, PyObject *) {
+    return toPython(self->pm->stepsPerSecond);
+}
+
+static PyMethodDef pmMethods[] = {
+    { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get physics component" },
+    { "timestep", reinterpret_cast< PyCFunction >(Py_timestep), READONLY, "Time between physics steps" },
+    { "stepsPerSecond", reinterpret_cast< PyCFunction >(Py_stepsPerSecond), READONLY, "Physics steps per second" },
+    { nullptr, nullptr, 0, nullptr }
+};
+
+static PyTypeObject pmType = [](){
+    PyTypeObject obj;
+    obj.tp_name = "physicsManager";
+    obj.tp_basicsize = sizeof(PyPhysicsManager);
+    obj.tp_doc = "I AM THE LAW!";
+    obj.tp_flags = Py_TPFLAGS_DEFAULT;
+    obj.tp_methods = pmMethods;
+    return obj;
+}();
+
+}
+
+template<>
+PyObject *toPython< PhysicsManager >(PhysicsManager &pm) {
+    RUN_ONCE(PyType_Ready(&pmType));
+    PyPhysicsManager *ppm;
+    ppm = reinterpret_cast< PyPhysicsManager * >(pmType.tp_alloc(&pmType, 0));
+    if (ppm) {
+        ppm->pm = &pm;
+    }
+    return reinterpret_cast< PyObject * >(ppm);
 }
