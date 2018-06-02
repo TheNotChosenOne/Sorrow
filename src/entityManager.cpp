@@ -125,14 +125,22 @@ Entity EntityManager::create() {
         manPtr->create();
     }
 
+    for (const auto p : idToLow) {
+        rassert(p.second != lowID, idToLow, id, lowID);
+    }
     entities.insert(id);
     idToLow[id] = lowID;
     lowToID.push_back(id);
+
+    rassert(entities.size() == idToLow.size() && entities.size() == lowToID.size(),
+            entities.size(), idToLow.size(), lowToID.size());
 
     return id;
 }
 
 void EntityManager::kill(Entity e) {
+    rassert(entities.count(e), e);
+    rassert(!graveyard.count(e), e);
     graveyard.insert(e);
     entities.erase(e);
 }
@@ -148,11 +156,12 @@ EntityHandle &EntityManager::getHandle(Entity e) {
 
 EntityHandle &EntityManager::getHandleFromLow(size_t e) {
     rassert(e < lowToID.size(), e);
-    rassert(entities.count(lowToID[e]), e, lowToID.size(), entities.size());
+    rassert(entities.count(lowToID[e]), e, lowToID[e], entities.size());
     return getHandle(lowToID[e]);
 }
 
 Entity EntityManager::fromHandle(EntityHandle &e) {
+    rassert(entities.count(e->ent), e->ent);
     return e->ent;
 }
 
@@ -161,18 +170,22 @@ void EntityManager::update() {
         manPtr->graduate();
     }
     if (graveyard.empty() || entities.empty()) { return; }
+
     std::map< size_t, size_t > remap;
 
-    auto targetIter = graveyard.begin();
-    for (auto move : entities) {
-        size_t id = move;
-        if (idToLow[id] < entities.size()) { continue; }
-        size_t deadID = *targetIter++;
+    std::set< size_t > emptyLow;
+    for (const auto dead : graveyard) {
+        const size_t low = idToLow[dead];
+        if (low < entities.size()) { emptyLow.insert(low); }
+    }
 
-        size_t lowID = idToLow[id];
-        size_t deadLow = idToLow[deadID];
+    auto targetIter = emptyLow.begin();
+    for (size_t low = entities.size(); low < lowToID.size(); ++low) {
+        const size_t id = lowToID[low];
+        if (graveyard.count(id)) { continue; }
+        size_t deadLow = *(targetIter++);
 
-        remap[lowID] = deadLow;
+        remap[low] = deadLow;
         idToLow[id] = deadLow;
         lowToID[deadLow] = id;
     }
@@ -189,8 +202,33 @@ void EntityManager::update() {
         loc->second->alive = false;
         handles.erase(loc);
     }
-    graveyard.clear();
 
+    std::set< size_t > missings;
+    for (size_t i = 0; i < entities.size(); ++i) {
+        bool found = false;
+        for (const auto p : idToLow) {
+            if (p.second == i) { found = true; }
+        }
+        if (!found) { missings.insert(i); }
+    }
+    std::set< std::pair< size_t, size_t > > extras;
+    for (const auto p : idToLow) {
+        if (p.second >= entities.size()) { extras.insert(p); }
+    }
+    rassert(missings.empty() && extras.empty(), missings, extras, entities.size());
+    for (const auto e : entities) {
+        rassert(idToLow.count(e), e);
+        size_t low = idToLow[e];
+        rassert(low < lowToID.size(), e, low, lowToID.size());
+        rassert(lowToID[low] == e, e, low);
+        rassert(handles.count(e));
+    }
+    rassert(entities.size() == handles.size() &&
+            entities.size() == idToLow.size() &&
+            entities.size() == lowToID.size(),
+            entities.size(), handles.size(), idToLow.size(), lowToID.size());
+
+    graveyard.clear();
 }
 
 const std::set< Entity > &EntityManager::all() const {
