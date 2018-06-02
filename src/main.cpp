@@ -237,6 +237,10 @@ static void run() {
         log.setDouble("hp", 100);
         log.setDouble("speed", 900 * phys.mass);
         log.setString("controller", control);
+        log.setDouble("reload", 0.0);
+        log.setDouble("reloadTime", 0.01);
+        log.setDouble("bulletForce", 1000);
+        log.setDouble("blifetime", 5);
         return e;
     };
 
@@ -255,10 +259,6 @@ static void run() {
     std::cout << "Player: " << e << '\n';
     auto &log = core.logic.get(e);
     log.setDouble("speed", 150);
-    log.setDouble("reload", 0.0);
-    log.setDouble("reloadTime", 0.01);
-    log.setDouble("bulletForce", 1000);
-    log.setDouble("blifetime", 5);
     log.setBool("player", true);
     core.player = core.entities.getHandle(e);
     core.player->getPhys().gather =  true;

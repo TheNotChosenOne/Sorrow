@@ -1,5 +1,8 @@
 import time
 import math
+import random
+
+random.seed(0x88888888)
 
 def normalize(v):
     length = math.sqrt(v[0] * v[0] + v[1] * v[1])
@@ -37,7 +40,7 @@ def control_bullet(core, bullet):
     phys = bullet.getPhys()
     if 0 != len(phys.contacts):
         log = bullet.getLog()
-        log["lifetime"] = log["debris_lifetime"]
+        log["lifetime"] = log["debris_lifetime"] + random.uniform(0, 0.75)
         del log["controller"]
         phys.gather = False
 
@@ -49,6 +52,12 @@ def rotate_colour(vis):
     k = vis.colour
     vis.colour = Vec3( (k[2], k[0], k[1]) )
 
+def firing_control(core, shouldFire, log, phys, direction):
+    log["reload"] = max(0.0, log["reload"] - core.physics.timestep())
+    if shouldFire and 0.0 == log["reload"]:
+        log["reload"] = log["reloadTime"]
+        fire(core, log, phys, direction)
+
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
@@ -57,6 +66,10 @@ def control_drone(core, drone):
     diff = normalize(diff)
     speed = log["speed"]
     phys.impulse = Vec2( (phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed) )
+
+    direction = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
+    firing_control(core, True, log, phys, normalize(direction))
+
     for k in phys.contacts:
         ent = core.entities.getHandle(k.which)
         elog = ent.getLog()
@@ -77,12 +90,9 @@ def control_player(core, player):
     phys = player.getPhys()
     log["blifetime"] = 2.0
 
-    log["reload"] = max(0.0, log["reload"] - core.physics.timestep())
-    if core.input.mouseHeld(1) and 0.0 == log["reload"]:
-        log["reload"] = log["reloadTime"]
-        direction = core.visuals.screenToWorld(core.input.mousePos())
-        direction = Vec2( (direction[0] - phys.pos[0], direction[1] - phys.pos[1]) )
-        fire(core, log, phys, normalize(direction))
+    direction = core.visuals.screenToWorld(core.input.mousePos())
+    direction = Vec2( (direction[0] - phys.pos[0], direction[1] - phys.pos[1]) )
+    firing_control(core, core.input.mouseHeld(1), log, phys, normalize(direction))
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
     speed = log["speed"]
