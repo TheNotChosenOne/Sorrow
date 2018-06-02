@@ -1,6 +1,7 @@
 #pragma once
 
 #include "componentManager.h"
+#include "forwardMirror.h"
 #include "utility.h"
 #include "input.h"
 #include "core.h"
@@ -31,17 +32,27 @@ class PythonData {
         double getDouble(const std::string &key);
         std::string getString(const std::string &key);
 
-    friend class LogicManager;
-};
+        bool has(const std::string &key);
 
-typedef std::unique_ptr< PythonData > LogicComponent;
+    friend class LogicManager;
+    friend PyObject *toPython< PythonData >(PythonData &p);
+    friend std::ostream &operator<<(std::ostream &, const PythonData &);
+};
+typedef PythonData LogicComponent;
+
+std::ostream &operator<<(std::ostream &os, const PythonData &pd);
+
+template<>
+PyObject *toPython< PythonData >(PythonData &p);
 
 class LogicManager: public BaseComponentManager {
     public:
-        typedef std::vector< LogicComponent > Components;
+        typedef std::vector< std::unique_ptr< LogicComponent > > Components;
 
     private:
-        PyObject *controlFunc;
+        std::map< std::string, PyObject * > controlFuncs;
+        PyObject *pyCore;
+
         Components components;
         Components nursery;
 
@@ -58,3 +69,6 @@ class LogicManager: public BaseComponentManager {
         PythonData &get(Entity e);
         const PythonData &get(Entity e) const;
 };
+
+template<>
+PyObject *toPython< LogicManager >(LogicManager &lm);

@@ -2,6 +2,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "structmember.h"
 #include <algorithm>
 #include <utility>
 #include <stdio.h>
@@ -16,11 +17,25 @@
 
 namespace {
 
-bool PyHas(PyObject *dict, const std::string &key) {
+static bool PyHas(PyObject *dict, const std::string &key) {
     PyObject *str = PyUnicode_FromString(key.c_str());
     const bool result = 1 == PyDict_Contains(dict, str);
     Py_DECREF(str);
     return result;
+}
+
+static PyObject *getControlFunc(const std::string &controllerName) {
+    std::string funcName = "control_" + controllerName;
+    PyObject *mods = PyImport_GetModuleDict();
+    PyObject *mainString = Py_BuildValue("s", "__main__");
+    PyObject *funcString = Py_BuildValue("s", funcName.c_str());
+    PyObject *main = PyDict_GetItem(mods, mainString);
+    PyObject *controlFunc = PyObject_GetAttr(main, funcString);
+    rassert(controlFunc, "Script must define control_< controllerName >(core, ent)", controllerName);
+    rassert(PyCallable_Check(controlFunc), "Control function is not callable", controllerName);
+    Py_DECREF(mainString);
+    Py_DECREF(funcString);
+    return controlFunc;
 }
 
 };
@@ -34,89 +49,77 @@ PythonData::~PythonData() {
 }
 
 void PythonData::setBool(const std::string &key, bool val) {
-    PyObject *str = PyUnicode_FromString(key.c_str());
     PyObject *v = PyBool_FromLong(val);
-    PyDict_SetItem(dict, str, v);
-    Py_DECREF(str);
+    PyDict_SetItemString(dict, key.c_str(), v);
     Py_DECREF(v);
 }
 
 void PythonData::setInt(const std::string &key, int64_t val) {
-    PyObject *str = PyUnicode_FromString(key.c_str());
     PyObject *v = PyLong_FromLongLong(val);
-    PyDict_SetItem(dict, str, v);
-    Py_DECREF(str);
+    PyDict_SetItemString(dict, key.c_str(), v);
     Py_DECREF(v);
 }
 
 void PythonData::setDouble(const std::string &key, double val) {
-    PyObject *str = PyUnicode_FromString(key.c_str());
     PyObject *v = PyFloat_FromDouble(val);
-    PyDict_SetItem(dict, str, v);
-    Py_DECREF(str);
+    PyDict_SetItemString(dict, key.c_str(), v);
     Py_DECREF(v);
 }
 
 void PythonData::setString(const std::string &key, const std::string &val) {
-    PyObject *str = PyUnicode_FromString(key.c_str());
     PyObject *v = PyUnicode_FromString(val.c_str());
-    PyDict_SetItem(dict, str, v);
-    Py_DECREF(str);
+    PyDict_SetItemString(dict, key.c_str(), v);
     Py_DECREF(v);
 }
 
 bool PythonData::getBool(const std::string &key) {
     rassert(PyHas(dict, key), key);
-    PyObject *str = PyUnicode_FromString(key.c_str());
-    const bool b = PyObject_IsTrue(PyDict_GetItem(dict, str));
-    Py_DECREF(str);
+    const bool b = PyObject_IsTrue(PyDict_GetItemString(dict, key.c_str()));
     return b;
 }
 
 int64_t PythonData::getInt(const std::string &key) {
     rassert(PyHas(dict, key), key);
-    PyObject *str = PyUnicode_FromString(key.c_str());
-    const int64_t i = PyLong_AsLongLong(PyDict_GetItem(dict, str));
-    rassert(!PyErr_Occurred())
-    Py_DECREF(str);
+    const int64_t i = PyLong_AsLongLong(PyDict_GetItemString(dict, key.c_str()));
     return i;
 }
 
 double PythonData::getDouble(const std::string &key) {
     rassert(PyHas(dict, key), key);
-    PyObject *str = PyUnicode_FromString(key.c_str());
-    const double d = PyFloat_AsDouble(PyDict_GetItem(dict, str));
-    rassert(!PyErr_Occurred())
-    Py_DECREF(str);
+    const double d = PyFloat_AsDouble(PyDict_GetItemString(dict, key.c_str()));
     return d;
 }
 
 std::string PythonData::getString(const std::string &key) {
     rassert(PyHas(dict, key), key);
-    PyObject *str = PyUnicode_FromString(key.c_str());
     Py_ssize_t length;
-    const char *data = PyUnicode_AsUTF8AndSize(PyDict_GetItem(dict, str), &length);
+    const char *data = PyUnicode_AsUTF8AndSize(PyDict_GetItemString(dict, key.c_str()), &length);
     std::string s(data, length);
-    rassert(!PyErr_Occurred())
-    Py_DECREF(str);
     return s;
 }
 
+bool PythonData::has(const std::string &key) {
+    return PyHas(dict, key);
+}
+
+template<>
+PyObject *toPython< PythonData >(PythonData &p) {
+    Py_INCREF(p.dict);
+    return p.dict;
+}
+
+std::ostream &operator<<(std::ostream &os, const PythonData &pd) {
+    os << fromPython< std::string >(PyObject_Str(pd.dict));
+    return os;
+}
+
 LogicManager::LogicManager() {
+    pyCore = nullptr;
     Py_Initialize();
     const std::string filename = "src/script.py";
     FILE *fp = fopen(filename.c_str(), "r");
     rassert(fp, "Failed to open: ", filename);
     PyRun_SimpleFile(fp, filename.c_str());
-    PyObject *mods = PyImport_GetModuleDict();
-    PyObject *mainString = Py_BuildValue("s", "__main__");
-    PyObject *funcString = Py_BuildValue("s", "control");
-    PyObject *main = PyDict_GetItem(mods, mainString);
-    controlFunc = PyObject_GetAttr(main, funcString);
-    rassert(controlFunc, "Script must define control(obj)");
-    rassert(PyCallable_Check(controlFunc), "Script must define control function");
-    Py_DECREF(mainString);
-    Py_DECREF(funcString);
 
     PyTypesInit();
 }
@@ -124,13 +127,15 @@ LogicManager::LogicManager() {
 LogicManager::~LogicManager() {
     components.clear();
     nursery.clear();
-    Py_DECREF(controlFunc);
+    for (auto &p : controlFuncs) {
+        Py_DECREF(p.second);
+    }
+    Py_XDECREF(pyCore);
     Py_FinalizeEx();
 }
 
 void LogicManager::create() {
     nursery.push_back(std::make_unique< PythonData >());
-    nursery.back()->setInt("id", components.size() + nursery.size() - 1);
 }
 
 void LogicManager::graduate() {
@@ -144,7 +149,6 @@ void LogicManager::graduate() {
 void LogicManager::reorder(const std::map< size_t, size_t > &remap) {
     for (const auto &pair : remap) {
         components[pair.second] = std::move(components[pair.first]);
-        components[pair.second]->setInt("id", pair.second);
     }
 }
 
@@ -167,115 +171,77 @@ const PythonData &LogicManager::get(Entity e) const {
 }
 
 void LogicManager::logicUpdate(Core &core) {
-    const auto &targetPhys = core.physics.get(core.player);
-    PyObject *args = PyTuple_New(1);
+    if (!pyCore) { pyCore = toPython(core); }
+    PyObject *args = PyTuple_New(2);
+    Py_INCREF(pyCore);
+    PyTuple_SetItem(args, 0, pyCore);
     for (size_t i = 0; i < components.size(); ++i) {
         PyObject *dict = components[i]->dict;
-        if (1 == PyDict_Size(dict)) { continue; }
-        auto &phys = core.physics.get(i);
-        Py_INCREF(dict);
-        PyObject *str = PyUnicode_FromString("phys");
-        PyDict_SetItem(dict, str, PyMirrorMake(new HanaMirror< PhysicsComponent >(&phys)));
-        Py_DECREF(str);
-        str = PyUnicode_FromString("vis");
-        PyDict_SetItem(dict, str, toPython(core.renderer));
-        Py_DECREF(str);
-        PyTuple_SetItem(args, 0, dict);
-        PyObject *result = PyObject_CallObject(controlFunc, args);
-        if (!result) {
-            PyErr_Print();
-            exit(1);
+        if (components[i]->has("controller")) {
+            const std::string &c = components[i]->getString("controller");
+            auto loc = controlFuncs.find(c);
+            if (controlFuncs.end() == loc) {
+                loc = controlFuncs.insert(std::make_pair(c, getControlFunc(c))).first;
+            }
+            EntityHandle &eh = core.entities.getHandleFromLow(i);
+            PyTuple_SetItem(args, 1, toPython(eh));
+            PyObject *result = PyObject_CallObject(loc->second, args);
+            if (!result) {
+                PyErr_Print();
+            }
+            Py_XDECREF(result);
         }
-        Py_XDECREF(result);
-
-        /*
-        if (log.count("drone")) {
-            Vec diff = targetPhys.pos - phys.pos;
-            gmtl::normalize(diff);
-            phys.impulse += diff * log["speed"];
-            for (const auto &k : phys.contacts) {
-                const auto &blog = lasts[k.which];
-                double dmg = k.force;
-                if (blog.count("dmg")) {
-                    dmg += blog.at("dmg");
-                }
-                log["hp"] = std::max(0.0, log["hp"] - dmg);
-                if (0.0 == log["hp"]) {
-                    std::cout << "RIP: " << i << '\n';
-                    core.visuals.get(i).colour = Vec3(0x77, 0x77, 0x77);
-                    log.erase("drone");
-                    log["debris"] = 1;
-                    log["lifetime"] = std::numeric_limits< double >::infinity();
-                    phys.gather = false;
-                    break;
-                }
-            }
-        } else if (log.count("bullet")) {
-            if (!phys.contacts.empty()) {
-                log.erase("bullet");
-                log["debris"] = 1;
-                phys.gather = false;
-            }
-        } else if (log.count("debris")) {
-            log["lifetime"] = std::max(0.0, log["lifetime"] - PHYSICS_TIMESTEP);
-            if (0.0 == log["lifetime"]) {
-                core.entities.kill(i);
-            }
-        } else if (log.count("player")) {
-            const double speed = log["speed"];
-            if (core.input.isHeld(SDLK_a)) {
-                if (phys.vel[0] > -speed) {
-                    phys.acc[0] += std::max(-speed, phys.acc[0] - speed);
-                }
-            }
-            if (core.input.isHeld(SDLK_d)) {
-                if (phys.vel[0] < speed) {
-                    phys.acc[0] += std::min(speed, phys.acc[0] + speed);
-                }
-            }
-            if (core.input.isHeld(SDLK_w)) {
-                if (gmtl::dot(Vec(0, 1), phys.surface) > 0.75) {
-                    phys.acc[1] += 0.011 * (1 / PHYSICS_TIMESTEP) * speed;
-                }
-            }
-            log["reload"] = std::max(0.0, log["reload"] - PHYSICS_TIMESTEP);
-            if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
-                if (0.0 == log["reload"]) {
-                    log["reload"] = log["reloadTime"];
-                    static const double brad = 0.5;
-                    Vec dir = core.visuals.screenToWorld(core.input.mousePos()) - phys.pos;
-                    gmtl::normalize(dir);
-                    Entity b = core.entities.create();
-                    auto &bphys = core.physics.get(b);
-                    bphys.pos = phys.pos + dir * (1.0001 * (phys.rad[0] + brad));
-                    bphys.rad = { brad, brad };
-                    bphys.impulse = dir * log["bulletForce"] * (1.0 / PHYSICS_TIMESTEP);
-                    phys.impulse -= bphys.impulse;
-                    bphys.area = 2 * brad;
-                    bphys.mass = pi< double > * brad * brad / 1.0;
-                    bphys.shape = Shape::Circle;
-                    bphys.isStatic = false;
-                    bphys.elasticity = 0.95;
-                    bphys.phased = false;
-                    bphys.gather = true;
-
-                    auto &vis = core.visuals.get(b);
-                    vis.draw = true;
-                    vis.colour = Vec3(0xFF, 0, 0);
-
-                    auto &blog  = core.logic.get(b);
-                    blog["dmg"] = 1;
-                    blog["bullet"] = 1;
-                    blog["lifetime"] = log["blifetime"];
-                }
+        if (PyHas(dict, "lifetime")) {
+            double x = fromPython< double >(PyDict_GetItemString(dict, "lifetime"));
+            x = std::max(0.0, x - PHYSICS_TIMESTEP);
+            PyDict_SetItemString(dict, "lifetime", toPython(x));
+            if (0.0 == x) {
+                size_t id = core.entities.getHandleFromLow(i)->id();
+                core.entities.kill(id);
             }
         }
-    */
     }
     Py_DECREF(args);
     const double interp = 0.00000001;
-    const Vec target = targetPhys.pos - (core.visuals.FOV / 2.0);
+    const Vec target = core.player->getPhys().pos - (core.visuals.FOV / 2.0);
     core.visuals.cam = interp * core.visuals.cam + (1.0 - interp) * target;
+}
 
-    graduate();
+namespace {
+
+struct PyLogicManager {
+    PyObject_HEAD
+    LogicManager *lm;
+};
+
+static PyObject *Py_get(PyLogicManager *self, PyObject *args) {
+    return toPython(self->lm->get(fromPython< int64_t >(PyTuple_GetItem(args, 0))));
+}
+
+static PyMethodDef lmMethods[] = {
+    { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get logic component" },
+    { nullptr, nullptr, 0, nullptr }
+};
+
+static PyTypeObject lmType = [](){
+    PyTypeObject obj;
+    obj.tp_name = "logicManager";
+    obj.tp_basicsize = sizeof(PyLogicManager);
+    obj.tp_doc = "Technically correct";
+    obj.tp_flags = Py_TPFLAGS_DEFAULT;
+    obj.tp_methods = lmMethods;
+    return obj;
+}();
+
+}
+
+template<>
+PyObject *toPython< LogicManager >(LogicManager &lm) {
+    RUN_ONCE(PyType_Ready(&lmType));
+    PyLogicManager *plm;
+    plm = reinterpret_cast< PyLogicManager * >(lmType.tp_alloc(&lmType, 0));
+    if (plm) {
+        plm->lm = &lm;
+    }
+    return reinterpret_cast< PyObject * >(plm);
 }
