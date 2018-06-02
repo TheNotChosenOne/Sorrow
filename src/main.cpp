@@ -44,7 +44,7 @@ static void mainLoop(Core &core) {
     DurationTimer physics;
 
     ActionTimer physTick(PHYSICS_TIMESTEP / 1.0);
-    ActionTimer drawTick(1.0 / 120.0);
+    ActionTimer drawTick(PHYSICS_TIMESTEP / 1.0);
     ActionTimer infoTick(1.0);
     ActionTimer killer(std::numeric_limits< double >::infinity());
 
@@ -67,7 +67,7 @@ static void mainLoop(Core &core) {
             ++logicCount;
             // Update input
             inputUse.add([&](){ core.input.update(); });
-            const auto time = physicsUse.add([&](){ core.physics.updatePhysics(); });
+            const auto time = physicsUse.add([&](){ core.physics.updatePhysics(core); });
             physics.tick(time);
 
             // Update entity physics
@@ -103,7 +103,7 @@ static void mainLoop(Core &core) {
             double screenRad = core.renderer.getWidth() * core.renderer.getHeight();
             size_t count = 0;
             for (const Entity e : core.entities.all()) {
-                const Vec diff = core.physics.get(e).pos - centre;
+                const Vec diff = core.entities.getHandle(e)->getPhys().pos - centre;
                 count += static_cast< size_t >(gmtl::lengthSquared(diff) > screenRad);
             }
 
@@ -182,25 +182,7 @@ static void run() {
     input->update();
 
     Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, 0 };
-
-    /*
-    Entity e = core.entities.create();
-    auto &phys = core.physics.get(e);
-    phys.pos = { 0, 0 };
-    phys.rad = { 10, 10 };
-    phys.area = 100;
-    phys.mass = pi< double > * 10 * 10;
-    phys.shape = Shape::Circle;
-    phys.isStatic = true;
-    phys.phased = false;
-    phys.gather = false;
-    core.visuals.get(e).draw = true;
-    core.visuals.get(e).colour = Vec3(0x88, 0x88, 0x88);
-    auto &log = core.logic.get(e);
-    log.setDouble("hp", 100);
-    log.setDouble("speed", 900 * phys.mass);
-    log.setString("controller", "ai");
-    */
+    entityMan->setCore(core);
 
     const auto putBox = [&core](double l, double b, double w, double h) {
         Entity e = core.entities.create();
@@ -279,8 +261,7 @@ static void run() {
     log.setDouble("blifetime", 5);
     log.setBool("player", true);
     core.player = core.entities.getHandle(e);
-    core.player = e;
-    core.physics.get(core.player).gather = true;
+    core.player->getPhys().gather =  true;
 
     putActor( 75, y + 250, 4, "drone");
     putActor( 90, y + 250, 4, "drone");
