@@ -3,10 +3,14 @@
 #include "componentManager.h"
 #include "utility.h"
 #include "core.h"
+#include "forwardMirror.h"
+
+#include <boost/hana.hpp>
 
 struct VisualComponent {
-    Vec3 colour;
-    bool draw;
+    BOOST_HANA_DEFINE_STRUCT(VisualComponent,
+        (Vec3, colour),
+        (bool, draw));
 };
 
 class VisualManager: public ComponentManager< VisualComponent > {
@@ -22,3 +26,6 @@ class VisualManager: public ComponentManager< VisualComponent > {
         void visualUpdate(Core &core);
         Vec screenToWorld(const Vec v) const;
 };
+
+template<>
+PyObject *toPython< VisualManager >(VisualManager &visMan);

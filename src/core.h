@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
+
+#include "forwardMirror.h"
 
 class Renderer;
 class Input;
@@ -9,7 +12,8 @@ class PhysicsManager;
 class VisualManager;
 class LogicManager;
 typedef size_t Entity;
-typedef size_t EntityHandle;
+class EntityView;
+typedef std::shared_ptr< EntityView > EntityHandle;
 
 struct Core {
     Renderer &renderer;
@@ -20,3 +24,6 @@ struct Core {
     LogicManager &logic;
     EntityHandle player;
 };
+
+template<>
+PyObject *toPython< Core >(Core &core);

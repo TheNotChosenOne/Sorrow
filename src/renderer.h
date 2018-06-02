@@ -3,6 +3,7 @@
 #include <cstddef>
 
 #include "utility.h"
+#include "forwardMirror.h"
 
 class Renderer {
     private:
@@ -21,3 +22,6 @@ class Renderer {
         virtual void drawBox(Vec pos, Vec rad, Vec3 col);
         virtual void drawCircle(Vec pos, Vec rad, Vec3 col);
 };
+
+template<>
+PyObject *toPython< Renderer >(Renderer &r);

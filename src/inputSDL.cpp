@@ -69,17 +69,17 @@ bool InputSDL::isReleased(size_t key) const {
     return (key < released.size()) ? released[key] : false;
 }
 
-bool InputSDL::mouseHeld(uint8_t button) const {
+bool InputSDL::mouseHeld(size_t button) const {
     const auto loc = mHeld.find(button);
     return mHeld.end() == loc ? false : loc->second;
 }
 
-bool InputSDL::mousePressed(uint8_t button) const {
+bool InputSDL::mousePressed(size_t button) const {
     const auto loc = mPressed.find(button);
     return mPressed.end() == loc ? false : loc->second;
 }
 
-bool InputSDL::mouseReleased(uint8_t button) const {
+bool InputSDL::mouseReleased(size_t button) const {
     const auto loc = mReleased.find(button);
     return mReleased.end() == loc ? false : loc->second;
 }
