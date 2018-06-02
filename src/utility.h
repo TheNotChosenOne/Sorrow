@@ -10,6 +10,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <memory>
+#include <map>
+#include <set>
 
 template< typename T >
 std::string str(const T &x) {
@@ -42,13 +45,53 @@ double diffLength2(const Vec a, const Vec b);
 
 template< typename T >
 std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
-    os << "[ ";
+    os << '(' << v.size() << ")[ ";
     for (const auto &x : v) {
         os << x << ' ';
     }
     os << ']';
     return os;
 }
+
+template< typename K, typename V >
+std::ostream &operator<<(std::ostream &os, const std::pair< K, V > &p) {
+    return (os << '(' << p.first << ", " << p.second << ')');
+}
+
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::set< T > &s) {
+    os << '(' << s.size() << "){ ";
+    for (const auto &v : s) {
+        os << v << ' ';
+    }
+    return (os << '}');
+}
+
+template< typename K, typename V >
+std::ostream &operator<<(std::ostream &os, const std::map< K, V > &m) {
+    os << '(' << m.size() << "){ ";
+    for (const auto &p : m) {
+        os << '(' << p.first << " -> " << p.second << ") ";
+    }
+    return (os  << '}');
+}
+
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::unique_ptr< T > &ptr) {
+    os << "unique_ptr {";
+    if (ptr) { os << *ptr; }
+    return (os << '}');
+}
+
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::shared_ptr< T > &ptr) {
+    os << "shared_ptr {";
+    if (ptr) { os << *ptr; }
+    return (os << '}');
+}
+
+#define RUN_ONCE(expr) { static bool _run_once_first = true; \
+    if (_run_once_first) { _run_once_first = false; expr; } }
 
 #define rassert(expr, ...) \
     _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
