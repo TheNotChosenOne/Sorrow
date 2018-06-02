@@ -31,6 +31,7 @@ class BaseComponentManager {
 template< typename T >
 class ComponentManager: public BaseComponentManager {
     public:
+        typedef T Component;
         typedef std::vector< T > Components;
 
     protected:
