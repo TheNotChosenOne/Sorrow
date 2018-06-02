@@ -15,7 +15,7 @@ static PyObject *PyMirror_new(PyTypeObject *type, PyObject *, PyObject *) {
 
 static void PyMirror_free(PyObject *pMirrorObj) {
     PyMirror *pMirror = reinterpret_cast< PyMirror * >(pMirrorObj);
-    free(pMirror->mirror);
+    delete pMirror->mirror;
 }
 
 static PyObject *PyMirror_get(PyObject *pMirrorObj, PyObject *attrName) {
@@ -44,56 +44,18 @@ static int PyMirror_set(PyObject *pMirrorObj, PyObject *attrName, PyObject *valu
     return 0;
 }
 
-static PyTypeObject mirrorType {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "mirror",
-    .tp_basicsize = sizeof(PyMirror),
-    .tp_itemsize = 0,
-    .tp_dealloc = &PyMirror_free,
-    .tp_print = nullptr,
-    .tp_getattr = nullptr,
-    .tp_setattr = nullptr,
-    .tp_as_async = nullptr,
-    .tp_repr = nullptr,
-    .tp_as_number = nullptr,
-    .tp_as_sequence = nullptr,
-    .tp_as_mapping = nullptr,
-    .tp_hash = nullptr,
-    .tp_call = nullptr,
-    .tp_str = nullptr,
-    .tp_getattro = &PyMirror_get,
-    .tp_setattro = &PyMirror_set,
-    .tp_as_buffer = nullptr,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_doc = "You see yourself. It's terrifying",
-    .tp_traverse = nullptr,
-    .tp_clear = nullptr,
-    .tp_richcompare = nullptr,
-    .tp_weaklistoffset = 0,
-    .tp_iter = 0,
-    .tp_iternext = 0,
-    .tp_methods = 0,
-    .tp_members = 0,
-    .tp_getset = 0,
-    .tp_base = 0,
-    .tp_dict = 0,
-    .tp_descr_get = 0,
-    .tp_descr_set = 0,
-    .tp_dictoffset = 0,
-    .tp_init = 0,
-    .tp_alloc = 0,
-    .tp_new = &PyMirror_new,
-    .tp_free = nullptr,
-    .tp_is_gc = nullptr,
-    .tp_bases = nullptr,
-    .tp_mro = nullptr,
-    .tp_cache = nullptr,
-    .tp_subclasses = nullptr,
-    .tp_weaklist = nullptr,
-    .tp_del = nullptr,
-    .tp_version_tag = 0,
-    .tp_finalize = nullptr,
-};
+static PyTypeObject mirrorType = [](){
+    PyTypeObject obj;
+    obj.tp_name = "mirror";
+    obj.tp_dealloc = &PyMirror_free;
+    obj.tp_basicsize = sizeof(PyMirror);
+    obj.tp_getattro = &PyMirror_get;
+    obj.tp_setattro = &PyMirror_set;
+    obj.tp_flags = Py_TPFLAGS_DEFAULT;
+    obj.tp_doc = "You see yourself. It's terrifying";
+    obj.tp_new = &PyMirror_new;
+    return obj;
+}();
 
 static char *PyVec2Arr[][2] = {
     { const_cast< char * >("x"), const_cast< char * >("") },
@@ -115,7 +77,7 @@ static PyStructSequence_Desc PyVec3 {
     .name = const_cast< char * >("Vec3"),
     .doc = const_cast< char * >("A 3D vector!"),
     .fields = reinterpret_cast< PyStructSequence_Field * >(PyVec3Arr),
-    .n_in_sequence = 2,
+    .n_in_sequence = 3,
 };
 
 static PyTypeObject *k_PyVec2Type;
@@ -236,7 +198,7 @@ PyObject *toPython< std::string >(std::string &v) {
 }
 
 template<>
-void fromPython< std::string & >(std::string &v, PyObject *obj) {
+void fromPython< std::string >(std::string &v, PyObject *obj) {
     Py_ssize_t length;
     const char *data = PyUnicode_AsUTF8AndSize(obj, &length);
     v = std::string(data, length);

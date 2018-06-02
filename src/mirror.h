@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <iostream>
+#include <utility>
 #include <string>
 #include <vector>
 #include <memory>
@@ -33,6 +34,8 @@ void PyTypesInit();
 
 template< typename T >
 Mirror *getMirrorFor(T &t) {
+    static_assert(boost::hana::Struct< T >::value,
+                  "This type does not have custom or Hana mirroring support");
     return new HanaMirror< T >(&t);
 }
 
@@ -76,6 +79,18 @@ template<> void fromPython< int64_t >(int64_t &v, PyObject *obj);
 template<> void fromPython< std::string >(std::string &v, PyObject *obj);
 
 template< typename T >
+PyObject *toPython(T &&t) {
+    T &v = t;
+    return toPython< T >(v);
+}
+
+template< typename T >
+PyObject *toPython(const T &&t) {
+    T &v = t;
+    return toPython< const T >(v);
+}
+
+template< typename T >
 PyObject *toPython(std::vector< T > &v) {
     PyObject *listy = PyList_New(v.size());
     for (size_t i = 0; i < v.size(); ++i) {
@@ -95,7 +110,7 @@ PyObject *toPython(const std::vector< T > &v) {
 
 template< typename T >
 void fromPython(std::vector< T > &v, PyObject *obj) {
-    rassert(v.size() == static_cast< size_t >(PyList_Size(obj)));
+    v.resize(PyList_Size(obj));
     for (size_t i = 0; i < v.size(); ++i) {
         fromPython(v[i], PyList_GetItem(obj, i));
     }
@@ -111,10 +126,10 @@ class HanaMirror: public Mirror {
 
         PyObject *get(const std::string &name) override {
             PyObject *obj = nullptr;
-            boost::hana::for_each(*mirroring, [&](auto pair) {
-                const std::string attr = boost::hana::to< const char * >(boost::hana::first(pair));
+            boost::hana::for_each(boost::hana::keys(*mirroring), [&](auto key) {
+                const std::string attr = boost::hana::to< const char * >(key);
                 if (name == attr) {
-                    obj = toPython(boost::hana::second(pair));
+                    obj = toPython(boost::hana::at_key(*mirroring, key));
                 }
             });
             return obj;
