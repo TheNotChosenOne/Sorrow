@@ -32,6 +32,7 @@ def fire(core, log, phys, direction):
     b.getVis().draw = True
     b.getVis().colour = Vec3( (255, 0, 0) )
     b.getLog()["dmg"] = 1
+    b.getLog()["team"] = log["team"]
     b.getLog()["bullet"] = 1
     b.getLog()["debris_lifetime"] = log["blifetime"]
     b.getLog()["controller"] = "bullet"
@@ -60,6 +61,7 @@ def firing_control(core, shouldFire, log, phys, direction):
 
 def control_drone(core, drone):
     log = drone.getLog()
+    log["team"] = "enemy"
     phys = drone.getPhys()
     target = core.player.getPhys().pos
     diff = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
@@ -73,7 +75,7 @@ def control_drone(core, drone):
     for k in phys.contacts:
         ent = core.entities.getHandle(k.which)
         elog = ent.getLog()
-        if "dmg" in elog:
+        if "dmg" in elog and elog["team"] != log["team"]:
             dmg = elog["dmg"]
             log["hp"] = max(0, log["hp"] - dmg)
             if 0.0 == log["hp"]:
@@ -89,6 +91,7 @@ def control_player(core, player):
     log = player.getLog()
     phys = player.getPhys()
     log["blifetime"] = 2.0
+    log["team"] = "player"
 
     direction = core.visuals.screenToWorld(core.input.mousePos())
     direction = Vec2( (direction[0] - phys.pos[0], direction[1] - phys.pos[1]) )
