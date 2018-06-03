@@ -12,7 +12,7 @@ def normalize(v):
 def fire(core, log, phys, direction):
     brad = 0.5
     b = core.entities.create()
-    force = log["bulletForce"] * pow(core.physics.stepsPerSecond(), 2)
+    force = log["bulletForce"] * core.physics.stepsPerSecond()
     offset = 1.0001 * (phys.rad[0] + brad)
     bphys = b.getPhys()
     bphys.pos = Vec2( (phys.pos[0] + direction[0] * offset, phys.pos[1] + direction[1] * offset) )
@@ -22,8 +22,8 @@ def fire(core, log, phys, direction):
     phys.impulse = Vec2( (phys.impulse[0] - bphys.impulse[0] / 250, phys.impulse[1] - bphys.impulse[1] / 250) )
     bphys.rad = Vec2( (brad, brad) )
     bphys.surface = Vec2( (0, 1) )
-    bphys.mass = 100
-    bphys.area = 5
+    bphys.mass = math.pi * brad * brad
+    bphys.area = brad * brad
     bphys.elasticity = 0.95
     bphys.shape = "circle"
     bphys.isStatic = False
@@ -90,7 +90,6 @@ def control_player(core, player):
 
     log = player.getLog()
     phys = player.getPhys()
-    log["blifetime"] = 2.0
     log["team"] = "player"
 
     direction = core.visuals.screenToWorld(core.input.mousePos())
