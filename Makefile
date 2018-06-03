@@ -6,7 +6,7 @@ SRCDIR=src
 TMPDIR=.tmp
 
 CXX=g++
-CXXFLAGS=-Wall -Wextra --std=c++17 -lSDL2 -I/usr/local/include/gmtl-0.6.1 -I/usr/include/python3.6m -lpython3.6m
+CXXFLAGS=-Wall -Wextra --std=c++17 -lSDL2 -I/usr/local/include/gmtl-0.6.1 -I/usr/include/python3.6m -lpython3.6m -lboost_program_options
 RLSFLAGS=-Ofast -g
 DBGFLAGS=-ggdb -g
 

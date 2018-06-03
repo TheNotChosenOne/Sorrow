@@ -43,8 +43,11 @@ static void mainLoop(Core &core) {
     DurationTimer visuals;
     DurationTimer physics;
 
-    ActionTimer physTick(PHYSICS_TIMESTEP * 1.0);
-    ActionTimer drawTick(PHYSICS_TIMESTEP * 1.0);
+    const bool sprint = core.options.count("sprint");
+    const double pps = core.options["pps"].as< size_t >();
+    const double fps = core.options["fps"].as< size_t >();
+    ActionTimer physTick(sprint ? 0 : 1.0 / pps);
+    ActionTimer drawTick(sprint ? 0 : 1.0 / fps);
     ActionTimer infoTick(1.0);
     ActionTimer killer(std::numeric_limits< double >::infinity());
 
@@ -112,9 +115,7 @@ static void mainLoop(Core &core) {
             const double act = actual.empty();
             const double sp = spare.empty();
             const double busy = act - sp;
-            //std::cout << "SPP: " << physics.average() << '\n';
-            //std::cout << "SPF: " << visuals.average() << '\n';
-            if (STEPS_PER_SECOND - 3 > logicCount) {
+            if (core.options.count("verbose") || STEPS_PER_SECOND - 3 > logicCount) {
                 std::cout << "PPS: " << std::setw(6) << logicCount;
                 std::cout << " / " << std::setw(14) << physics.perSecond() << '\n';
                 std::cout << "FPS: " << std::setw(6) << renderCount;
@@ -149,15 +150,15 @@ static void mainLoop(Core &core) {
     }
 }
 
-static void run() {
+static void run(boost::program_options::variables_map &options) {
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
-    if (0 == RUNNING_ON_VALGRIND) {
-        renderer = std::make_unique< RendererSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
-        input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
-    } else {
+    if (options["headless"].as< bool >()) {
         renderer = std::make_unique< Renderer >(SCREEN_WIDTH, SCREEN_HEIGHT);
         input = std::make_unique< Input >();
+    } else {
+        renderer = std::make_unique< RendererSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
+        input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
     std::unique_ptr< EntityManager > entityMan;
@@ -183,7 +184,7 @@ static void run() {
 
     input->update();
 
-    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, 0 };
+    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, 0, options };
     entityMan->setCore(core);
 
     const auto putBox = [&core](double l, double b, double w, double h) {
@@ -273,9 +274,32 @@ static void run() {
     mainLoop(core);
 }
 
-int main(int, char **) {
+bool getOptions(boost::program_options::variables_map &options, int argc, char **argv) {
+    namespace po = boost::program_options;
+    po::options_description desc("Options");
+    desc.add_options()
+        ("headless",
+         po::value< bool >()->default_value(RUNNING_ON_VALGRIND),
+         "disable rendering and input")
+        ("fps", po::value< size_t >()->default_value(STEPS_PER_SECOND), "Frames  / second")
+        ("pps", po::value< size_t >()->default_value(STEPS_PER_SECOND), "Physics / second")
+        ("verbose", "print more runtime info")
+        ("sprint", "run as fast as possible")
+        ("help", "Ask and ye shall receive");
+    po::store(po::parse_command_line(argc, argv, desc), options);
+    po::notify(options);
+    if (options.count("help")) {
+        std::cout << desc << '\n';
+        return false;
+    }
+    return true;
+}
+
+int main(int argc, char **argv) {
     std::cout << std::fixed;
-    run();
+    boost::program_options::variables_map options;
+    if (!getOptions(options, argc, argv)) { return 0; }
+    run(options);
     std::cout << "Finished\n";
     return 0;
 }

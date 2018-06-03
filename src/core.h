@@ -1,9 +1,11 @@
 #pragma once
 
+#include <boost/program_options.hpp>
 #include <cstddef>
 #include <memory>
 
 #include "forwardMirror.h"
+
 
 class Renderer;
 class Input;
@@ -23,6 +25,7 @@ struct Core {
     VisualManager &visuals;
     LogicManager &logic;
     EntityHandle player;
+    boost::program_options::variables_map options;
 };
 
 template<>
