@@ -188,6 +188,10 @@ void LogicManager::logicUpdate(Core &core) {
             PyTuple_SetItem(args, 1, toPython(eh));
             PyObject *result = PyObject_CallObject(loc->second, args);
             if (!result) {
+                if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
+                    std::cout << "\nKeyboard interrupt caught\n";
+                    exit(1);
+                }
                 PyErr_Print();
             }
             Py_XDECREF(result);
