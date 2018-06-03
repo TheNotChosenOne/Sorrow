@@ -90,6 +90,8 @@ PyObject *toPython(const T &&t) {
     return toPython< const T >(v);
 }
 
+PyObject *toPython(const char *s);
+
 template< typename T >
 PyObject *toPython(std::vector< T > &v) {
     PyObject *listy = PyList_New(v.size());

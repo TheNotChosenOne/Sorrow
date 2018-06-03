@@ -187,6 +187,10 @@ void fromPython< double >(double &v, PyObject *obj) {
     v = PyFloat_AsDouble(obj);
 }
 
+PyObject *toPython(const char *v) {
+    return PyUnicode_FromString(v);
+}
+
 template<>
 PyObject *toPython< const std::string >(const std::string &v) {
     return PyUnicode_FromString(v.c_str());
