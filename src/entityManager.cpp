@@ -34,7 +34,6 @@ const VisualComponent &EntityView::getVis() const {
 }
 
 LogicComponent &EntityView::getLog() {
-    rassert(manager.entities.count(ent) && manager.idToLow.find(ent) != manager.idToLow.end(), ent);
     return manager.core->logic.get(manager.idToLow.at(ent));
 }
 
@@ -43,7 +42,6 @@ const LogicComponent &EntityView::getLog() const {
 }
 
 Entity EntityView::id() const {
-    rassert(manager.entities.count(ent), ent)
     return ent;
 }
 
@@ -125,28 +123,19 @@ Entity EntityManager::create() {
         manPtr->create();
     }
 
-    for (const auto p : idToLow) {
-        rassert(p.second != lowID, idToLow, id, lowID);
-    }
     entities.insert(id);
     idToLow[id] = lowID;
     lowToID.push_back(id);
-
-    rassert(entities.size() == idToLow.size() && entities.size() == lowToID.size(),
-            entities.size(), idToLow.size(), lowToID.size());
 
     return id;
 }
 
 void EntityManager::kill(Entity e) {
-    rassert(entities.count(e), e);
-    rassert(!graveyard.count(e), e);
     graveyard.insert(e);
     entities.erase(e);
 }
 
 EntityHandle &EntityManager::getHandle(Entity e) {
-    rassert(entities.count(e), e);
     EntityHandle &h = handles[e];
     if (!h) {
         h = std::make_shared< EntityView >(*this, e, entities.find(e) != entities.end());
@@ -155,13 +144,10 @@ EntityHandle &EntityManager::getHandle(Entity e) {
 }
 
 EntityHandle &EntityManager::getHandleFromLow(size_t e) {
-    rassert(e < lowToID.size(), e);
-    rassert(entities.count(lowToID[e]), e, lowToID[e], entities.size());
     return getHandle(lowToID[e]);
 }
 
 Entity EntityManager::fromHandle(EntityHandle &e) {
-    rassert(entities.count(e->ent), e->ent);
     return e->ent;
 }
 
@@ -196,37 +182,11 @@ void EntityManager::update() {
     }
     for (const auto e : graveyard) {
         const auto iloc = idToLow.find(e);
-        rassert(idToLow.end() != iloc, idToLow, e);
         idToLow.erase(iloc);
         auto loc = handles.find(e);
         loc->second->alive = false;
         handles.erase(loc);
     }
-
-    std::set< size_t > missings;
-    for (size_t i = 0; i < entities.size(); ++i) {
-        bool found = false;
-        for (const auto p : idToLow) {
-            if (p.second == i) { found = true; }
-        }
-        if (!found) { missings.insert(i); }
-    }
-    std::set< std::pair< size_t, size_t > > extras;
-    for (const auto p : idToLow) {
-        if (p.second >= entities.size()) { extras.insert(p); }
-    }
-    rassert(missings.empty() && extras.empty(), missings, extras, entities.size());
-    for (const auto e : entities) {
-        rassert(idToLow.count(e), e);
-        size_t low = idToLow[e];
-        rassert(low < lowToID.size(), e, low, lowToID.size());
-        rassert(lowToID[low] == e, e, low);
-        rassert(handles.count(e));
-    }
-    rassert(entities.size() == handles.size() &&
-            entities.size() == idToLow.size() &&
-            entities.size() == lowToID.size(),
-            entities.size(), handles.size(), idToLow.size(), lowToID.size());
 
     graveyard.clear();
 }
