@@ -11,8 +11,14 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <limits>
 #include <map>
 #include <set>
+
+template< typename T >
+T infty() {
+    return std::numeric_limits< T >::infinity();
+}
 
 template< typename T >
 std::string str(const T &x) {
