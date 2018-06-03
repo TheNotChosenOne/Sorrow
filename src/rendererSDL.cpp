@@ -50,13 +50,20 @@ void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col) {
 
     size_t pixels = 0;
     const double r2 = r * r;
-    for (int64_t x = xMin; x <= xMax; ++x) {
-        for (int64_t y = yMin; y <= yMax; ++y) {
-            const Vec diff = Vec(x, y) - pos;
-            if (gmtl::lengthSquared(diff) <= r2) {
-                SDL_RenderDrawPoint(renderer, x, height - y);
-                ++pixels;
-            }
+    for (int64_t y = yMin; y <= yMax; ++y) {
+        int64_t xBegin = xMin;
+        for (; xBegin <= xMax; ++xBegin) {
+            const Vec diff = Vec(xBegin, y) - pos;
+            if (gmtl::lengthSquared(diff) <= r2) { break; }
+        }
+        int64_t xEnd = xMax;
+        for (; xEnd >= xMin; --xEnd) {
+            const Vec diff = Vec(xEnd, y) - pos;
+            if (gmtl::lengthSquared(diff) <= r2) { break; }
+        }
+        if (xBegin <= xEnd) {
+            SDL_RenderDrawLine(renderer, xBegin, height - y, xEnd, height - y);
+            pixels += xEnd - xBegin + 1;
         }
     }
     if (0 == pixels) {
