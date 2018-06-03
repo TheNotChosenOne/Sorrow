@@ -3,7 +3,11 @@
 #include "mirror.h"
 #include "core.h"
 #include "entityManager.h"
+#include "quadtree.h"
 
+#include <array>
+#include <memory>
+#include <limits>
 #include <algorithm>
 #include <vector>
 #include <Python.h>
@@ -148,10 +152,27 @@ static void collide(Core &core, Comps &comps, const Comps &) {
         }
     }
 
+    typedef std::pair< size_t, Vec > Adjustment;
+    std::vector< Adjustment > adjustments;
+    const size_t dynCount = dynamics.size();
+
+    std::vector< TaggedPhys > tagged;
+    tagged.reserve(dynamics.size());
+    for (size_t i = 0; i < dynCount; ++i) {
+        tagged.push_back({ i, &comps[dynamics[i]] });
+    }
+    Quadtree qt(tagged);
+    //std::cout << "Dynamic: " << dynamics.size() << qt << '\n';
+    //qt.draw(core);
+
     // Dynamic collisions
-    for (size_t i = 0; i < dynamics.size(); ++i) {
+    std::vector< size_t > suggested;
+    for (size_t i = 0; i < dynCount; ++i) {
         auto &a = comps[dynamics[i]];
-        for (size_t j = i + 1; j < dynamics.size(); ++j) {
+        suggested.clear();
+        qt.suggest(a.pos, a.rad, suggested);
+        for (size_t j : suggested) {
+            if (j <= i) { continue; }
             auto &b = comps[dynamics[j]];
 
             const double trad = a.rad[0] + b.rad[0];
@@ -179,8 +200,10 @@ static void collide(Core &core, Comps &comps, const Comps &) {
             if (a.phased | b.phased) { continue; }
 
             const double massP = a.mass / (a.mass + b.mass);
-            a.pos += norm * depth * massP;
-            b.pos -= norm * depth * (1.0 - massP);
+            adjustments.push_back({ dynamics[i], norm * depth * massP });
+            adjustments.push_back({ dynamics[j], norm * depth * (massP - 1.0) });
+            //a.pos += norm * depth * massP;
+            //b.pos -= norm * depth * (1.0 - massP);
 
             const Vec aVel = a.vel;
             const Vec bVel = b.vel;
@@ -214,6 +237,9 @@ static void collide(Core &core, Comps &comps, const Comps &) {
             gmtl::normalize(a.surface);
             gmtl::normalize(b.surface);
         }
+    }
+    for (const auto adjust : adjustments) {
+        comps[adjust.first].pos += adjust.second;
     }
 };
 
