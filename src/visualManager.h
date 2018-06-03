@@ -13,6 +13,7 @@ struct VisualComponent {
         (bool, draw));
 };
 
+class Renderer;
 class VisualManager: public ComponentManager< VisualComponent > {
     private:
         void updater(Core &core, const Components &l, Components &n);
@@ -25,6 +26,7 @@ class VisualManager: public ComponentManager< VisualComponent > {
 
         void visualUpdate(Core &core);
         Vec screenToWorld(const Vec v) const;
+        gmtl::Matrix33d getViewMatrix(Renderer &rend) const;
 };
 
 template<>

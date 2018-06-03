@@ -52,18 +52,22 @@ static void gather(DrawLists &dl, const VisualManager::Components &comps,
 
 };
 
-void VisualManager::updater(Core &core, const Components &lasts, Components &next) {
-    next = lasts;
-    static std::vector< std::vector< MinVis > > shaped;
-
-    Vec scaler = Vec(core.renderer.getWidth(), core.renderer.getHeight());
+gmtl::Matrix33d VisualManager::getViewMatrix(Renderer &rend) const {
+    Vec scaler = Vec(rend.getWidth(), rend.getHeight());
     scaler[0] /= FOV[0];
     scaler[1] /= FOV[1];
+
     gmtl::Matrix33d viewMat;
     gmtl::identity(viewMat);
     gmtl::setScale(viewMat, scaler);
     gmtl::setTrans(viewMat, -(viewMat * cam));
+    return viewMat;
+}
 
+void VisualManager::updater(Core &core, const Components &lasts, Components &next) {
+    next = lasts;
+    static std::vector< std::vector< MinVis > > shaped;
+    const auto viewMat = getViewMatrix(core.renderer);
     gather(shaped, next, core, viewMat);
     for (const MinVis &mv : shaped[1]) { // Boxes
         core.renderer.drawBox(mv.pos, mv.rad, mv.col);
