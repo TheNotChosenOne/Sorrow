@@ -172,6 +172,7 @@ const PythonData &LogicManager::get(Entity e) const {
 
 void LogicManager::logicUpdate(Core &core) {
     if (!pyCore) { pyCore = toPython(core); }
+    PyObject *lifeString = toPython("lifetime");
     PyObject *args = PyTuple_New(2);
     Py_INCREF(pyCore);
     PyTuple_SetItem(args, 0, pyCore);
@@ -191,16 +192,17 @@ void LogicManager::logicUpdate(Core &core) {
             }
             Py_XDECREF(result);
         }
-        if (PyHas(dict, "lifetime")) {
-            double x = fromPython< double >(PyDict_GetItemString(dict, "lifetime"));
+        if (PyDict_Contains(dict, lifeString)) {
+            double x = fromPython< double >(PyDict_GetItem(dict, lifeString));
             x = std::max(0.0, x - PHYSICS_TIMESTEP);
-            PyDict_SetItemString(dict, "lifetime", toPython(x));
+            PyDict_SetItem(dict, lifeString, toPython(x));
             if (0.0 == x) {
                 size_t id = core.entities.getHandleFromLow(i)->id();
                 core.entities.kill(id);
             }
         }
     }
+    Py_DECREF(lifeString);
     Py_DECREF(args);
     const double interp = 0.00000001;
     const Vec target = core.player->getPhys().pos - (core.visuals.FOV / 2.0);
