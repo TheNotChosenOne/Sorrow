@@ -43,8 +43,8 @@ static void mainLoop(Core &core) {
     DurationTimer visuals;
     DurationTimer physics;
 
-    ActionTimer physTick(PHYSICS_TIMESTEP / 1.0);
-    ActionTimer drawTick(PHYSICS_TIMESTEP / 1.0);
+    ActionTimer physTick(PHYSICS_TIMESTEP * 1.0);
+    ActionTimer drawTick(PHYSICS_TIMESTEP * 1.0);
     ActionTimer infoTick(1.0);
     ActionTimer killer(std::numeric_limits< double >::infinity());
 
@@ -114,22 +114,24 @@ static void mainLoop(Core &core) {
             const double busy = act - sp;
             //std::cout << "SPP: " << physics.average() << '\n';
             //std::cout << "SPF: " << visuals.average() << '\n';
-            std::cout << "PPS: " << std::setw(6) << logicCount;
-            std::cout << " / " << std::setw(14) << physics.perSecond() << '\n';
-            std::cout << "FPS: " << std::setw(6) << renderCount;
-            std::cout << " / " << std::setw(14) << visuals.perSecond() << '\n';
-            std::cout << " Phys: " << phys << "  Vis: " << vis;
-            std::cout << " Logic: " << logicUse.empty();
-            std::cout << " EM: " << entityUse.empty();
-            std::cout << " IO: " << inputUse.empty() << '\n';
-            std::cout << "Spare: " << sp << " Busy: " << busy;
-            std::cout << ' ' << std::setw(10) << 100 * (busy / act) << "%";
-            std::cout << " (" << act << ")\n";
-            std::cout << "Entities: " << std::setw(6) << core.entities.all().size();
-            std::cout << " Timescale: " << timescale;
-            std::cout << " Escaped: " << count << '\n';
+            if (STEPS_PER_SECOND - 3 > logicCount) {
+                std::cout << "PPS: " << std::setw(6) << logicCount;
+                std::cout << " / " << std::setw(14) << physics.perSecond() << '\n';
+                std::cout << "FPS: " << std::setw(6) << renderCount;
+                std::cout << " / " << std::setw(14) << visuals.perSecond() << '\n';
+                std::cout << " Phys: " << phys << "  Vis: " << vis;
+                std::cout << " Logic: " << logicUse.empty();
+                std::cout << " EM: " << entityUse.empty();
+                std::cout << " IO: " << inputUse.empty() << '\n';
+                std::cout << "Spare: " << sp << " Busy: " << busy;
+                std::cout << ' ' << std::setw(10) << 100 * (busy / act) << "%";
+                std::cout << " (" << act << ")\n";
+                std::cout << "Entities: " << std::setw(6) << core.entities.all().size();
+                std::cout << " Timescale: " << timescale;
+                std::cout << " Escaped: " << count << '\n';
+                std::cout << '\n';
+            }
 
-            std::cout << '\n';
             logicCount = 0;
             renderCount = 0;
         }
@@ -238,7 +240,7 @@ static void run() {
         log.setDouble("speed", 900 * phys.mass);
         log.setString("controller", control);
         log.setDouble("reload", 0.0);
-        log.setDouble("reloadTime", 0.01);
+        log.setDouble("reloadTime", 0.05);
         log.setDouble("bulletForce", 1000);
         log.setDouble("blifetime", 5);
         return e;
