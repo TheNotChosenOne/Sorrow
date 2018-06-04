@@ -187,90 +187,9 @@ static void run(boost::program_options::variables_map &options) {
     Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, 0, options };
     entityMan->setCore(core);
 
-    const auto putBox = [&core](double l, double b, double w, double h) {
-        Entity e = core.entities.create();
-        auto &phys = core.physics.get(e);
-        phys.pos[0] = l;
-        phys.pos[1] = b;
-        phys.rad = { w / 2.0, h / 2.0 };
-        phys.area = w * h;
-        phys.mass = 0.0;
-        phys.shape = Shape::Box;
-        phys.isStatic = true;
-        phys.elasticity = 0.1;
-        phys.phased = false;
-        phys.gather = false;
-        core.visuals.get(e).draw = true;
-        core.visuals.get(e).colour = Vec3(0x88, 0x88, 0x88);
-    };
-    const auto putCircle = [&core](double x, double y, double rad) {
-        Entity e = core.entities.create();
-        auto &phys = core.physics.get(e);
-        phys.pos[0] = x;
-        phys.pos[1] = y;
-        phys.rad = { rad, rad };
-        phys.area = 2 * rad;
-        phys.mass = 0.0;
-        phys.shape = Shape::Circle;
-        phys.isStatic = true;
-        phys.elasticity = 0.1;
-        phys.phased = false;
-        phys.gather = false;
-        core.visuals.get(e).draw = true;
-        core.visuals.get(e).colour = Vec3(0x88, 0x88, 0x88);
-        return e;
-    };
+    core.player = core.entities.getHandle(core.entities.create());
+    core.logic.setup(core);
 
-    const auto putBall = [&](double x, double y, double rad) {
-        Entity e = putCircle(x, y, rad);
-        auto &phys = core.physics.get(e);
-        phys.isStatic = false;
-        phys.mass = pi< double > * rad * rad;
-        phys.elasticity = 0.99;
-        core.visuals.get(e).colour = Vec3(0, 0, 0xFF);
-        return e;
-    };
-
-    const auto putActor = [&](double x, double y, double rad, const std::string &control) {
-        Entity e = putBall(x, y, rad);
-        auto &phys = core.physics.get(e);
-        phys.gather = true;
-        core.visuals.get(e).colour = Vec3(0, 0, 0);
-        auto &log = core.logic.get(e);
-        log.setDouble("hp", 100);
-        log.setDouble("speed", 900 * phys.mass);
-        log.setString("controller", control);
-        log.setDouble("reload", 0.0);
-        log.setDouble("reloadTime", 0.05);
-        log.setDouble("bulletForce", 1000);
-        log.setDouble("blifetime", 5);
-        return e;
-    };
-
-    const double rad = 10.0;
-    const double clear = 5.0;
-    const double midX = core.renderer.getWidth() / 2.0;
-    const double midY = core.renderer.getHeight() / 2.0;
-    putBox(midX, clear * rad, core.renderer.getWidth(), rad * 4);
-    putBox(midX, core.renderer.getHeight() - clear * rad, core.renderer.getWidth(), rad * 4);
-    putBox(clear * rad, midY, rad * 4, core.renderer.getHeight());
-    putBox(core.renderer.getWidth() - clear * rad, midY, rad * 4, core.renderer.getHeight());
-    putBox(midX, core.renderer.getHeight() / 4, core.renderer.getWidth() / 3, rad * 2);
-
-    const size_t y = core.renderer.getHeight() / 4.0 + 5;
-    Entity e = putActor(core.renderer.getWidth() / 2, y + 250, 10, "player");
-    std::cout << "Player: " << e << '\n';
-    auto &log = core.logic.get(e);
-    log.setDouble("speed", 150);
-    log.setBool("player", true);
-    core.player = core.entities.getHandle(e);
-    core.player->getPhys().gather =  true;
-
-    putActor( 75, y + 250, 4, "drone");
-    putActor( 90, y + 250, 4, "drone");
-    putActor(105, y + 250, 4, "drone");
-
-    std::cout << core.entities.all().size() << " entities\n";
     mainLoop(core);
 }
 

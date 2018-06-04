@@ -24,18 +24,21 @@ static bool PyHas(PyObject *dict, const std::string &key) {
     return result;
 }
 
-static PyObject *getControlFunc(const std::string &controllerName) {
-    std::string funcName = "control_" + controllerName;
+static PyObject *getGlobalFunc(const std::string &name) {
     PyObject *mods = PyImport_GetModuleDict();
     PyObject *mainString = Py_BuildValue("s", "__main__");
-    PyObject *funcString = Py_BuildValue("s", funcName.c_str());
+    PyObject *funcString = Py_BuildValue("s", name.c_str());
     PyObject *main = PyDict_GetItem(mods, mainString);
-    PyObject *controlFunc = PyObject_GetAttr(main, funcString);
-    rassert(controlFunc, "Script must define control_< controllerName >(core, ent)", controllerName);
-    rassert(PyCallable_Check(controlFunc), "Control function is not callable", controllerName);
+    PyObject *func = PyObject_GetAttr(main, funcString);
+    rassert(func, "Script must define function: ", name);
+    rassert(PyCallable_Check(func), "Function must be callable: ", name);
     Py_DECREF(mainString);
     Py_DECREF(funcString);
-    return controlFunc;
+    return func;
+}
+
+static PyObject *getControlFunc(const std::string &controllerName) {
+    return getGlobalFunc("control_" + controllerName);
 }
 
 };
@@ -124,6 +127,25 @@ LogicManager::LogicManager() {
     PyTypesInit();
 }
 
+void LogicManager::setup(Core &core) {
+    pyCore = toPython(core);
+    Py_INCREF(pyCore);
+    PyObject *func = getGlobalFunc("setup");
+    PyObject *args = PyTuple_New(1);
+    PyTuple_SetItem(args, 0, pyCore);
+    PyObject *result = PyObject_CallObject(func, args);
+    if (!result) {
+        if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
+            std::cout << "\nKeyboard interrupt caught\n";
+            exit(1);
+        }
+        PyErr_Print();
+    }
+    Py_XDECREF(result);
+    Py_DECREF(args);
+    Py_DECREF(func);
+}
+
 LogicManager::~LogicManager() {
     components.clear();
     nursery.clear();
@@ -171,7 +193,6 @@ const PythonData &LogicManager::get(Entity e) const {
 }
 
 void LogicManager::logicUpdate(Core &core) {
-    if (!pyCore) { pyCore = toPython(core); }
     PyObject *lifeString = toPython("lifetime");
     PyObject *args = PyTuple_New(2);
     Py_INCREF(pyCore);

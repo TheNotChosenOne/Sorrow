@@ -9,6 +9,88 @@ def normalize(v):
     if length > 0.0: v = Vec2( (v[0] / length, v[1] / length) )
     return v
 
+def putPhys(ent, x, y, w, h, static, shape):
+    phys = ent.getPhys()
+    phys.pos = Vec2( (x, y) )
+    phys.rad = Vec2( (w / 2.0, h / 2.0) ) if "box" == shape else Vec2( (w, h) )
+    phys.area = w + h
+    phys.elasticity = 0.1
+    phys.phased = False
+    phys.gather = False
+    phys.isStatic = static
+    phys.shape = shape
+    if static:
+        phys.mass = 0.0
+    else:
+        phys.mass = w * h if "box" == shape else math.pi * w * h
+
+def putVis(ent, r, g, b):
+    vis = ent.getVis()
+    vis.colour = Vec3( (r, g, b) )
+    vis.draw = True
+
+def putWall(core, x, y, w, h):
+    e = core.entities.create()
+    putPhys(e, x, y, w, h, True, "box")
+    putVis(e, 0x88, 0x88, 0x88)
+    return e
+
+def putWeapons(ent):
+    log = ent.getLog()
+    log["reload"] = 0.0
+    log["reloadTime"] = 0.05
+    log["bulletForce"] = 1000
+    log["blifetime"] = 5
+
+def putNPC(ent, controller):
+    ent.getPhys().gather = True
+    log = ent.getLog()
+    log["hp"] = 100
+    log["speed"] = 900 * ent.getPhys().mass
+    log["controller"] = controller
+
+def putDrone(core, x, y, rad):
+    e = core.entities.create()
+    putPhys(e, x, y, rad, rad, False, "circle")
+    putVis(e, 0xFF, 0, 0)
+    putNPC(e, "drone")
+    putWeapons(e)
+    return e
+
+def setupPlayer(core):
+    height = core.renderer.getHeight()
+    midX = core.renderer.getWidth() / 2.0
+
+    putPhys(core.player, midX, height / 4.0 + 250, 10, 10, False, "circle")
+    putVis(core.player, 0xFF, 0, 0)
+
+    phys = core.player.getPhys()
+    phys.gather = True
+
+    putNPC(core.player, "player")
+    putWeapons(core.player)
+    core.player.getLog()["speed"] = 150
+
+def setup(core):
+    rad = 10.0
+    clear = 5.0
+    width = core.renderer.getWidth()
+    height = core.renderer.getHeight()
+    midX = width / 2.0
+    midY = height / 2.0
+
+    setupPlayer(core)
+
+    putWall(core, midX, clear * rad, width, rad * 4)
+    putWall(core, midX, height - clear * rad, width, rad * 4)
+    putWall(core, clear * rad, midY, rad * 4, height)
+    putWall(core, width - clear * rad, midY, rad * 4, height)
+    putWall(core, midX, height / 4.0, width / 3.0, rad * 2)
+
+    putDrone(core,  75, height / 4.0 + 250, 4)
+    putDrone(core,  90, height / 4.0 + 250, 4)
+    putDrone(core, 105, height / 4.0 + 250, 4)
+
 def fire(core, log, phys, direction):
     brad = 0.5
     b = core.entities.create()

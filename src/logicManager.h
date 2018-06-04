@@ -64,6 +64,7 @@ class LogicManager: public BaseComponentManager {
     public:
         LogicManager();
         ~LogicManager();
+        void setup(Core &core);
         void logicUpdate(Core &core);
 
         PythonData &get(Entity e);
