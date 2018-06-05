@@ -183,6 +183,8 @@ def control_player(core, player):
     if core.input.isHeld(97) and phys.vel[0] > -speed:
         phys.acc = Vec2( (phys.acc[0] + max(-speed, phys.acc[0] - speed), phys.acc[1]) )
     if core.input.isHeld(100) and phys.vel[0] < speed:
-        phys.acc = Vec2( (phys.acc[0] + min(speed, phys.acc[0] + speed), phys.acc[1]) )
-    if core.input.isHeld(119) and phys.surface[1] > 0.75:
-        phys.acc = Vec2( (phys.acc[0], phys.acc[1] + 0.011 * core.physics.stepsPerSecond() * speed) )
+        phys.acc = Vec2( (phys.acc[0] + min( speed, phys.acc[0] + speed), phys.acc[1]) )
+    if core.input.isHeld(119) and phys.vel[1] < speed:
+        phys.acc = Vec2( (phys.acc[0], phys.acc[1] + min( speed, phys.acc[1] + speed)) )
+    if core.input.isHeld(115) and phys.vel[1] > -speed:
+        phys.acc = Vec2( (phys.acc[0], phys.acc[1] + max(-speed, phys.acc[1] - speed)) )

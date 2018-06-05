@@ -16,7 +16,6 @@
 namespace {
 
 static const double FRICTION = (1.0 - 0.03);
-static const Vec GRAVITY = { 0.0, -98.0665 };
 static const double DAMPING = 0.99;
 
 typedef PhysicsManager::Components Comps;
@@ -39,7 +38,7 @@ static void move(const Comps &lasts, Comps &nexts) {
         const double mass = std::abs((1.0 - s) - last.mass);
         next.vel = s * (last.vel + (last.acc * last.mass + last.impulse / mass) * PHYSICS_TIMESTEP);
         next.pos += next.vel * DAMPING * PHYSICS_TIMESTEP;
-        next.acc = s * GRAVITY / last.area;
+        next.acc = Vec();
         next.surface = Vec();
         next.impulse = Vec();
     }
