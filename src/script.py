@@ -14,7 +14,7 @@ def putPhys(ent, x, y, w, h, static, shape):
     phys.pos = Vec2( (x, y) )
     phys.rad = Vec2( (w / 2.0, h / 2.0) ) if "box" == shape else Vec2( (w, h) )
     phys.area = w + h
-    phys.elasticity = 0.1
+    phys.elasticity = 0.1 if static else 0.95
     phys.phased = False
     phys.gather = False
     phys.isStatic = static
@@ -34,6 +34,11 @@ def putWall(core, x, y, w, h):
     putPhys(e, x, y, w, h, True, "box")
     putVis(e, 0x88, 0x88, 0x88)
     return e
+
+def easyWall(core, left, top, right, bot):
+    x = (left + right) / 2.0
+    y = (top + bot) / 2.0
+    return putWall(core, x, y, abs(right - left), abs(top - bot))
 
 def putWeapons(ent):
     log = ent.getLog()
@@ -81,15 +86,16 @@ def setup(core):
 
     setupPlayer(core)
 
+    easyWall(core, 100, 100, 150, 150)
     putWall(core, midX, clear * rad, width, rad * 4)
     putWall(core, midX, height - clear * rad, width, rad * 4)
     putWall(core, clear * rad, midY, rad * 4, height)
     putWall(core, width - clear * rad, midY, rad * 4, height)
     putWall(core, midX, height / 4.0, width / 3.0, rad * 2)
 
-    putDrone(core,  75, height / 4.0 + 250, 4)
-    putDrone(core,  90, height / 4.0 + 250, 4)
-    putDrone(core, 105, height / 4.0 + 250, 4)
+    putDrone(core,  75, height / 4.0 + 250 + 5, 4)
+    putDrone(core,  90, height / 4.0 + 250 + 0, 4)
+    putDrone(core, 105, height / 4.0 + 250 - 5, 4)
 
 def fire(core, log, phys, direction):
     brad = 0.5

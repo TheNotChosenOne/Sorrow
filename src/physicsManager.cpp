@@ -36,8 +36,11 @@ static void move(const Comps &lasts, Comps &nexts) {
 
         const double s = static_cast< double >(!last.isStatic);
         const double mass = std::abs((1.0 - s) - last.mass);
-        next.vel = s * (last.vel + (last.acc * last.mass + last.impulse / mass) * PHYSICS_TIMESTEP);
-        next.pos += next.vel * DAMPING * PHYSICS_TIMESTEP;
+        next.vel = s *
+                   (last.vel + (last.acc * last.mass + last.impulse / mass) * PHYSICS_TIMESTEP) *
+                   std::min(1.0, std::pow(0.999, last.area)) *
+                   DAMPING;
+        next.pos += next.vel * PHYSICS_TIMESTEP;
         next.acc = Vec();
         next.surface = Vec();
         next.impulse = Vec();
