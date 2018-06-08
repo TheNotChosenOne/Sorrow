@@ -135,7 +135,7 @@ static void collide(Core &core, Comps &comps, const Comps &) {
                 }
             }
         }
-        if (0 != contactCount) {
+        if (0 != contactCount && !a.phased) {
             gmtl::normalize(normal);
             elasticity /= contactCount;
             depth /= contactCount;
