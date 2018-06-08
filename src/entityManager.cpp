@@ -45,6 +45,10 @@ Entity EntityView::id() const {
     return ent;
 }
 
+bool EntityView::isAlive() const {
+    return alive;
+}
+
 std::ostream &operator<<(std::ostream &os, const EntityView &ev) {
     return (os << "entity " << ev.ent << '(' << ev.alive << ')');
 }
@@ -71,10 +75,15 @@ static PyObject *Py_getLog(PyEntityHandle *peh, PyObject *) {
     return toPython(peh->eh->getLog());
 }
 
+static PyObject *Py_alive(PyEntityHandle *peh, PyObject *) {
+    Py_RETURN_BOOL(peh->eh->isAlive());
+}
+
 static PyMethodDef entityHandleMethods[] = {
     { "getPhys", reinterpret_cast< PyCFunction >(Py_getPhys), READONLY, "" },
     { "getVis", reinterpret_cast< PyCFunction >(Py_getVis), READONLY, "" },
     { "getLog", reinterpret_cast< PyCFunction >(Py_getLog), READONLY, "" },
+    { "isAlive", reinterpret_cast< PyCFunction >(Py_alive), READONLY, "" },
     { nullptr, nullptr, 0, nullptr }
 };
 
@@ -221,10 +230,21 @@ static PyObject *Py_getHandle(PyEntityManager *pem, PyObject *args) {
     return toPython(pem->entityMan->getHandle(fromPython< int64_t >(PyTuple_GetItem(args, 0))));
 }
 
+static PyObject *Py_all(PyEntityManager *pem, PyObject *) {
+    const std::set< Entity > &all = pem->entityMan->all();
+    PyObject *listy = PyList_New(all.size());
+    size_t i = 0;
+    for (const auto &x : all) {
+        PyList_SetItem(listy, i++, toPython(x));
+    }
+    return listy;
+}
+
 static PyMethodDef entityManagerMethods[] = {
     { "create", reinterpret_cast< PyCFunction >(Py_create), READONLY, "Make a new entity" },
     { "kill", reinterpret_cast< PyCFunction >(Py_kill), READONLY, "Destroy an entity" },
     { "getHandle", reinterpret_cast< PyCFunction >(Py_getHandle), READONLY, "Get entity handle" },
+    { "all", reinterpret_cast< PyCFunction >(Py_all), READONLY, "Get all entities" },
     { nullptr, nullptr, 0, nullptr }
 };
 

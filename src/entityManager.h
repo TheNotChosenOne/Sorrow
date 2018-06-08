@@ -32,6 +32,7 @@ class EntityView {
         LogicComponent &getLog();
         const LogicComponent &getLog() const;
         Entity id() const;
+        bool isAlive() const;
 
     friend class EntityManager;
     friend std::ostream &operator<<(std::ostream &os, const EntityView &ev);
