@@ -4,17 +4,20 @@ import random
 
 random.seed(0x88888888)
 
+def clamp(low, high, x):
+    return min(high, max(low, x))
+
 def normalize(v):
     length = math.sqrt(v[0] * v[0] + v[1] * v[1])
     if length > 0.0: v = Vec2( (v[0] / length, v[1] / length) )
     return v
 
-def putPhys(ent, x, y, w, h, static, shape):
+def putPhys(ent, x, y, w, h, static, shape, density=1.0, elasticity=None):
     phys = ent.getPhys()
     phys.pos = Vec2( (x, y) )
     phys.rad = Vec2( (w / 2.0, h / 2.0) ) if "box" == shape else Vec2( (w, h) )
     phys.area = w + h
-    phys.elasticity = 0.1 if static else 0.95
+    phys.elasticity = elasticity if elasticity else (0.1 if static else 0.95)
     phys.phased = False
     phys.gather = False
     phys.isStatic = static
@@ -22,7 +25,7 @@ def putPhys(ent, x, y, w, h, static, shape):
     if static:
         phys.mass = 0.0
     else:
-        phys.mass = w * h if "box" == shape else math.pi * w * h
+        phys.mass = density * (w * h if "box" == shape else math.pi * w * h)
 
 def putVis(ent, r, g, b):
     vis = ent.getVis()
@@ -43,23 +46,39 @@ def easyWall(core, left, top, right, bot):
 def putWeapons(ent):
     log = ent.getLog()
     log["reload"] = 0.0
-    log["reloadTime"] = 0.05
+    log["reloadTime"] = 5.0 / ent.getPhys().rad[0]
     log["bulletForce"] = 1000
-    log["blifetime"] = 5
+    log["blifetime"] = 1
 
-def putNPC(ent, controller):
+def putNPC(ent, controller,):
     ent.getPhys().gather = True
     log = ent.getLog()
     log["hp"] = 100
+    log["maxHP"] = log["hp"]
     log["speed"] = 900 * ent.getPhys().mass
     log["controller"] = controller
 
-def putDrone(core, x, y, rad):
+def putDrone(core, x, y, hive, rad, density, elasticity):
     e = core.entities.create()
-    putPhys(e, x, y, rad, rad, False, "circle")
+    putPhys(e, x, y, rad, rad, False, "circle", density, elasticity)
     putVis(e, 0xFF, 0, 0)
     putNPC(e, "drone")
     putWeapons(e)
+    e.getLog()["team"] = hive.getLog()["team"]
+    e.getLog()["hive"] = hive
+    e.getLog()["npc"] = True
+    return e
+
+def putHive(core, team, x, y, r, g, b):
+    e = core.entities.create()
+    putPhys(e, x, y, 20, 20, True, "circle")
+    putVis(e, r, g, b)
+    log = e.getLog()
+    log["controller"] = "hive"
+    log["team"] = team
+    log["budget"] = 3
+    log["spawnCooldown"] = 2
+    log["spawnCooling"] = log["spawnCooldown"]
     return e
 
 def setupPlayer(core):
@@ -67,14 +86,17 @@ def setupPlayer(core):
     midX = core.renderer.getWidth() / 2.0
 
     putPhys(core.player, midX, height / 4.0 + 250, 10, 10, False, "circle")
-    putVis(core.player, 0xFF, 0, 0)
+    putVis(core.player, 0, 0xFF, 0)
 
     phys = core.player.getPhys()
-    phys.gather = True
+    phys.gather = False
+    phys.phased = True
 
     putNPC(core.player, "player")
     putWeapons(core.player)
     core.player.getLog()["speed"] = 150
+    core.player.getLog()["team"] = "player"
+    core.player.getLog()["npc"] = False
 
 def setup(core):
     rad = 10.0
@@ -93,14 +115,16 @@ def setup(core):
     putWall(core, width - clear * rad, midY, rad * 4, height)
     putWall(core, midX, height / 4.0, width / 3.0, rad * 2)
 
-    putDrone(core,  75, height / 4.0 + 250 + 5, 4)
-    putDrone(core,  90, height / 4.0 + 250 + 0, 4)
-    putDrone(core, 105, height / 4.0 + 250 - 5, 4)
+    aHive = putHive(core, "A", 150, midY + 45, 0xFF, 0, 0)
+    bHive = putHive(core, "B", width - 150, midY - 45, 0, 0, 0xFF)
+    #putDrone(core,  75, height / 4.0 + 250 + 5, aHive, 10, 1.0, 0.97)
+    #putDrone(core,  90, height / 4.0 + 250 + 0, bHive, 7.5, 0.5, 0.6)
+    #putDrone(core, 105, height / 4.0 + 250 - 5, bHive, 5, 0.5, 0.6)
 
 def fire(core, log, phys, direction):
-    brad = 0.5
+    brad = 2.5
     b = core.entities.create()
-    force = log["bulletForce"] * core.physics.stepsPerSecond()
+    force = 50 * log["bulletForce"] * core.physics.stepsPerSecond()
     offset = 1.0001 * (phys.rad[0] + brad)
     bphys = b.getPhys()
     bphys.pos = Vec2( (phys.pos[0] + direction[0] * offset, phys.pos[1] + direction[1] * offset) )
@@ -118,79 +142,128 @@ def fire(core, log, phys, direction):
     bphys.phased = False
     bphys.gather = True
     b.getVis().draw = True
-    b.getVis().colour = Vec3( (255, 0, 0) )
-    b.getLog()["dmg"] = 1
+    b.getVis().colour = Vec3( (0, 0, 0) )
+    b.getLog()["dmg"] = 0
     b.getLog()["team"] = log["team"]
     b.getLog()["bullet"] = 1
-    b.getLog()["debris_lifetime"] = log["blifetime"]
+    b.getLog()["lifetime"] = log["blifetime"] + random.uniform(0, 0.75)
     b.getLog()["controller"] = "bullet"
+    return b
 
 def control_bullet(core, bullet):
     phys = bullet.getPhys()
-    if 0 != len(phys.contacts):
-        log = bullet.getLog()
-        log["lifetime"] = log["debris_lifetime"] + random.uniform(0, 0.75)
-        del log["controller"]
-        phys.gather = False
-
-def rotate_colour(vis):
-    black = Vec3( (0, 0, 0) )
-    red = Vec3( (255, 0, 0) )
-    if vis.colour == black:
-        vis.colour = red
-    k = vis.colour
-    vis.colour = Vec3( (k[2], k[0], k[1]) )
+    for k in phys.contacts:
+        l = core.entities.getHandle(k.which).getLog()
+        if (not "controller" in l) or "bullet" != l["controller"]:
+            log = bullet.getLog()
+            log["lifetime"] = random.uniform(0, 0.01)
+            del log["controller"]
+            phys.gather = False
+            break
 
 def firing_control(core, shouldFire, log, phys, direction):
+    #return None
     log["reload"] = max(0.0, log["reload"] - core.physics.timestep())
     if shouldFire and 0.0 == log["reload"]:
         log["reload"] = log["reloadTime"]
-        fire(core, log, phys, direction)
+        return fire(core, log, phys, direction)
+    return None
+
+def cooldownFunc(d, timeKey, coolKey, func, tick=None):
+    if tick:
+        d[timeKey] = max(0.0, d[timeKey] - tick)
+    if 0.0 == d[timeKey]:
+        d[timeKey] = d[coolKey]
+        return func()
+    return None
+
+def getTarget(core, team):
+    ll = core.entities.all();
+    random.shuffle(ll)
+    random.shuffle(ll)
+    for e in ll:
+        h = core.entities.getHandle(e)
+        log = h.getLog()
+        if "npc" in log and log["npc"] and "team" in log and team != log["team"]:
+            return h
+    return None
 
 def control_drone(core, drone):
     log = drone.getLog()
-    log["team"] = "enemy"
     phys = drone.getPhys()
-    target = core.player.getPhys().pos
-    diff = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
-    diff = normalize(diff)
-    speed = log["speed"]
-    phys.impulse = Vec2( (phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed) )
+    replaceTarget = not "target" in log
+    replaceTarget = replaceTarget or not log["target"]
+    replaceTarget = replaceTarget or not log["target"].isAlive()
+    replaceTarget = replaceTarget or not "controller" in log["target"].getLog()
+    if replaceTarget:
+        log["target"] = getTarget(core, log["team"])
+    targetEnt = log["target"]
+    if targetEnt:
+        target = targetEnt.getPhys().pos
+        diff = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
+        diff = normalize(diff)
+        speed = log["speed"]
+        phys.impulse = Vec2( (phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed) )
+        direction = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
+        firing_control(core, True, log, phys, normalize(direction))
 
-    direction = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
-    firing_control(core, True, log, phys, normalize(direction))
-
+    if "big" not in log: log["big"] = 0
     for k in phys.contacts:
         ent = core.entities.getHandle(k.which)
         elog = ent.getLog()
+        dmg = 0.0
+        el = (1.0 - phys.elasticity * ent.getPhys().elasticity)
+        forceDmg = (k.force * el) / 2500
+        if forceDmg > log["maxHP"] / 20:
+            dmg = forceDmg
+            #print(k.force, el, dmg, log["hp"])
         if "dmg" in elog and elog["team"] != log["team"]:
-            dmg = elog["dmg"]
-            log["hp"] = max(0, log["hp"] - dmg)
-            if 0.0 == log["hp"]:
-                print("Rip drone", drone)
-                drone.getVis().colour = Vec3( (0x77, 0x77, 0x77) )
-                del log["controller"]
-                phys.gather = False
-                break
+            dmg += elog["dmg"]
+        log["hp"] = max(0, log["hp"] - dmg)
+        if 0.0 == log["hp"]:
+            #print("Rip drone", drone)
+            drone.getVis().colour = Vec3( (0x77, 0x77, 0x77) )
+            del log["controller"]
+            phys.gather = False
+            log["hive"].getLog()["budget"] += 1
+            break
+
+def control_hive(core, hive):
+    phys = hive.getPhys()
+    log = hive.getLog()
+    def spawn():
+        x = phys.pos[0] + random.uniform(-1, 1)
+        y = phys.pos[1] + random.uniform(-1, 1)
+        drone = putDrone(core, x, y, hive, 10, 0.2, 1.0)
+        log["budget"] -= 1
+        drone.getVis().colour = hive.getVis().colour
+    if log["budget"] > 0:
+        cooldownFunc(log, "spawnCooling", "spawnCooldown", spawn, core.physics.timestep())
+    pass
 
 def control_player(core, player):
-    rotate_colour(player.getVis())
-
     log = player.getLog()
     phys = player.getPhys()
-    log["team"] = "player"
 
     direction = core.visuals.screenToWorld(core.input.mousePos())
     direction = Vec2( (direction[0] - phys.pos[0], direction[1] - phys.pos[1]) )
-    firing_control(core, core.input.mouseHeld(1), log, phys, normalize(direction))
+    b = firing_control(core, core.input.mouseHeld(1), log, phys, normalize(direction))
+    if b:
+        b.getVis().colour = Vec3( (0, 0, 0xFF) )
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
-    speed = log["speed"]
-    if core.input.isHeld(97) and phys.vel[0] > -speed:
-        phys.acc = Vec2( (phys.acc[0] + max(-speed, phys.acc[0] - speed), phys.acc[1]) )
-    if core.input.isHeld(100) and phys.vel[0] < speed:
-        phys.acc = Vec2( (phys.acc[0] + min( speed, phys.acc[0] + speed), phys.acc[1]) )
-    if core.input.isHeld(119) and phys.vel[1] < speed:
-        phys.acc = Vec2( (phys.acc[0], phys.acc[1] + min( speed, phys.acc[1] + speed)) )
-    if core.input.isHeld(115) and phys.vel[1] > -speed:
-        phys.acc = Vec2( (phys.acc[0], phys.acc[1] + max(-speed, phys.acc[1] - speed)) )
+    speed = log["speed"] * 10
+    fact = 100.0
+    dirs = [0, 0]
+    if core.input.isHeld(97):
+        dirs[0] += -1
+    if core.input.isHeld(100):
+        dirs[0] += 1
+    if core.input.isHeld(119):
+        dirs[1] += 1
+    if core.input.isHeld(115):
+        dirs[1] += -1
+    phys.acc = Vec2((
+        phys.acc[0] + clamp(-speed, speed, phys.acc[0] + dirs[0] * (speed / fact)),
+        phys.acc[1] + clamp(-speed, speed, phys.acc[1] + dirs[1] * (speed / fact)),
+    ))
