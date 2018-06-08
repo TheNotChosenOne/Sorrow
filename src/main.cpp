@@ -28,8 +28,8 @@
 #include "timers.h"
 #include "core.h"
 
-const size_t SCREEN_WIDTH = 512;
-const size_t SCREEN_HEIGHT = 512;
+const size_t SCREEN_WIDTH = 1024;
+const size_t SCREEN_HEIGHT = 1024;
 
 static void mainLoop(Core &core) {
     AccumulateTimer visualsUse;

@@ -81,7 +81,7 @@ void VisualManager::updater(Core &core, const Components &lasts, Components &nex
 
 VisualManager::VisualManager()
     : cam(0, 0)
-    , FOV(256, 256) {
+    , FOV(1024, 1024) {
 }
 
 void VisualManager::visualUpdate(Core &core) {
