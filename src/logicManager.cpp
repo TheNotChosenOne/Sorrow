@@ -119,10 +119,10 @@ std::ostream &operator<<(std::ostream &os, const PythonData &pd) {
 LogicManager::LogicManager() {
     pyCore = nullptr;
     Py_Initialize();
-    const std::string filename = "src/script.py";
-    FILE *fp = fopen(filename.c_str(), "r");
+    const char *filename = "src/script.py";
+    FILE *fp = fopen(filename, "r");
     rassert(fp, "Failed to open: ", filename);
-    PyRun_SimpleFile(fp, filename.c_str());
+    PyRun_SimpleFile(fp, filename);
 
     PyTypesInit();
 }
@@ -194,6 +194,7 @@ const PythonData &LogicManager::get(Entity e) const {
 
 void LogicManager::logicUpdate(Core &core) {
     PyObject *lifeString = toPython("lifetime");
+    PyObject *deathString = toPython("onDeath");
     PyObject *args = PyTuple_New(2);
     Py_INCREF(pyCore);
     PyTuple_SetItem(args, 0, pyCore);
@@ -227,6 +228,25 @@ void LogicManager::logicUpdate(Core &core) {
             }
         }
     }
+    for (size_t i = 0; i < components.size(); ++i) {
+        PyObject *dict = components[i]->dict;
+        if (PyDict_Contains(dict, deathString)) {
+            EntityHandle &handle = core.entities.getHandleFromLow(i);
+            if (handle->dying()) {
+                PyTuple_SetItem(args, 1, toPython(handle));
+                PyObject *result = PyObject_CallObject(PyDict_GetItem(dict, deathString), args);
+                if (!result) {
+                    if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
+                        std::cout << "\nKeyboard interrupt caught\n";
+                        exit(1);
+                    }
+                    PyErr_Print();
+                }
+                Py_XDECREF(result);
+            }
+        }
+    }
+    Py_DECREF(deathString);
     Py_DECREF(lifeString);
     Py_DECREF(args);
     const double interp = 0.00000001;
@@ -262,9 +282,10 @@ static PyTypeObject lmType = [](){
 
 }
 
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&lmType); }))
+
 template<>
 PyObject *toPython< LogicManager >(LogicManager &lm) {
-    RUN_ONCE(PyType_Ready(&lmType));
     PyLogicManager *plm;
     plm = reinterpret_cast< PyLogicManager * >(lmType.tp_alloc(&lmType, 0));
     if (plm) {
