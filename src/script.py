@@ -58,15 +58,42 @@ def putNPC(ent, controller,):
     log["speed"] = 900 * ent.getPhys().mass
     log["controller"] = controller
 
+
+def randomAroundCircle(x, y, rad):
+    theta = random.random() * 2.0 * math.pi
+    return (x + rad * math.cos(theta), y + rad * math.sin(theta))
+
+def randomInCircle(x, y, rad):
+    return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
+
+def putLittleDecay(core, source, x, y, rad, lifetime):
+    sp = source.getPhys()
+    e = core.entities.create()
+    where = randomInCircle(x, y, rad)
+    putPhys(e, where[0], where[1], rad, rad, False, "circle", 1.0, 0.95)
+    e.getPhys().vel = Vec2( randomAroundCircle(0, 0, 10.0 * sp.mass) )
+    putVis(e, 0, 0, 0)
+    setDecaying(core, e, lifetime, (0xFF, 0xFF, 0xFF))
+    return e
+
+def droneDeath(core, drone):
+    phys = drone.getPhys()
+    rad = phys.rad[0] / 4.0
+    bits = math.ceil((phys.rad[0] * phys.rad[1]) / (rad * rad))
+    for i in range(bits):
+        putLittleDecay(core, drone, phys.pos[0], phys.pos[1], rad, 3.0 + random.uniform(0, 3.0))
+
 def putDrone(core, x, y, hive, rad, density, elasticity):
     e = core.entities.create()
     putPhys(e, x, y, rad, rad, False, "circle", density, elasticity)
     putVis(e, 0xFF, 0, 0)
     putNPC(e, "drone")
     putWeapons(e)
-    e.getLog()["team"] = hive.getLog()["team"]
-    e.getLog()["hive"] = hive
-    e.getLog()["npc"] = True
+    log = e.getLog()
+    log["team"] = hive.getLog()["team"]
+    log["hive"] = hive
+    log["npc"] = True
+    log["onDeath"] = droneDeath
     return e
 
 def putHive(core, team, x, y, r, g, b):
@@ -76,8 +103,8 @@ def putHive(core, team, x, y, r, g, b):
     log = e.getLog()
     log["controller"] = "hive"
     log["team"] = team
-    log["budget"] = 3
-    log["spawnCooldown"] = 2
+    log["budget"] = 7
+    log["spawnCooldown"] = 1.0
     log["spawnCooling"] = log["spawnCooldown"]
     return e
 
@@ -142,7 +169,7 @@ def fire(core, log, phys, direction):
     bphys.phased = False
     bphys.gather = True
     b.getVis().draw = True
-    b.getVis().colour = Vec3( (0, 0, 0) )
+    b.getVis().colour = Vec3( (125, 60, 152) )
     b.getLog()["dmg"] = 0
     b.getLog()["team"] = log["team"]
     b.getLog()["bullet"] = 1
@@ -188,6 +215,26 @@ def getTarget(core, team):
             return h
     return None
 
+def setDecaying(core, ent, lifetime, to=(0, 0, 0)):
+    log = ent.getLog()
+    log["lifetime"] = lifetime
+    log["maxLifetime"] = lifetime
+    log["controller"] = "decay"
+    log["originalColour"] = ent.getVis().colour
+    log["targetColour"] = to
+
+def clampColour(r, g, b):
+    return Vec3( ( clamp(0, 0xFF, r), clamp(0, 0xFF, g), clamp(0, 0xFF, b) ) )
+
+def control_decay(core, decay):
+    log = decay.getLog()
+    perc = log["lifetime"] / log["maxLifetime"]
+    vis = decay.getVis()
+    goal = log["originalColour"]
+    base = log["targetColour"]
+    erp = lambda i: base[i] + (goal[i] - base[i]) * perc
+    vis.colour = clampColour(erp(0), erp(1), erp(2))
+
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
@@ -195,6 +242,7 @@ def control_drone(core, drone):
     replaceTarget = replaceTarget or not log["target"]
     replaceTarget = replaceTarget or not log["target"].isAlive()
     replaceTarget = replaceTarget or not "controller" in log["target"].getLog()
+    replaceTarget = replaceTarget or not "npc" in log["target"].getLog()
     if replaceTarget:
         log["target"] = getTarget(core, log["team"])
     targetEnt = log["target"]
@@ -223,9 +271,10 @@ def control_drone(core, drone):
         if 0.0 == log["hp"]:
             #print("Rip drone", drone)
             drone.getVis().colour = Vec3( (0x77, 0x77, 0x77) )
-            del log["controller"]
             phys.gather = False
             log["hive"].getLog()["budget"] += 1
+            setDecaying(core, drone, 3.0 + random.uniform(0, 2.0))
+            del log["npc"]
             break
 
 def control_hive(core, hive):
