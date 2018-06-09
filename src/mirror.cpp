@@ -106,6 +106,7 @@ PyObject *PyMirrorMake(Mirror *mirror) {
     return reinterpret_cast< PyObject * >(self);
 }
 
+std::vector< std::function< void() > > PyTypes_InitList;
 void PyTypesInit() {
     PyType_Ready(&mirrorType);
     k_PyVec2Type = PyStructSequence_NewType(&PyVec2);
@@ -123,6 +124,8 @@ void PyTypesInit() {
     PyModule_AddObject(main, "Vec3", reinterpret_cast< PyObject * >(k_PyVec3Type));
 
     Py_DECREF(mainString);
+
+    for (const auto &f : PyTypes_InitList) { f(); }
 }
 
 template<>

@@ -97,9 +97,10 @@ static PyTypeObject rendererType = [](){
 
 }
 
+RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&rendererType); }))
+
 template<>
 PyObject *toPython< Renderer >(Renderer &rend) {
-    RUN_ONCE(PyType_Ready(&rendererType));
     PyRenderer *pin;
     pin = reinterpret_cast< PyRenderer * >(rendererType.tp_alloc(&rendererType, 0));
     if (pin) {

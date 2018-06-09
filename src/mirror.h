@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <Python.h>
 #include <iostream>
 #include <utility>
@@ -30,6 +31,7 @@ class HanaMirror;
 // Takes ownership of pointer memory
 PyObject *PyMirrorMake(Mirror *mirror);
 
+extern std::vector< std::function< void() > > PyTypes_InitList;
 void PyTypesInit();
 
 template< typename T >

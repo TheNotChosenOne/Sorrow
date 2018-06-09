@@ -96,9 +96,11 @@ static PyTypeObject inputType = [](){
 }();
 
 }
+
+RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&inputType); }))
+
 template<>
 PyObject *toPython< Input >(Input &in) {
-    RUN_ONCE(PyType_Ready(&inputType));
     PyInput *pin;
     pin = reinterpret_cast< PyInput * >(inputType.tp_alloc(&inputType, 0));
     if (pin) {

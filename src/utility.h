@@ -96,8 +96,14 @@ std::ostream &operator<<(std::ostream &os, const std::shared_ptr< T > &ptr) {
     return (os << '}');
 }
 
-#define RUN_ONCE(expr) { static bool _run_once_first = true; \
-    if (_run_once_first) { _run_once_first = false; expr; } }
+#define RUN_ONCE(body) { static bool _run_once_first = true; \
+    if (_run_once_first) { _run_once_first = false; body; } }
+
+#define _MACRO_COMBINER(X,Y) X##Y
+#define MACRO_COMBINER(X,Y) _MACRO_COMBINER(X,Y)
+#define MC(X,Y) MACRO_COMBINER(X,Y)
+#define RUN_STATIC_NAMED(name,body) namespace { struct MC(str,name) { MC(str,name) (){ body; } } MC(inst,name) ; }
+#define RUN_STATIC(body) RUN_STATIC_NAMED(MC(StaticHack,__LINE__), body)
 
 #define rassert(expr, ...) \
     _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \

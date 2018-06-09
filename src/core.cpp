@@ -34,12 +34,13 @@ static PyTypeObject *k_PyCoreType;
 
 }
 
+RUN_STATIC(
+    k_PyCoreType = PyStructSequence_NewType(&PyCore);
+    k_PyCoreType->tp_flags |= Py_TPFLAGS_HEAPTYPE;
+)
+
 template<>
 PyObject *toPython< Core >(Core &core) {
-    RUN_ONCE(
-        k_PyCoreType = PyStructSequence_NewType(&PyCore);
-        k_PyCoreType->tp_flags |= Py_TPFLAGS_HEAPTYPE;
-    );
     PyObject *obj = PyStructSequence_New(k_PyCoreType);
     size_t index = 0;
     PyStructSequence_SetItem(obj, index++, toPython(core.renderer));

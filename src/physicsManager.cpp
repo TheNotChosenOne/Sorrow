@@ -343,9 +343,10 @@ static PyTypeObject pmType = [](){
 
 }
 
+RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&pmType); }))
+
 template<>
 PyObject *toPython< PhysicsManager >(PhysicsManager &pm) {
-    RUN_ONCE(PyType_Ready(&pmType));
     PyPhysicsManager *ppm;
     ppm = reinterpret_cast< PyPhysicsManager * >(pmType.tp_alloc(&pmType, 0));
     if (ppm) {

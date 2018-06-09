@@ -124,9 +124,10 @@ static PyTypeObject visManType = [](){
 
 }
 
+RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&visManType); }))
+
 template<>
 PyObject *toPython< VisualManager >(VisualManager &visMan) {
-    RUN_ONCE(PyType_Ready(&visManType));
     PyVisualManager *pvm;
     pvm = reinterpret_cast< PyVisualManager * >(visManType.tp_alloc(&visManType, 0));
     if (pvm) {
