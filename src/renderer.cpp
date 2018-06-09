@@ -97,7 +97,7 @@ static PyTypeObject rendererType = [](){
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&rendererType); }))
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&rendererType); }))
 
 template<>
 PyObject *toPython< Renderer >(Renderer &rend) {

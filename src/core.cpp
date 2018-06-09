@@ -30,18 +30,18 @@ static PyStructSequence_Desc PyCore {
     .n_in_sequence = (sizeof(PyCoreArr) / sizeof(*PyCoreArr)) - 1,
 };
 
-static PyTypeObject *k_PyCoreType;
+static PyTypeObject PyCoreType;
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){
-    k_PyCoreType = PyStructSequence_NewType(&PyCore);
-    k_PyCoreType->tp_flags |= Py_TPFLAGS_HEAPTYPE;
+RUN_STATIC(addPyTypeInitializer([](){
+    PyStructSequence_InitType(&PyCoreType, &PyCore);
+    PyCoreType.tp_flags |= Py_TPFLAGS_HEAPTYPE;
 }))
 
 template<>
 PyObject *toPython< Core >(Core &core) {
-    PyObject *obj = PyStructSequence_New(k_PyCoreType);
+    PyObject *obj = PyStructSequence_New(&PyCoreType);
     size_t index = 0;
     PyStructSequence_SetItem(obj, index++, toPython(core.renderer));
     PyStructSequence_SetItem(obj, index++, toPython(core.input));

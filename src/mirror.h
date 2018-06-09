@@ -31,8 +31,10 @@ class HanaMirror;
 // Takes ownership of pointer memory
 PyObject *PyMirrorMake(Mirror *mirror);
 
-extern std::vector< std::function< void() > > PyTypes_InitList;
+void addPyTypeInitializer(const std::function< void() > &func);
 void PyTypesInit();
+
+#define PyStructSequence_NewType static_assert(false); // This function doesn't work
 
 template< typename T >
 Mirror *getMirrorFor(T &t) {

@@ -80,8 +80,8 @@ static PyStructSequence_Desc PyVec3 {
     .n_in_sequence = 3,
 };
 
-static PyTypeObject *k_PyVec2Type;
-static PyTypeObject *k_PyVec3Type;
+static PyTypeObject PyVec2Type;
+static PyTypeObject PyVec3Type;
 
 }
 
@@ -106,26 +106,33 @@ PyObject *PyMirrorMake(Mirror *mirror) {
     return reinterpret_cast< PyObject * >(self);
 }
 
-std::vector< std::function< void() > > PyTypes_InitList;
+std::vector< std::function< void() > > *PyTypes_InitList;
+void addPyTypeInitializer(const std::function< void() > &func) {
+    static std::vector< std::function< void() > > listy;
+    PyTypes_InitList = &listy;
+    listy.push_back(func);
+}
+
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&mirrorType); }))
 void PyTypesInit() {
-    PyType_Ready(&mirrorType);
-    k_PyVec2Type = PyStructSequence_NewType(&PyVec2);
-    k_PyVec3Type = PyStructSequence_NewType(&PyVec3);
-    k_PyVec2Type->tp_flags |= Py_TPFLAGS_HEAPTYPE;
-    k_PyVec3Type->tp_flags |= Py_TPFLAGS_HEAPTYPE;
+    PyStructSequence_InitType(&PyVec2Type, &PyVec2);
+    PyStructSequence_InitType(&PyVec3Type, &PyVec3);
+    PyVec2Type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
+    PyVec3Type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
 
     PyObject *mods = PyImport_GetModuleDict();
     PyObject *mainString = Py_BuildValue("s", "__main__");
     PyObject *main = PyDict_GetItem(mods, mainString);
 
-    Py_INCREF(k_PyVec2Type);
-    Py_INCREF(k_PyVec3Type);
-    PyModule_AddObject(main, "Vec2", reinterpret_cast< PyObject * >(k_PyVec2Type));
-    PyModule_AddObject(main, "Vec3", reinterpret_cast< PyObject * >(k_PyVec3Type));
+    Py_INCREF(&PyVec2Type);
+    Py_INCREF(&PyVec3Type);
+    PyModule_AddObject(main, "Vec2", reinterpret_cast< PyObject * >(&PyVec2Type));
+    PyModule_AddObject(main, "Vec3", reinterpret_cast< PyObject * >(&PyVec3Type));
 
     Py_DECREF(mainString);
 
-    for (const auto &f : PyTypes_InitList) { f(); }
+    for (const auto &f : *PyTypes_InitList) { f(); }
+    PyTypes_InitList->clear();
 }
 
 template<>
@@ -227,7 +234,7 @@ void fromPython< Vec3 >(Vec3 &v, PyObject *obj) {
 
 template<>
 PyObject *toPython< const Vec >(const Vec &v) {
-    PyObject *obj = PyStructSequence_New(k_PyVec2Type);
+    PyObject *obj = PyStructSequence_New(&PyVec2Type);
     for (size_t i = 0; i < 2; ++i) {
         PyStructSequence_SetItem(obj, i, PyFloat_FromDouble(v[i]));
     }
@@ -236,7 +243,7 @@ PyObject *toPython< const Vec >(const Vec &v) {
 
 template<>
 PyObject *toPython< Vec >(Vec &v) {
-    PyObject *obj = PyStructSequence_New(k_PyVec2Type);
+    PyObject *obj = PyStructSequence_New(&PyVec2Type);
     for (size_t i = 0; i < 2; ++i) {
         PyStructSequence_SetItem(obj, i, PyFloat_FromDouble(v[i]));
     }
@@ -245,7 +252,7 @@ PyObject *toPython< Vec >(Vec &v) {
 
 template<>
 PyObject *toPython< const Vec3 >(const Vec3 &v) {
-    PyObject *obj = PyStructSequence_New(k_PyVec3Type);
+    PyObject *obj = PyStructSequence_New(&PyVec3Type);
     for (size_t i = 0; i < 3; ++i) {
         PyStructSequence_SetItem(obj, i, PyFloat_FromDouble(v[i]));
     }
@@ -254,7 +261,7 @@ PyObject *toPython< const Vec3 >(const Vec3 &v) {
 
 template<>
 PyObject *toPython< Vec3 >(Vec3 &v) {
-    PyObject *obj = PyStructSequence_New(k_PyVec3Type);
+    PyObject *obj = PyStructSequence_New(&PyVec3Type);
     for (size_t i = 0; i < 3; ++i) {
         PyStructSequence_SetItem(obj, i, PyFloat_FromDouble(v[i]));
     }

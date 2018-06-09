@@ -97,7 +97,7 @@ static PyTypeObject inputType = [](){
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&inputType); }))
+RUN_STATIC(addPyTypeInitializer([](){PyType_Ready(&inputType);}))
 
 template<>
 PyObject *toPython< Input >(Input &in) {

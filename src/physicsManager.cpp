@@ -343,7 +343,7 @@ static PyTypeObject pmType = [](){
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&pmType); }))
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&pmType); }))
 
 template<>
 PyObject *toPython< PhysicsManager >(PhysicsManager &pm) {

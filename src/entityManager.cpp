@@ -104,7 +104,7 @@ static PyTypeObject entityHandleType = [](){
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&entityHandleType); }))
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&entityHandleType); }))
 
 template<>
 PyObject *toPython< EntityHandle >(EntityHandle &eh) {
@@ -265,7 +265,8 @@ static PyTypeObject entityManagerType = [](){
 
 }
 
-RUN_STATIC(PyTypes_InitList.push_back([](){PyType_Ready(&entityManagerType);}))
+RUN_STATIC(addPyTypeInitializer([](){ PyType_Ready(&entityManagerType); }))
+
 template<>
 PyObject *toPython< EntityManager >(EntityManager &entMan) {
     PyEntityManager *pin;
