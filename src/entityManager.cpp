@@ -49,6 +49,10 @@ bool EntityView::isAlive() const {
     return alive;
 }
 
+bool EntityView::dying() const {
+    return alive && manager.graveyard.count(ent);
+}
+
 std::ostream &operator<<(std::ostream &os, const EntityView &ev) {
     return (os << "entity " << ev.ent << '(' << ev.alive << ')');
 }
@@ -100,9 +104,10 @@ static PyTypeObject entityHandleType = [](){
 
 }
 
+RUN_STATIC(PyTypes_InitList.push_back([](){ PyType_Ready(&entityHandleType); }))
+
 template<>
 PyObject *toPython< EntityHandle >(EntityHandle &eh) {
-    RUN_ONCE(PyType_Ready(&entityHandleType));
     PyEntityHandle *peh;
     peh = reinterpret_cast< PyEntityHandle * >(entityHandleType.tp_alloc(&entityHandleType, 0));
     if (peh) {
@@ -259,9 +264,10 @@ static PyTypeObject entityManagerType = [](){
 }();
 
 }
+
+RUN_STATIC(PyTypes_InitList.push_back([](){PyType_Ready(&entityManagerType);}))
 template<>
 PyObject *toPython< EntityManager >(EntityManager &entMan) {
-    RUN_ONCE(PyType_Ready(&entityManagerType));
     PyEntityManager *pin;
     pin = reinterpret_cast< PyEntityManager * >(entityManagerType.tp_alloc(&entityManagerType, 0));
     if (pin) {
