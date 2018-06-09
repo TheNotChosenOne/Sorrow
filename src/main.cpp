@@ -46,8 +46,9 @@ static void mainLoop(Core &core) {
     const bool sprint = core.options.count("sprint");
     const double pps = core.options["pps"].as< size_t >();
     const double fps = core.options["fps"].as< size_t >();
-    ActionTimer physTick(sprint ? 0 : 1.0 / pps);
-    ActionTimer drawTick(sprint ? 0 : 1.0 / fps);
+
+    ActionTimer physTick((sprint && core.options["pps"].defaulted()) ? 0 : 1.0 / pps);
+    ActionTimer drawTick((sprint && core.options["fps"].defaulted()) ? 0 : 1.0 / fps);
     ActionTimer infoTick(1.0);
     ActionTimer killer(std::numeric_limits< double >::infinity());
 
