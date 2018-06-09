@@ -34,10 +34,10 @@ static PyTypeObject *k_PyCoreType;
 
 }
 
-RUN_STATIC(
+RUN_STATIC(PyTypes_InitList.push_back([](){
     k_PyCoreType = PyStructSequence_NewType(&PyCore);
     k_PyCoreType->tp_flags |= Py_TPFLAGS_HEAPTYPE;
-)
+}))
 
 template<>
 PyObject *toPython< Core >(Core &core) {
