@@ -3,6 +3,7 @@
 #include "componentManager.h"
 #include "forwardMirror.h"
 #include "utility.h"
+#include "timers.h"
 #include "input.h"
 #include "core.h"
 
@@ -52,6 +53,8 @@ class LogicManager: public BaseComponentManager {
     private:
         std::map< std::string, PyObject * > controlFuncs;
         PyObject *pyCore;
+        ActionTimer perfTimer;
+        bool perfActive;
 
         Components components;
         Components nursery;
@@ -62,7 +65,7 @@ class LogicManager: public BaseComponentManager {
         void cull(size_t count) override;
 
     public:
-        LogicManager();
+        explicit LogicManager(const boost::program_options::variables_map &options);
         ~LogicManager();
         void setup(Core &core);
         void logicUpdate(Core &core);

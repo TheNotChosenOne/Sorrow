@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <utility>
 #include <stdio.h>
+#include <chrono>
 
 #include "physicsManager.h"
 #include "entityManager.h"
@@ -39,6 +40,30 @@ static PyObject *getGlobalFunc(const std::string &name) {
 
 static PyObject *getControlFunc(const std::string &controllerName) {
     return getGlobalFunc("control_" + controllerName);
+}
+
+static void pyPerfInit() {
+    PyRun_SimpleString(""
+        "import cProfile, pstats, io\n"
+        "def _profileStart():\n"
+        "\tpr = cProfile.Profile()\n"
+        "\tpr.enable()\n"
+        "\treturn pr\n"
+        ""
+        "def _profileStop(pr, stat):\n"
+        "\tpr.disable()\n"
+        "\ts = io.StringIO()\n"
+        "\tps = pstats.Stats(pr, stream=s).sort_stats(stat)\n"
+        "\tps.print_stats()\n"
+        "\tprint(s.getvalue())\n");
+}
+
+static void pyPerfStart() {
+    PyRun_SimpleString("pr = _profileStart()");
+}
+
+static void pyPerfStop() {
+    PyRun_SimpleString("_profileStop(pr, 'tottime')");
 }
 
 };
@@ -116,7 +141,11 @@ std::ostream &operator<<(std::ostream &os, const PythonData &pd) {
     return os;
 }
 
-LogicManager::LogicManager() {
+
+
+LogicManager::LogicManager(const boost::program_options::variables_map &opts)
+    : perfTimer(opts["pyperf"].as< double >()) {
+    perfActive = false;
     pyCore = nullptr;
     Py_Initialize();
     const char *filename = "src/script.py";
@@ -144,6 +173,10 @@ void LogicManager::setup(Core &core) {
     Py_XDECREF(result);
     Py_DECREF(args);
     Py_DECREF(func);
+
+    if (!core.options["pyperf"].defaulted()) {
+        pyPerfInit();
+    }
 }
 
 LogicManager::~LogicManager() {
@@ -192,12 +225,20 @@ const PythonData &LogicManager::get(Entity e) const {
     return *components[e];
 }
 
+
 void LogicManager::logicUpdate(Core &core) {
     PyObject *lifeString = toPython("lifetime");
     PyObject *deathString = toPython("onDeath");
     PyObject *args = PyTuple_New(2);
     Py_INCREF(pyCore);
     PyTuple_SetItem(args, 0, pyCore);
+
+    if (!perfActive && !core.options["pyperf"].defaulted()) {
+        pyPerfStart();
+        perfActive = true;
+    }
+    const auto startTime = std::chrono::high_resolution_clock::now();
+
     for (size_t i = 0; i < components.size(); ++i) {
         PyObject *dict = components[i]->dict;
         if (components[i]->has("controller")) {
@@ -249,6 +290,14 @@ void LogicManager::logicUpdate(Core &core) {
     Py_DECREF(deathString);
     Py_DECREF(lifeString);
     Py_DECREF(args);
+
+    const auto stopTime = std::chrono::high_resolution_clock::now();
+    const auto duration = std::chrono::duration< double >(stopTime - startTime);
+    if (perfActive && perfTimer.tick(duration)) {
+        pyPerfStop();
+        perfActive = false;
+    }
+
     const double interp = 0.00000001;
     const Vec target = core.player->getPhys().pos - (core.visuals.FOV / 2.0);
     core.visuals.cam = interp * core.visuals.cam + (1.0 - interp) * target;

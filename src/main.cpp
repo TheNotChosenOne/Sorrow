@@ -176,7 +176,7 @@ static void run(boost::program_options::variables_map &options) {
     entityMan->attach(std::move(visMan));
 
     std::unique_ptr< LogicManager > logMan;
-    logMan = std::make_unique< LogicManager >();
+    logMan = std::make_unique< LogicManager >(options);
     LogicManager &logRef = *logMan;
     entityMan->attach(std::move(logMan));
 
@@ -205,6 +205,8 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("pps", po::value< size_t >()->default_value(STEPS_PER_SECOND), "Physics / second")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
+        ("pyperf", po::value< double >()->default_value(infty< double >()),
+                   "Show script performance monitoring information every x seconds")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);
