@@ -16,7 +16,7 @@
 #include <set>
 
 template< typename T >
-T infty() {
+constexpr T infty() {
     return std::numeric_limits< T >::infinity();
 }
 
