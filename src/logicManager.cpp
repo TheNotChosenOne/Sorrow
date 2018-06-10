@@ -50,11 +50,11 @@ static void pyPerfInit() {
         "\tpr.enable()\n"
         "\treturn pr\n"
         ""
-        "def _profileStop(pr, stat):\n"
+        "def _profileStop(pr, sortby):\n"
         "\tpr.disable()\n"
         "\ts = io.StringIO()\n"
-        "\tps = pstats.Stats(pr, stream=s).sort_stats(stat)\n"
-        "\tps.print_stats()\n"
+        "\tps = pstats.Stats(pr, stream=s).sort_stats(*sortby)\n"
+        "\tps.print_stats('{method.*objects}|src/script', 1.)\n"
         "\tprint(s.getvalue())\n");
 }
 
@@ -63,7 +63,7 @@ static void pyPerfStart() {
 }
 
 static void pyPerfStop() {
-    PyRun_SimpleString("_profileStop(pr, 'tottime')");
+    PyRun_SimpleString("_profileStop(pr, ('cumulative',))");
 }
 
 };
