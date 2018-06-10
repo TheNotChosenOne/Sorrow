@@ -12,6 +12,7 @@
 
 #include "utility.h"
 #include "forwardMirror.h"
+#include "pyVec.h"
 
 class Mirror {
     public:
@@ -60,23 +61,17 @@ T fromPython(PyObject *obj) {
     return t;
 }
 
-template<> PyObject *toPython< Vec > (Vec &v);
 template<> PyObject *toPython< bool >(bool &b);
-template<> PyObject *toPython< Vec3 > (Vec3 &v);
 template<> PyObject *toPython< size_t >(size_t &v);
 template<> PyObject *toPython< double >(double &v);
 template<> PyObject *toPython< int64_t >(int64_t &v);
 template<> PyObject *toPython< std::string >(std::string &v);
-template<> PyObject *toPython< const Vec > (const Vec &v);
 template<> PyObject *toPython< const bool >(const bool &b);
-template<> PyObject *toPython< const Vec3 > (const Vec3 &v);
 template<> PyObject *toPython< const size_t >(const size_t &v);
 template<> PyObject *toPython< const double >(const double &v);
 template<> PyObject *toPython< const int64_t >(const int64_t &v);
 template<> PyObject *toPython< const std::string >(const std::string &v);
-template<> void fromPython< Vec >(Vec &v, PyObject *obj);
 template<> void fromPython< bool >(bool &v, PyObject *obj);
-template<> void fromPython< Vec3 >(Vec3 &v, PyObject *obj);
 template<> void fromPython< size_t >(size_t &v, PyObject *obj);
 template<> void fromPython< double >(double &v, PyObject *obj);
 template<> void fromPython< int64_t >(int64_t &v, PyObject *obj);

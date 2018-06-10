@@ -9,13 +9,13 @@ def clamp(low, high, x):
 
 def normalize(v):
     length = math.sqrt(v[0] * v[0] + v[1] * v[1])
-    if length > 0.0: v = Vec2( (v[0] / length, v[1] / length) )
+    if length > 0.0: v = Vec2(v[0] / length, v[1] / length)
     return v
 
 def putPhys(ent, x, y, w, h, static, shape, density=1.0, elasticity=None):
     phys = ent.getPhys()
-    phys.pos = Vec2( (x, y) )
-    phys.rad = Vec2( (w / 2.0, h / 2.0) ) if "box" == shape else Vec2( (w, h) )
+    phys.pos = Vec2(x, y)
+    phys.rad = Vec2(w / 2.0, h / 2.0) if "box" == shape else Vec2(w, h)
     phys.area = w + h
     phys.elasticity = elasticity if elasticity else (0.1 if static else 0.95)
     phys.phased = False
@@ -29,7 +29,7 @@ def putPhys(ent, x, y, w, h, static, shape, density=1.0, elasticity=None):
 
 def putVis(ent, r, g, b):
     vis = ent.getVis()
-    vis.colour = Vec3( (r, g, b) )
+    vis.colour = Vec3(r, g, b)
     vis.draw = True
 
 def putWall(core, x, y, w, h):
@@ -71,7 +71,7 @@ def putLittleDecay(core, source, x, y, rad, lifetime):
     e = core.entities.create()
     where = randomInCircle(x, y, rad)
     putPhys(e, where[0], where[1], rad, rad, False, "circle", 1.0, 0.95)
-    e.getPhys().vel = Vec2( randomAroundCircle(0, 0, 10.0 * sp.mass) )
+    e.getPhys().vel = Vec2( *randomAroundCircle(0, 0, 10.0 * sp.mass) )
     putVis(e, 0, 0, 0)
     setDecaying(core, e, lifetime, (0xFF, 0xFF, 0xFF))
     return e
@@ -154,13 +154,11 @@ def fire(core, log, phys, direction):
     force = 50 * log["bulletForce"] * core.physics.stepsPerSecond()
     offset = 1.0001 * (phys.rad[0] + brad)
     bphys = b.getPhys()
-    bphys.pos = Vec2( (phys.pos[0] + direction[0] * offset, phys.pos[1] + direction[1] * offset) )
-    bphys.vel = Vec2( (0, 0) )
-    bphys.acc = Vec2( (0, 0) )
-    bphys.impulse = Vec2( (direction[0] * force, direction[1] * force) )
-    phys.impulse = Vec2( (phys.impulse[0] - bphys.impulse[0] / 250, phys.impulse[1] - bphys.impulse[1] / 250) )
-    bphys.rad = Vec2( (brad, brad) )
-    bphys.surface = Vec2( (0, 1) )
+    bphys.pos = Vec2(phys.pos[0] + direction[0] * offset, phys.pos[1] + direction[1] * offset)
+    bphys.impulse = Vec2(direction[0] * force, direction[1] * force)
+    phys.impulse = Vec2(phys.impulse[0] - bphys.impulse[0] / 250, phys.impulse[1] - bphys.impulse[1] / 250)
+    bphys.rad = Vec2(brad)
+    bphys.surface = Vec2(0, 1)
     bphys.mass = math.pi * brad * brad
     bphys.area = brad * brad
     bphys.elasticity = 0.95
@@ -169,7 +167,7 @@ def fire(core, log, phys, direction):
     bphys.phased = False
     bphys.gather = True
     b.getVis().draw = True
-    b.getVis().colour = Vec3( (125, 60, 152) )
+    b.getVis().colour = Vec3(125, 60, 152)
     b.getLog()["dmg"] = 0
     b.getLog()["team"] = log["team"]
     b.getLog()["bullet"] = 1
@@ -232,7 +230,7 @@ def control_decay(core, decay):
     k = [0, 0, 0]
     for i in range(3):
         k[i] = base[i] + (goal[i] - base[i]) * perc
-    vis.colour = Vec3(tuple(k))
+    vis.colour = Vec3(*tuple(k))
 
 def control_drone(core, drone):
     log = drone.getLog()
@@ -247,11 +245,11 @@ def control_drone(core, drone):
     targetEnt = log["target"]
     if targetEnt:
         target = targetEnt.getPhys().pos
-        diff = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
+        diff = Vec2(target[0] - phys.pos[0], target[1] - phys.pos[1])
         diff = normalize(diff)
         speed = log["speed"]
-        phys.impulse = Vec2( (phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed) )
-        direction = Vec2( (target[0] - phys.pos[0], target[1] - phys.pos[1]) )
+        phys.impulse = Vec2(phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed)
+        direction = Vec2(target[0] - phys.pos[0], target[1] - phys.pos[1])
         firing_control(core, True, log, phys, normalize(direction))
 
     if "big" not in log: log["big"] = 0
@@ -269,7 +267,7 @@ def control_drone(core, drone):
         log["hp"] = max(0, log["hp"] - dmg)
         if 0.0 == log["hp"]:
             #print("Rip drone", drone)
-            drone.getVis().colour = Vec3( (0x77, 0x77, 0x77) )
+            drone.getVis().colour = Vec3(0x77, 0x77, 0x77)
             phys.gather = False
             log["hive"].getLog()["budget"] += 1
             setDecaying(core, drone, 3.0 + random.uniform(0, 2.0))
@@ -294,10 +292,10 @@ def control_player(core, player):
     phys = player.getPhys()
 
     direction = core.visuals.screenToWorld(core.input.mousePos())
-    direction = Vec2( (direction[0] - phys.pos[0], direction[1] - phys.pos[1]) )
+    direction = Vec2(direction[0] - phys.pos[0], direction[1] - phys.pos[1])
     b = firing_control(core, core.input.mouseHeld(1), log, phys, normalize(direction))
     if b:
-        b.getVis().colour = Vec3( (0, 0, 0xFF) )
+        b.getVis().colour = Vec3(0, 0, 0xFF)
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
     speed = log["speed"] * 10
@@ -311,7 +309,7 @@ def control_player(core, player):
         dirs[1] += 1
     if core.input.isHeld(115):
         dirs[1] += -1
-    phys.acc = Vec2((
+    phys.acc = Vec2(
         phys.acc[0] + clamp(-speed, speed, phys.acc[0] + dirs[0] * (speed / fact)),
         phys.acc[1] + clamp(-speed, speed, phys.acc[1] + dirs[1] * (speed / fact)),
-    ))
+    )
