@@ -223,17 +223,16 @@ def setDecaying(core, ent, lifetime, to=(0, 0, 0)):
     log["originalColour"] = ent.getVis().colour
     log["targetColour"] = to
 
-def clampColour(r, g, b):
-    return Vec3( ( clamp(0, 0xFF, r), clamp(0, 0xFF, g), clamp(0, 0xFF, b) ) )
-
 def control_decay(core, decay):
     log = decay.getLog()
     perc = log["lifetime"] / log["maxLifetime"]
     vis = decay.getVis()
     goal = log["originalColour"]
     base = log["targetColour"]
-    erp = lambda i: base[i] + (goal[i] - base[i]) * perc
-    vis.colour = clampColour(erp(0), erp(1), erp(2))
+    k = [0, 0, 0]
+    for i in range(3):
+        k[i] = base[i] + (goal[i] - base[i]) * perc
+    vis.colour = Vec3(tuple(k))
 
 def control_drone(core, drone):
     log = drone.getLog()
