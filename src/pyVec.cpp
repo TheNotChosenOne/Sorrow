@@ -370,7 +370,7 @@ static PyTypeObject PyVec3TypeMaker() {
     obj.tp_basicsize = sizeof(PyVec3);
     obj.tp_doc = "3D Vector";
     obj.tp_flags = Py_TPFLAGS_DEFAULT;
-    obj.tp_as_number = &PyVecNumber;
+    obj.tp_as_number = &PyVec3Number;
     obj.tp_as_mapping = &PyVec3Mapping;
     obj.tp_repr = reinterpret_cast< reprfunc >(Py_repr< PyVec3 >);
     obj.tp_hash = reinterpret_cast< hashfunc >(Py_hash< PyVec3 >);
