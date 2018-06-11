@@ -70,7 +70,7 @@ def putLittleDecay(core, source, x, y, rad, lifetime):
     putPhys(e, where[0], where[1], rad, rad, False, "circle", 1.0, 0.95)
     e.getPhys().vel = Vec2( *randomAroundCircle(0, 0, 10.0 * sp.mass) )
     putVis(e, 0, 0, 0)
-    setDecaying(core, e, lifetime, (0xFF, 0xFF, 0xFF))
+    setDecaying(core, e, lifetime, Vec3(0xFF, 0xFF, 0xFF))
     return e
 
 def droneDeath(core, drone):
@@ -183,7 +183,6 @@ def control_bullet(core, bullet):
             break
 
 def firing_control(core, shouldFire, log, phys, direction):
-    #return None
     log["reload"] = max(0.0, log["reload"] - core.physics.timestep())
     if shouldFire and 0.0 == log["reload"]:
         log["reload"] = log["reloadTime"]
@@ -209,7 +208,7 @@ def getTarget(core, team):
             return h
     return None
 
-def setDecaying(core, ent, lifetime, to=(0, 0, 0)):
+def setDecaying(core, ent, lifetime, to=Vec3(0, 0, 0)):
     log = ent.getLog()
     log["lifetime"] = lifetime
     log["maxLifetime"] = lifetime
@@ -220,13 +219,9 @@ def setDecaying(core, ent, lifetime, to=(0, 0, 0)):
 def control_decay(core, decay):
     log = decay.getLog()
     perc = log["lifetime"] / log["maxLifetime"]
-    vis = decay.getVis()
     goal = log["originalColour"]
     base = log["targetColour"]
-    k = [0, 0, 0]
-    for i in range(3):
-        k[i] = base[i] + (goal[i] - base[i]) * perc
-    vis.colour = Vec3(*tuple(k))
+    decay.getVis().colour = base + (goal - base) * perc
 
 def updateTarget(core, log):
     replace = not "target" in log or \
@@ -248,7 +243,6 @@ def control_drone(core, drone):
         phys.impulse += direction * speed
         firing_control(core, True, log, phys, direction)
 
-    if "big" not in log: log["big"] = 0
     for k in phys.contacts:
         ent = core.entities.getHandle(k.which)
         elog = ent.getLog()
@@ -257,16 +251,14 @@ def control_drone(core, drone):
         forceDmg = (k.force * el) / 2500
         if forceDmg > log["maxHP"] / 20:
             dmg = forceDmg
-            #print(k.force, el, dmg, log["hp"])
         if "dmg" in elog and elog["team"] != log["team"]:
             dmg += elog["dmg"]
         log["hp"] = max(0, log["hp"] - dmg)
         if 0.0 == log["hp"]:
-            #print("Rip drone", drone)
             drone.getVis().colour = Vec3(0x77, 0x77, 0x77)
             phys.gather = False
             log["hive"].getLog()["budget"] += 1
-            setDecaying(core, drone, 3.0 + random.uniform(0, 2.0))
+            setDecaying(core, drone, 0.0003 + random.uniform(0, 2.0))
             del log["npc"]
             break
 
