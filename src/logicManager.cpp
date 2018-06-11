@@ -54,7 +54,7 @@ static void pyPerfInit() {
         "\tpr.disable()\n"
         "\ts = io.StringIO()\n"
         "\tps = pstats.Stats(pr, stream=s).sort_stats(*sortby)\n"
-        "\tps.print_stats('{method.*objects}|src/script', 1.)\n"
+        "\tps.print_stats('{method.*objects}|src/script|sorrow', 1.)\n"
         "\tprint(s.getvalue())\n");
 }
 

@@ -1,21 +1,18 @@
 import time
 import math
 import random
+import sorrow
+from sorrow import *
 
 random.seed(0x88888888)
 
 def clamp(low, high, x):
     return min(high, max(low, x))
 
-def normalize(v):
-    length = math.sqrt(v[0] * v[0] + v[1] * v[1])
-    if length > 0.0: v = Vec2(v[0] / length, v[1] / length)
-    return v
-
 def putPhys(ent, x, y, w, h, static, shape, density=1.0, elasticity=None):
     phys = ent.getPhys()
     phys.pos = Vec2(x, y)
-    phys.rad = Vec2(w / 2.0, h / 2.0) if "box" == shape else Vec2(w, h)
+    phys.rad = Vec2(w, h) / 2.0 if "box" == shape else Vec2(w, h)
     phys.area = w + h
     phys.elasticity = elasticity if elasticity else (0.1 if static else 0.95)
     phys.phased = False
@@ -154,11 +151,10 @@ def fire(core, log, phys, direction):
     force = 50 * log["bulletForce"] * core.physics.stepsPerSecond()
     offset = 1.0001 * (phys.rad[0] + brad)
     bphys = b.getPhys()
-    bphys.pos = Vec2(phys.pos[0] + direction[0] * offset, phys.pos[1] + direction[1] * offset)
-    bphys.impulse = Vec2(direction[0] * force, direction[1] * force)
-    phys.impulse = Vec2(phys.impulse[0] - bphys.impulse[0] / 250, phys.impulse[1] - bphys.impulse[1] / 250)
+    bphys.pos = phys.pos + direction * offset
+    bphys.impulse = direction * force
+    phys.impulse -= bphys.impulse / 250
     bphys.rad = Vec2(brad)
-    bphys.surface = Vec2(0, 1)
     bphys.mass = math.pi * brad * brad
     bphys.area = brad * brad
     bphys.elasticity = 0.95
@@ -232,25 +228,25 @@ def control_decay(core, decay):
         k[i] = base[i] + (goal[i] - base[i]) * perc
     vis.colour = Vec3(*tuple(k))
 
+def updateTarget(core, log):
+    replace = not "target" in log or \
+              not log["target"] or \
+              not log["target"].isAlive() or \
+              not "npc" in log["target"].getLog()
+    if replace:
+        log["target"] = getTarget(core, log["team"])
+
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
-    replaceTarget = not "target" in log
-    replaceTarget = replaceTarget or not log["target"]
-    replaceTarget = replaceTarget or not log["target"].isAlive()
-    replaceTarget = replaceTarget or not "controller" in log["target"].getLog()
-    replaceTarget = replaceTarget or not "npc" in log["target"].getLog()
-    if replaceTarget:
-        log["target"] = getTarget(core, log["team"])
+    updateTarget(core, log)
     targetEnt = log["target"]
     if targetEnt:
         target = targetEnt.getPhys().pos
-        diff = Vec2(target[0] - phys.pos[0], target[1] - phys.pos[1])
-        diff = normalize(diff)
+        direction = normalized(target - phys.pos)
         speed = log["speed"]
-        phys.impulse = Vec2(phys.impulse[0] + diff[0] * speed, phys.impulse[1] + diff[1] * speed)
-        direction = Vec2(target[0] - phys.pos[0], target[1] - phys.pos[1])
-        firing_control(core, True, log, phys, normalize(direction))
+        phys.impulse += direction * speed
+        firing_control(core, True, log, phys, direction)
 
     if "big" not in log: log["big"] = 0
     for k in phys.contacts:
@@ -292,15 +288,15 @@ def control_player(core, player):
     phys = player.getPhys()
 
     direction = core.visuals.screenToWorld(core.input.mousePos())
-    direction = Vec2(direction[0] - phys.pos[0], direction[1] - phys.pos[1])
-    b = firing_control(core, core.input.mouseHeld(1), log, phys, normalize(direction))
+    direction = normalized(direction - phys.pos)
+    b = firing_control(core, core.input.mouseHeld(1), log, phys, direction)
     if b:
         b.getVis().colour = Vec3(0, 0, 0xFF)
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
     speed = log["speed"] * 10
     fact = 100.0
-    dirs = [0, 0]
+    dirs = Vec2(0, 0)
     if core.input.isHeld(97):
         dirs[0] += -1
     if core.input.isHeld(100):
@@ -309,7 +305,4 @@ def control_player(core, player):
         dirs[1] += 1
     if core.input.isHeld(115):
         dirs[1] += -1
-    phys.acc = Vec2(
-        phys.acc[0] + clamp(-speed, speed, phys.acc[0] + dirs[0] * (speed / fact)),
-        phys.acc[1] + clamp(-speed, speed, phys.acc[1] + dirs[1] * (speed / fact)),
-    )
+    phys.acc += clampVec(-speed, speed, phys.acc + dirs * (speed / fact))
