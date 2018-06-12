@@ -47,9 +47,10 @@ def putWeapons(ent):
     log["bulletForce"] = 1000
     log["blifetime"] = 1
 
-def putNPC(ent, controller,):
+def putNPC(ent, controller):
     ent.getPhys().gather = True
     log = ent.getLog()
+    log["npc"] = True
     log["hp"] = 100
     log["maxHP"] = log["hp"]
     log["speed"] = 900 * ent.getPhys().mass
@@ -67,7 +68,7 @@ def putLittleDecay(core, source, x, y, rad, lifetime):
     e = core.entities.create()
     where = randomInCircle(x, y, rad)
     putPhys(e, where[0], where[1], rad, rad, False, "circle", 1.0, 0.95)
-    e.getPhys().vel = Vec2( *randomAroundCircle(0, 0, 10.0 * sp.mass) )
+    e.getPhys().vel = Vec2( *randomAroundCircle(0, 0, 120.0 * math.log2(sp.mass)) )
     putVis(e, 0, 0, 0)
     setDecaying(core, e, lifetime, Vec3(0xFF, 0xFF, 0xFF))
     return e
@@ -90,18 +91,27 @@ def putDrone(core, x, y, hive, rad, density, elasticity):
     log["hive"] = hive
     log["npc"] = True
     log["onDeath"] = droneDeath
+    def refund():
+        if hive.isAlive():
+            hive.getLog()["budget"] += 1
+    log["npcDeath"] = refund
     return e
 
 def putHive(core, team, x, y, r, g, b):
     e = core.entities.create()
-    putPhys(e, x, y, 20, 20, True, "circle")
+    putPhys(e, x, y, 20, 20, False, "circle")
+    e.getPhys().area = 9999999
     putVis(e, r, g, b)
+    putNPC(e, "hive")
     log = e.getLog()
     log["controller"] = "hive"
     log["team"] = team
+    log["hp"] = 1000
+    log["maxHP"] = log["hp"]
     log["budget"] = 7
     log["spawnCooldown"] = 1.0
-    log["spawnCooling"] = log["spawnCooldown"]
+    log["spawnCooling"] = 0.0
+    log["onDeath"] = droneDeath
     return e
 
 def setupPlayer(core):
@@ -120,9 +130,10 @@ def setupPlayer(core):
     core.player.getLog()["speed"] = 150
     core.player.getLog()["team"] = "player"
     core.player.getLog()["npc"] = False
+    core.player.getLog()["reloadTime"] = 0.01
 
 def setup(core):
-    rad = 10.0
+    rad = 20.0
     clear = 5.0
     width = core.renderer.getWidth()
     height = core.renderer.getHeight()
@@ -131,18 +142,15 @@ def setup(core):
 
     setupPlayer(core)
 
-    easyWall(core, 100, 100, 150, 150)
+    easyWall(core, 200, 200, 250, 250)
     putWall(core, midX, clear * rad, width, rad * 4)
     putWall(core, midX, height - clear * rad, width, rad * 4)
     putWall(core, clear * rad, midY, rad * 4, height)
     putWall(core, width - clear * rad, midY, rad * 4, height)
     putWall(core, midX, height / 4.0, width / 3.0, rad * 2)
 
-    aHive = putHive(core, "A", 150, midY + 45, 0xFF, 0, 0)
-    bHive = putHive(core, "B", width - 150, midY - 45, 0, 0, 0xFF)
-    #putDrone(core,  75, height / 4.0 + 250 + 5, aHive, 10, 1.0, 0.97)
-    #putDrone(core,  90, height / 4.0 + 250 + 0, bHive, 7.5, 0.5, 0.6)
-    #putDrone(core, 105, height / 4.0 + 250 - 5, bHive, 5, 0.5, 0.6)
+    aHive = putHive(core, "A", 200, midY + 45, 0xFF, 0, 0)
+    bHive = putHive(core, "B", width - 200, midY - 45, 0, 0, 0xFF)
 
 def fire(core, log, phys, direction):
     brad = 2.5
@@ -163,9 +171,8 @@ def fire(core, log, phys, direction):
     bphys.gather = True
     b.getVis().draw = True
     b.getVis().colour = Vec3(125, 60, 152)
-    b.getLog()["dmg"] = 0
+    b.getLog()["dmg"] = 1
     b.getLog()["team"] = log["team"]
-    b.getLog()["bullet"] = 1
     b.getLog()["lifetime"] = log["blifetime"] + random.uniform(0, 0.75)
     b.getLog()["controller"] = "bullet"
     return b
@@ -230,6 +237,29 @@ def updateTarget(core, log):
     if replace:
         log["target"] = getTarget(core, log["team"])
 
+def contactDamage(core, e, log, phys):
+    for k in phys.contacts:
+        ent = core.entities.getHandle(k.which)
+        elog = ent.getLog()
+
+        dmg = 0.0
+        converted = (1.0 - phys.elasticity * ent.getPhys().elasticity)
+        forceDmg = (k.force * converted) / 2500
+
+        if forceDmg > log["maxHP"] / 20:
+            dmg = forceDmg
+
+        if "dmg" in elog and elog["team"] != log["team"]:
+            dmg += elog["dmg"]
+
+        log["hp"] = max(0, log["hp"] - dmg)
+        if 0.0 == log["hp"]:
+            e.getVis().colour = e.getVis().colour * 0.9
+            phys.gather = False
+            if "npcDeath" in log: log["npcDeath"]()
+            setDecaying(core, e, 0.3 + random.uniform(0, 2.0))
+            break
+
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
@@ -242,36 +272,20 @@ def control_drone(core, drone):
         phys.impulse += direction * speed
         firing_control(core, True, log, phys, direction)
 
-    for k in phys.contacts:
-        ent = core.entities.getHandle(k.which)
-        elog = ent.getLog()
-        dmg = 0.0
-        el = (1.0 - phys.elasticity * ent.getPhys().elasticity)
-        forceDmg = (k.force * el) / 2500
-        if forceDmg > log["maxHP"] / 20:
-            dmg = forceDmg
-        if "dmg" in elog and elog["team"] != log["team"]:
-            dmg += elog["dmg"]
-        log["hp"] = max(0, log["hp"] - dmg)
-        if 0.0 == log["hp"]:
-            drone.getVis().colour = Vec3(0x77, 0x77, 0x77)
-            phys.gather = False
-            log["hive"].getLog()["budget"] += 1
-            setDecaying(core, drone, 0.0003 + random.uniform(0, 2.0))
-            del log["npc"]
-            break
+    contactDamage(core, drone, log, phys)
 
 def control_hive(core, hive):
     phys = hive.getPhys()
     log = hive.getLog()
     def spawn():
-        x = phys.pos[0] + random.uniform(-1, 1)
-        y = phys.pos[1] + random.uniform(-1, 1)
+        x, y = randomAroundCircle(phys.pos.x, phys.pos.y, phys.rad[0] + 7.1 + 10)
         drone = putDrone(core, x, y, hive, 10, 0.2, 1.0)
         log["budget"] -= 1
         drone.getVis().colour = hive.getVis().colour
     if log["budget"] > 0:
         cooldownFunc(log, "spawnCooling", "spawnCooldown", spawn, core.physics.timestep())
+
+    contactDamage(core, hive, log, phys)
 
 def control_player(core, player):
     log = player.getLog()
@@ -281,7 +295,11 @@ def control_player(core, player):
     direction = normalized(direction - phys.pos)
     b = firing_control(core, core.input.mouseHeld(1), log, phys, direction)
     if b:
-        b.getVis().colour = Vec3(0, 0, 0xFF)
+        b.getVis().colour = Vec3(0xFF, 0, 0xFF)
+        bp = b.getPhys()
+        bp.impulse = bp.impulse * 70
+        bp.mass = bp.mass * 70
+        bp.area = bp.area / 10.0
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
     speed = log["speed"] * 10
