@@ -50,7 +50,7 @@ static void mainLoop(Core &core) {
     ActionTimer physTick((sprint && core.options["pps"].defaulted()) ? 0 : 1.0 / pps);
     ActionTimer drawTick((sprint && core.options["fps"].defaulted()) ? 0 : 1.0 / fps);
     ActionTimer infoTick(1.0);
-    ActionTimer killer(std::numeric_limits< double >::infinity());
+    ActionTimer killer(core.options["runfor"].as< double >());
 
     double timescale = 1.0;
 
@@ -207,6 +207,8 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),
                    "Show script performance monitoring information every x seconds")
+        ("runfor", po::value< double >()->default_value(infty< double >()),
+                   "Run only for x seconds")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);
