@@ -4,6 +4,9 @@
 
 namespace {
 
+static PyTypeObject mirrorTypeMaker();
+static PyTypeObject mirrorType = mirrorTypeMaker();
+
 static PyObject *PyMirror_new(PyTypeObject *type, PyObject *, PyObject *) {
     PyMirror *self;
     self = reinterpret_cast< PyMirror * >(type->tp_alloc(type, 0));
@@ -16,6 +19,7 @@ static PyObject *PyMirror_new(PyTypeObject *type, PyObject *, PyObject *) {
 static void PyMirror_free(PyObject *pMirrorObj) {
     PyMirror *pMirror = reinterpret_cast< PyMirror * >(pMirrorObj);
     delete pMirror->mirror;
+    mirrorType.tp_free(pMirrorObj);
 }
 
 static PyObject *PyMirror_get(PyObject *pMirrorObj, PyObject *attrName) {
@@ -44,7 +48,7 @@ static int PyMirror_set(PyObject *pMirrorObj, PyObject *attrName, PyObject *valu
     return 0;
 }
 
-static PyTypeObject mirrorType = [](){
+static PyTypeObject mirrorTypeMaker() {
     PyTypeObject obj;
     obj.tp_name = "mirror";
     obj.tp_dealloc = &PyMirror_free;
@@ -55,7 +59,7 @@ static PyTypeObject mirrorType = [](){
     obj.tp_doc = "You see yourself. It's terrifying";
     obj.tp_new = &PyMirror_new;
     return obj;
-}();
+}
 
 }
 

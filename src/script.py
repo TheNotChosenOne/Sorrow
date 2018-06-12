@@ -55,7 +55,6 @@ def putNPC(ent, controller,):
     log["speed"] = 900 * ent.getPhys().mass
     log["controller"] = controller
 
-
 def randomAroundCircle(x, y, rad):
     theta = random.random() * 2.0 * math.pi
     return (x + rad * math.cos(theta), y + rad * math.sin(theta))
@@ -273,7 +272,6 @@ def control_hive(core, hive):
         drone.getVis().colour = hive.getVis().colour
     if log["budget"] > 0:
         cooldownFunc(log, "spawnCooling", "spawnCooldown", spawn, core.physics.timestep())
-    pass
 
 def control_player(core, player):
     log = player.getLog()

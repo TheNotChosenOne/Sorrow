@@ -63,8 +63,12 @@ struct PyEntityHandle {
     EntityHandle eh;
 };
 
+static PyTypeObject entityHandleTypeMaker();
+static PyTypeObject entityHandleType = entityHandleTypeMaker();
+
 static void PyEntityHandle_free(PyEntityHandle *peh) {
     peh->eh.reset();
+    entityHandleType.tp_free(peh);
 }
 
 static PyObject *Py_getPhys(PyEntityHandle *peh, PyObject *) {
@@ -91,7 +95,7 @@ static PyMethodDef entityHandleMethods[] = {
     { nullptr, nullptr, 0, nullptr }
 };
 
-static PyTypeObject entityHandleType = [](){
+static PyTypeObject entityHandleTypeMaker() {
     PyTypeObject obj;
     obj.tp_name = "entityHandle";
     obj.tp_basicsize = sizeof(PyEntityHandle);
@@ -100,7 +104,7 @@ static PyTypeObject entityHandleType = [](){
     obj.tp_dealloc = reinterpret_cast< void (*)(PyObject *) >(PyEntityHandle_free);
     obj.tp_methods = entityHandleMethods;
     return obj;
-}();
+}
 
 }
 

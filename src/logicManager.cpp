@@ -225,7 +225,6 @@ const PythonData &LogicManager::get(Entity e) const {
     return *components[e];
 }
 
-
 void LogicManager::logicUpdate(Core &core) {
     PyObject *lifeString = toPython("lifetime");
     PyObject *deathString = toPython("onDeath");
@@ -240,7 +239,6 @@ void LogicManager::logicUpdate(Core &core) {
     const auto startTime = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < components.size(); ++i) {
-        PyObject *dict = components[i]->dict;
         if (components[i]->has("controller")) {
             const std::string &c = components[i]->getString("controller");
             auto loc = controlFuncs.find(c);
@@ -259,18 +257,20 @@ void LogicManager::logicUpdate(Core &core) {
             }
             Py_XDECREF(result);
         }
+    }
+    for (size_t i = 0; i < components.size(); ++i) {
+        PyObject *dict = components[i]->dict;
         if (PyDict_Contains(dict, lifeString)) {
             double x = fromPython< double >(PyDict_GetItem(dict, lifeString));
             x = std::max(0.0, x - PHYSICS_TIMESTEP);
-            PyDict_SetItem(dict, lifeString, toPython(x));
+            PyObject *o = toPython(x);
+            PyDict_SetItem(dict, lifeString, o);
+            Py_DECREF(o);
             if (0.0 == x) {
                 size_t id = core.entities.getHandleFromLow(i)->id();
                 core.entities.kill(id);
             }
         }
-    }
-    for (size_t i = 0; i < components.size(); ++i) {
-        PyObject *dict = components[i]->dict;
         if (PyDict_Contains(dict, deathString)) {
             EntityHandle &handle = core.entities.getHandleFromLow(i);
             if (handle->dying()) {
