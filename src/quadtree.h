@@ -9,7 +9,7 @@
 
 class Core;
 struct PhysicsComponent;
-typedef std::pair< size_t, PhysicsComponent * > TaggedPhys;
+typedef std::pair< size_t, const PhysicsComponent * > TaggedPhys;
 
 class Quadtree {
     public:
