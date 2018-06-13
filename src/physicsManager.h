@@ -11,6 +11,7 @@
 #include <boost/hana.hpp>
 #include <Python.h>
 
+const double SPEED_LIMIT = 500.0;
 const double STEPS_PER_SECOND = 250.0;
 const double PHYSICS_TIMESTEP = 1.0 / STEPS_PER_SECOND;
 
@@ -56,20 +57,19 @@ void fromPython< Shape >(Shape &s, PyObject *obj);
 
 class Core;
 
-class PhysicsManager: public ComponentManager< PhysicsComponent > {
+class PhysicsManager: public BaseComponentManager {
+    public:
+        typedef PhysicsComponent Component;
+        typedef std::vector< Component > Components;
+
     private:
-        struct Bind {
-            Entity which;
-            Entity to;
-            Vec offset;
-        };
-        std::vector< Bind > bindings;
+        Components components;
+        Components nursery;
 
-        void bind(Components &);
-        void physicsUpdate(Core &core, const Components &lasts, Components &nexts);
-
-    protected:
-        PhysicsComponent makeDefault() const override;
+        void create() override;
+        void graduate() override;
+        void reorder(const std::map< size_t, size_t > &remap) override;
+        void cull(size_t count) override;
 
     public:
         const double timestep = PHYSICS_TIMESTEP;
@@ -77,6 +77,9 @@ class PhysicsManager: public ComponentManager< PhysicsComponent > {
 
         void addBinding(Entity which, Entity to, Vec offset);
         void updatePhysics(Core &core);
+
+        Component &get(Entity e);
+        const Component &get(Entity e) const;
 };
 
 template<>
