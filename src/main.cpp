@@ -14,12 +14,11 @@
 
 #include <valgrind/valgrind.h>
 
+#include "ai.h"
 #include "renderer.h"
 #include "rendererSDL.h"
-
 #include "input.h"
 #include "inputSDL.h"
-
 #include "entityManager.h"
 #include "physicsManager.h"
 #include "visualManager.h"
@@ -185,8 +184,11 @@ static void run(boost::program_options::variables_map &options) {
 
     input->update();
 
-    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, 0, options };
+    AI ai;
+
+    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, ai, 0, options };
     entityMan->setCore(core);
+    ai.setCore(core);
 
     core.player = core.entities.getHandle(core.entities.create());
     core.logic.setup(core);
