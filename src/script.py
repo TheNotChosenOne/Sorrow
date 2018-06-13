@@ -36,6 +36,8 @@ def putWall(core, x, y, w, h):
     return e
 
 def easyWall(core, left, top, right, bot):
+    left, right = min(left, right), max(left, right)
+    top, bot = max(top, bot), min(top, bot)
     x = (left + right) / 2.0
     y = (top + bot) / 2.0
     return putWall(core, x, y, abs(right - left), abs(top - bot))
@@ -115,15 +117,15 @@ def putHive(core, team, x, y, r, g, b):
     return e
 
 def setupPlayer(core):
-    height = core.renderer.getHeight()
+    midY = core.renderer.getHeight() / 2.0
     midX = core.renderer.getWidth() / 2.0
 
-    putPhys(core.player, midX, height / 4.0 + 250, 10, 10, False, "circle")
+    putPhys(core.player, midX, midY, 10, 10, False, "circle")
     putVis(core.player, 0, 0xFF, 0)
 
     phys = core.player.getPhys()
     phys.gather = False
-    phys.phased = True
+    phys.phased = False
 
     putNPC(core.player, "player")
     putWeapons(core.player)
@@ -133,7 +135,7 @@ def setupPlayer(core):
     core.player.getLog()["reloadTime"] = 0.01
 
 def setup(core):
-    rad = 20.0
+    rad = 100.0
     clear = 5.0
     width = core.renderer.getWidth()
     height = core.renderer.getHeight()
@@ -143,11 +145,19 @@ def setup(core):
     setupPlayer(core)
 
     easyWall(core, 200, 200, 250, 250)
-    putWall(core, midX, clear * rad, width, rad * 4)
-    putWall(core, midX, height - clear * rad, width, rad * 4)
-    putWall(core, clear * rad, midY, rad * 4, height)
-    putWall(core, width - clear * rad, midY, rad * 4, height)
-    putWall(core, midX, height / 4.0, width / 3.0, rad * 2)
+    easyWall(core, 0 - rad, 0, width + rad, 0 - rad)
+    easyWall(core, 0 - rad, height, width + rad, height + rad)
+    easyWall(core, 0 - rad, 0 - rad, 0, height + rad)
+    easyWall(core, width, 0 - rad, width + rad, height + rad)
+
+    for i in range(32):
+        left = 250 + i * 5
+        top = midY + i * 7 - 50
+        easyWall(core, left, top, left + 10, top + 10)
+
+        left = width - 250 - i * 5
+        top = midY - i * 7 + 50
+        easyWall(core, left, top, left + 10, top + 10)
 
     aHive = putHive(core, "A", 200, midY + 45, 0xFF, 0, 0)
     bHive = putHive(core, "B", width - 200, midY - 45, 0, 0, 0xFF)
@@ -203,15 +213,9 @@ def cooldownFunc(d, timeKey, coolKey, func, tick=None):
         return func()
     return None
 
-def getTarget(core, team):
-    ll = core.entities.all();
-    random.shuffle(ll)
-    random.shuffle(ll)
-    for e in ll:
-        h = core.entities.getHandle(e)
-        log = h.getLog()
-        if "npc" in log and log["npc"] and "team" in log and team != log["team"]:
-            return h
+def getTarget(core, pos, team):
+    ll = core.ai.findIn(pos, 512 + 256, team, False)
+    if ll: return ll[0]
     return None
 
 def setDecaying(core, ent, lifetime, to=Vec3(0, 0, 0)):
@@ -229,13 +233,13 @@ def control_decay(core, decay):
     base = log["targetColour"]
     decay.getVis().colour = base + (goal - base) * perc
 
-def updateTarget(core, log):
+def updateTarget(core, pos, log):
     replace = not "target" in log or \
               not log["target"] or \
               not log["target"].isAlive() or \
               not "npc" in log["target"].getLog()
     if replace:
-        log["target"] = getTarget(core, log["team"])
+        log["target"] = getTarget(core, pos, log["team"])
 
 def contactDamage(core, e, log, phys):
     for k in phys.contacts:
@@ -263,13 +267,12 @@ def contactDamage(core, e, log, phys):
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
-    updateTarget(core, log)
+    updateTarget(core, phys.pos, log)
     targetEnt = log["target"]
     if targetEnt:
         target = targetEnt.getPhys().pos
         direction = normalized(target - phys.pos)
-        speed = log["speed"]
-        phys.impulse += direction * speed
+        phys.impulse += direction * log["speed"]
         firing_control(core, True, log, phys, direction)
 
     contactDamage(core, drone, log, phys)
