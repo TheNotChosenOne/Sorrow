@@ -68,6 +68,7 @@ class EntityManager {
 
         Entity create();
         void kill(Entity e);
+        Entity getIDFromLow(size_t i) const;
         EntityHandle &getHandle(Entity id);
         Entity fromHandle(EntityHandle &e);
 

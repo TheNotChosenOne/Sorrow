@@ -153,6 +153,10 @@ void EntityManager::kill(Entity e) {
     entities.erase(e);
 }
 
+Entity EntityManager::getIDFromLow(size_t i) const {
+    return lowToID[i];
+}
+
 EntityHandle &EntityManager::getHandle(Entity e) {
     EntityHandle &h = handles[e];
     if (!h) {
