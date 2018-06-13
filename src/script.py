@@ -170,7 +170,7 @@ def fire(core, log, phys, direction):
     bphys = b.getPhys()
     bphys.pos = phys.pos + direction * offset
     bphys.impulse = direction * force
-    phys.impulse -= bphys.impulse / 250
+    phys.impulse -= bphys.impulse / core.physics.stepsPerSecond()
     bphys.rad = Vec2(brad)
     bphys.mass = math.pi * brad * brad
     bphys.area = brad * brad
