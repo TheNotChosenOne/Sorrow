@@ -152,11 +152,15 @@ def setup(core):
 
     for i in range(32):
         left = 250 + i * 5
-        top = midY + i * 7 - 50
+        top = midY + i * 7 - 7 * 31
+        easyWall(core, left, top, left + 10, top + 10)
+        top = midY - i * 7 + 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
 
         left = width - 250 - i * 5
-        top = midY - i * 7 + 50
+        top = midY - i * 7 + 7 * 31
+        easyWall(core, left, top, left + 10, top + 10)
+        top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
 
     aHive = putHive(core, "A", 200, midY + 45, 0xFF, 0, 0)
