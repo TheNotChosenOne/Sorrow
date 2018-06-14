@@ -277,7 +277,9 @@ def control_drone(core, drone):
         target = targetEnt.getPhys().pos
         direction = normalized(target - phys.pos)
         phys.impulse += direction * log["speed"]
-        firing_control(core, True, log, phys, direction)
+        e, d = core.physics.rayCast(phys.pos + direction * phys.rad[0] * 1.1, direction)
+        if not e.empty() and targetEnt.id() == e.id():
+            firing_control(core, True, log, phys, direction)
 
     contactDamage(core, drone, log, phys)
 

@@ -57,6 +57,13 @@ void fromPython< Shape >(Shape &s, PyObject *obj);
 
 class Core;
 
+class EntityView;
+typedef std::shared_ptr< EntityView > EntityHandle;
+struct RaycastResult {
+    EntityHandle hit;
+    double dist;
+};
+
 class PhysicsManager: public BaseComponentManager {
     public:
         typedef PhysicsComponent Component;
@@ -65,6 +72,7 @@ class PhysicsManager: public BaseComponentManager {
     private:
         Components components;
         Components nursery;
+        Core *core;
 
         void create() override;
         void graduate() override;
@@ -75,11 +83,14 @@ class PhysicsManager: public BaseComponentManager {
         const double timestep = PHYSICS_TIMESTEP;
         const double stepsPerSecond = STEPS_PER_SECOND;
 
-        void addBinding(Entity which, Entity to, Vec offset);
+        void setCore(Core &core);
+
         void updatePhysics(Core &core);
 
         Component &get(Entity e);
         const Component &get(Entity e) const;
+
+        RaycastResult rayCast(const Vec pos, const Vec dir) const;
 };
 
 template<>

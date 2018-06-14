@@ -188,6 +188,7 @@ static void run(boost::program_options::variables_map &options) {
 
     Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, ai, 0, options };
     entityMan->setCore(core);
+    physicsRef.setCore(core);
     ai.setCore(core);
 
     core.player = core.entities.getHandle(core.entities.create());

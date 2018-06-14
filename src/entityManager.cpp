@@ -87,11 +87,21 @@ static PyObject *Py_alive(PyEntityHandle *peh, PyObject *) {
     Py_RETURN_BOOL(peh->eh->isAlive());
 }
 
+static PyObject *Py_empty(PyEntityHandle *peh, PyObject *) {
+    Py_RETURN_BOOL(!peh->eh);
+}
+
+static PyObject *Py_id(PyEntityHandle *peh, PyObject *) {
+    return toPython(peh->eh->id());
+}
+
 static PyMethodDef entityHandleMethods[] = {
     { "getPhys", reinterpret_cast< PyCFunction >(Py_getPhys), READONLY, "" },
     { "getVis", reinterpret_cast< PyCFunction >(Py_getVis), READONLY, "" },
     { "getLog", reinterpret_cast< PyCFunction >(Py_getLog), READONLY, "" },
     { "isAlive", reinterpret_cast< PyCFunction >(Py_alive), READONLY, "" },
+    { "empty", reinterpret_cast< PyCFunction >(Py_empty), READONLY, "" },
+    { "id", reinterpret_cast< PyCFunction >(Py_id), READONLY, "" },
     { nullptr, nullptr, 0, nullptr }
 };
 

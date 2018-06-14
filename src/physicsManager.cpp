@@ -366,9 +366,80 @@ bool operator==(const Contact &a, const Contact &b) {
            a.depth == b.depth && a.force == b.force;
 }
 
+void PhysicsManager::setCore(Core &core) {
+    this->core = &core;
+}
+
 void PhysicsManager::updatePhysics(Core &core) {
     move(components);
     collide(core, components);
+}
+
+namespace {
+
+static inline bool inside(const PhysicsComponent &phys, const Vec &pos) {
+    if (Shape::Box == phys.shape) {
+        const bool hColl = phys.pos[0] - phys.rad[0] <= pos[0] && pos[0] <= phys.pos[0] + phys.rad[0];
+        const bool vColl = phys.pos[1] - phys.rad[1] <= pos[1] && pos[1] <= phys.pos[1] + phys.rad[1];
+        return hColl && vColl;
+    } else {
+        return diffLength2(phys.pos, pos) <= phys.rad[0] * phys.rad[1];
+    }
+}
+
+}
+
+RaycastResult PhysicsManager::rayCast(const Vec pos, const Vec dir) const {
+    double minty = infty< double >();
+    size_t minEnt = static_cast< size_t >(-1);
+    for (size_t i = 0; i < components.size(); ++i) {
+        const PhysicsComponent &phys = components[i];
+        if (inside(phys, pos)) {
+            return { core->entities.getHandleFromLow(i), 0.0 };
+        }
+        if (Shape::Circle == phys.shape) {
+            const Vec m = pos - phys.pos;
+            const double b = gmtl::dot(m, dir);
+            const double c = gmtl::dot(m, m) - phys.rad[0] * phys.rad[1];
+            if (c > 0.0 && b > 0.0) { continue; }
+            const double discr = b * b - c;
+            if (discr < 0.0) { continue; }
+            const double t = -b - std::sqrt(discr);
+            if (t < minty) {
+                minty = t;
+                minEnt = i;
+            }
+        } else {
+            double tmin = 0.0;
+            double tmax = infty< double >();
+            bool miss = false;
+            for (size_t i = 0; i < 2; ++i) {
+                if (0.0 == dir[i]) {
+                    if (pos[i] < phys.pos[i] - phys.rad[i] ||
+                        pos[i] > phys.pos[i] + phys.rad[i]) {
+                        miss = true;
+                        break;
+                    }
+                } else {
+                    const double delta = 1.0 / dir[i];
+                    double t1 = (phys.pos[i] - phys.rad[i] - pos[i]) * delta;
+                    double t2 = (phys.pos[i] + phys.rad[i] - pos[i]) * delta;
+                    if (t1 > t2) { std::swap(t1, t2); }
+                    tmin = std::max(tmin, t1);
+                    tmax = std::min(tmax, t2);
+                    if (tmin > tmax) { miss = true; break; }
+                }
+            }
+            if (!miss && tmin > 0.0 && tmin < minty) {
+                minty = tmin;
+                minEnt = i;
+            }
+        }
+    }
+    if (static_cast< size_t >(-1) == minEnt) {
+        return { nullptr, 0 };
+    }
+    return { core->entities.getHandleFromLow(minEnt), minty };
 }
 
 namespace {
@@ -391,10 +462,22 @@ static PyObject *Py_stepsPerSecond(PyPhysicsManager *self, PyObject *) {
     return toPython(self->pm->stepsPerSecond);
 }
 
+static PyObject *Py_rayCast(PyPhysicsManager *self, PyObject *args) {
+    Vec pos, dir;
+    fromPython(pos, PyTuple_GetItem(args, 0));
+    fromPython(dir, PyTuple_GetItem(args, 1));
+    auto res = self->pm->rayCast(pos, dir);
+    PyObject *tupperware = PyTuple_New(2);
+    PyTuple_SetItem(tupperware, 0, toPython(res.hit));
+    PyTuple_SetItem(tupperware, 1, toPython(res.dist));
+    return tupperware;
+}
+
 static PyMethodDef pmMethods[] = {
     { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get physics component" },
     { "timestep", reinterpret_cast< PyCFunction >(Py_timestep), READONLY, "Time between physics steps" },
     { "stepsPerSecond", reinterpret_cast< PyCFunction >(Py_stepsPerSecond), READONLY, "Physics steps per second" },
+    { "rayCast", reinterpret_cast< PyCFunction >(Py_rayCast), READONLY, "Cast a ray" },
     { nullptr, nullptr, 0, nullptr }
 };
 
