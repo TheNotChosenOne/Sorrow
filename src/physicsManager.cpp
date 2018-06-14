@@ -94,8 +94,8 @@ static inline Vec getBest(const Vec &p, const Vec &v0, const Vec &v1, const Vec 
     }
 }
 
-static inline void collideStaticBoxSingle(
-        const EntityManager &eman, size_t j, PhysicsComponent &phys, const PhysicsComponent &stat,
+static inline void collideStaticBoxSingle(const EntityManager &eman, size_t j,
+        PhysicsComponent &phys, const PhysicsComponent &stat,
         Vec &normal, double &depth, double &elasticity, size_t &contactCount) {
     const double width = stat.rad[0];
     const double hight = stat.rad[1];
@@ -117,18 +117,7 @@ static inline void collideStaticBoxSingle(
     const Vec botPoint(clamp(left, rite, phys.pos[0]), bot);
     const Vec leftPoint(left, clamp(bot, top, phys.pos[1]));
     const Vec ritePoint(rite, clamp(bot, top, phys.pos[1]));
-    std::vector< std::pair< double, Vec > > distNorms = {
-        { diffLength(phys.pos, topPoint), { 0,  1  } },
-        { diffLength(phys.pos, botPoint), { 0, -1 } },
-        { diffLength(phys.pos, leftPoint), { -1, 0 } },
-        { diffLength(phys.pos, ritePoint), {  1, 0 } },
-    };
-    std::sort(distNorms.begin(), distNorms.end(), [](const auto &a, const auto &b) {
-        return a.first < b.first;
-    });
-    const Vec nnorm = getBest(phys.pos, topPoint, botPoint, leftPoint, ritePoint);
-    const Vec norm = distNorms.front().second;
-    rassert(norm == nnorm, norm, nnorm);
+    const Vec norm = getBest(phys.pos, topPoint, botPoint, leftPoint, ritePoint);
 
     const double dep = phys.rad[0] - std::sqrt(depth2);
     normal += norm;
@@ -142,8 +131,8 @@ static inline void collideStaticBoxSingle(
     }
 }
 
-static inline void collideStaticCircleSingle(
-        const EntityManager &eman, size_t j, PhysicsComponent &phys, const PhysicsComponent &stat,
+static inline void collideStaticCircleSingle(const EntityManager &eman, size_t j,
+        PhysicsComponent &phys, const PhysicsComponent &stat,
         Vec &normal, double &depth, double &elasticity, size_t &contactCount) {
     const double trad = phys.rad[0] + stat.rad[0];
     if ((std::abs(phys.pos[0] - stat.pos[0]) >= trad) |
@@ -183,14 +172,16 @@ static inline void collideStaticUpdate(PhysicsComponent &dyn,
             dyn.elasticity * elasticity * gmtl::dot(velNorm, normal) * normal) * speed;
 }
 
-static inline void staticCollideSingle(const EntityManager &eman, Comps &comps,
-                                       const std::vector< size_t > &statics, size_t i) {
-    auto &dyn = comps[i];
+typedef std::vector< size_t >::const_iterator Siter;
+typedef std::pair< size_t, Vec > Adjustment;
+static inline void staticCollideSingle(const EntityManager &eman, Comps &comps, PhysicsComponent &dyn,
+        const Siter withBegin, const Siter withEnd) {
     size_t contactCount = 0;
     Vec normal;
     double depth = 0.0;
     double elasticity = 0.0;
-    for (const size_t j : statics) {
+    for (auto iter = withBegin; iter != withEnd; ++iter) {
+        const size_t j = *iter;
         const auto &stat = comps[j];
         if (Shape::Box == stat.shape) {
             collideStaticBoxSingle(eman, j, dyn, stat, normal, depth, elasticity, contactCount);
@@ -203,20 +194,16 @@ static inline void staticCollideSingle(const EntityManager &eman, Comps &comps,
     }
 }
 
-typedef std::vector< size_t >::const_iterator Siter;
-typedef std::pair< size_t, Vec > Adjustment;
-static inline void dynamicCollideSingle(EntityManager &eman, Comps &comps,
-        const std::vector< size_t > &dynamics, size_t i,
+static inline void dynamicCollideSingle(EntityManager &eman, Comps &comps, size_t i,
         const Siter withBegin, const Siter withEnd, std::vector< Adjustment > &adjustments) {
-    auto &a = comps[dynamics[i]];
+    auto &a = comps[i];
     for (auto iter = withBegin; iter != withEnd; ++iter) {
         const size_t j = *iter;
         if (j <= i) { continue; }
-        auto &b = comps[dynamics[j]];
+        auto &b = comps[j];
 
         const double trad = a.rad[0] + b.rad[0];
-        if (dynamics[i] == j ||
-            (std::abs(a.pos[0] - b.pos[0]) >= trad) ||
+        if ((std::abs(a.pos[0] - b.pos[0]) >= trad) ||
             (std::abs(a.pos[1] - b.pos[1]) >= trad)) { continue; }
         Vec norm = a.pos - b.pos;
         const double len2 = gmtl::lengthSquared(norm);
@@ -227,20 +214,20 @@ static inline void dynamicCollideSingle(EntityManager &eman, Comps &comps,
         const double closingSpeed = std::abs(gmtl::dot(norm, a.vel)) +
                                     std::abs(gmtl::dot(norm, b.vel));
         if (a.gather) {
-            a.contacts.push_back({ eman.getIDFromLow(dynamics[j]),
+            a.contacts.push_back({ eman.getIDFromLow(j),
                                    b.pos + b.rad[0] * norm, norm,
                                    depth, closingSpeed * b.mass });
         }
         if (b.gather) {
-            b.contacts.push_back({ eman.getIDFromLow(dynamics[i]),
+            b.contacts.push_back({ eman.getIDFromLow(i),
                                    b.pos + b.rad[0] * norm, -norm,
                                    depth, closingSpeed * a.mass });
         }
         if (a.phased | b.phased) { continue; }
 
         const double massP = a.mass / (a.mass + b.mass);
-        adjustments.push_back({ dynamics[i], norm * depth * massP });
-        adjustments.push_back({ dynamics[j], norm * depth * (massP - 1.0) });
+        adjustments.push_back({ i, norm * depth * massP });
+        adjustments.push_back({ j, norm * depth * (massP - 1.0) });
         //a.pos += norm * depth * massP;
         //b.pos -= norm * depth * (1.0 - massP);
 
@@ -281,8 +268,8 @@ static inline void dynamicCollideSingle(EntityManager &eman, Comps &comps,
 static inline Quadtree getQuadFor(const Comps &comps, const std::vector< size_t > &indices) {
     std::vector< TaggedPhys > tagged;
     tagged.reserve(indices.size());
-    for (size_t i = 0; i < indices.size(); ++i) {
-        tagged.push_back({ i, &comps[indices[i]] });
+    for (const size_t i : indices) {
+        tagged.push_back({ i, &comps[i] });
     }
     return Quadtree(tagged);
 }
@@ -293,24 +280,29 @@ static void collide(Core &core, Comps &comps) {
     const auto &dynamics = select[0];
     const auto &statics = select[1];
 
+    Quadtree staticQT = getQuadFor(comps, statics);
+    std::vector< size_t > suggested;
+    //staticQT.draw(core);
+
     // Static collisions
-    for (size_t i = 0; i < dynamics.size(); ++i) {
-        staticCollideSingle(core.entities, comps, statics, dynamics[i]);
+    for (const size_t i : dynamics) {
+        auto &dyn = comps[i];
+        suggested.clear();
+        staticQT.suggest(dyn.pos, dyn.rad, suggested);
+        staticCollideSingle(core.entities, comps, dyn, suggested.begin(), suggested.end());
     }
 
     std::vector< Adjustment > adjustments;
-    const size_t dynCount = dynamics.size();
 
     Quadtree qt = getQuadFor(comps, dynamics);
     //qt.draw(core);
 
     // Dynamic collisions
-    std::vector< size_t > suggested;
-    for (size_t i = 0; i < dynCount; ++i) {
-        auto &a = comps[dynamics[i]];
+    for (const size_t i : dynamics) {
+        auto &a = comps[i];
         suggested.clear();
         qt.suggest(a.pos, a.rad, suggested);
-        dynamicCollideSingle(core.entities, comps, dynamics, i,
+        dynamicCollideSingle(core.entities, comps, i,
                              suggested.begin(), suggested.end(), adjustments);
     }
     for (const auto adjust : adjustments) {
