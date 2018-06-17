@@ -4,13 +4,15 @@
 #include "core.h"
 #include "entityManager.h"
 #include "quadtree.h"
+#include "visualManager.h"
+#include "renderer.h"
 
 #include <array>
 #include <memory>
 #include <limits>
-#include <algorithm>
 #include <vector>
 #include <Python.h>
+#include <algorithm>
 #include <structmember.h>
 
 namespace {
@@ -33,7 +35,7 @@ static inline void moveSingle(PhysicsComponent &comp) {
                (comp.vel + (comp.acc * comp.mass + comp.impulse / mass) * PHYSICS_TIMESTEP) *
                std::min(1.0, std::pow(0.999, comp.area)) *
                DAMPING;
-    comp.pos += comp.vel * PHYSICS_TIMESTEP;
+    //comp.pos += comp.vel * PHYSICS_TIMESTEP;
     comp.acc = Vec();
     comp.surface = Vec();
     comp.impulse = Vec();
@@ -370,9 +372,300 @@ void PhysicsManager::setCore(Core &core) {
     this->core = &core;
 }
 
+#include "/home/swan/code/wykobi/wykobi.hpp"
+#include "/home/swan/code/wykobi/wykobi_utilities.hpp"
+#include "/home/swan/code/wykobi/wykobi_algorithm.hpp"
+
+struct SweptCircle {
+    wykobi::point2d< double > from;
+    wykobi::point2d< double > to;
+    double radius;
+    wykobi::quadix2d sweep;
+    size_t index;
+};
+
+struct SweptBox {
+    wykobi::point2d< double > from;
+    wykobi::point2d< double > to;
+    double radius[2];
+    wykobi::quadix2d sweep;
+    size_t index;
+};
+
+SweptCircle getSweepC(const PhysicsComponent &phys, size_t index) {
+    rassert(0 != phys.vel[0] || 0 != phys.vel[1], "Only moving objects should be swept");
+    const Vec a = phys.pos;
+    const Vec b = phys.pos + phys.vel * PHYSICS_TIMESTEP;
+    Vec cross(phys.vel[1], -phys.vel[0]);
+    gmtl::normalize(cross);
+    const double rad = phys.rad[0];
+    const Vec v1 = a + rad * cross;
+    const Vec v2 = a - rad * cross;
+    const Vec v3 = b - rad * cross;
+    const Vec v4 = b + rad * cross;
+    return SweptCircle {
+        wykobi::make_point(a[0], a[1]),
+        wykobi::make_point(b[0], b[1]),
+        rad,
+        wykobi::make_quadix(v1[0], v1[1], v2[0], v2[1], v3[0], v3[1], v4[0], v4[1]),
+        index
+    };
+}
+
+SweptBox getSweepB(const PhysicsComponent &phys, size_t index) {
+    rassert(0 != phys.vel[0] || 0 != phys.vel[1], "Only moving objects should be swept");
+    const Vec a = phys.pos;
+    const Vec b = phys.pos + phys.vel;
+    const double w = phys.rad[0];
+    const double h = phys.rad[1];
+    const Vec vel = phys.vel;
+    Vec v1, v2, v3, v4;
+    if (0.0 == vel[0]) {
+        if (vel[1] > 0) { // Up
+            v1 = Vec(a[0] - w, a[0] - h);
+            v2 = Vec(a[0] + w, a[0] - h);
+            v3 = Vec(b[0] + w, b[0] + h);
+            v4 = Vec(b[0] - w, b[0] + h);
+        } else { // Down
+            v1 = Vec(b[0] - w, b[0] - h);
+            v2 = Vec(b[0] + w, b[0] - h);
+            v3 = Vec(a[0] + w, a[0] + h);
+            v4 = Vec(a[0] - w, a[0] + h);
+        }
+    } else if (0.0 == vel[1]) {
+        if (vel[0] > 0) { // Right
+            v1 = Vec(b[0] + w, b[1] + h);
+            v2 = Vec(b[0] + w, b[1] - h);
+            v3 = Vec(a[0] - w, a[1] - h);
+            v4 = Vec(a[0] - w, a[1] + h);
+        } else { // Left
+            v1 = Vec(a[0] + w, a[1] + h);
+            v2 = Vec(a[0] + w, a[1] - h);
+            v3 = Vec(b[0] - w, b[1] - h);
+            v4 = Vec(b[0] - w, b[1] + h);
+        }
+    } else {
+        const Vec access(vel[0] / std::abs(vel[0]), vel[1] / std::abs(vel[1]));
+        const Vec cross(access[1], -access[0]);
+        v1 = a + Vec(w * cross[0], h * cross[1]);
+        v2 = a - Vec(w * cross[0], h * cross[1]);
+        v3 = b - Vec(w * cross[0], h * cross[1]);
+        v4 = b + Vec(w * cross[0], h * cross[1]);
+    }
+    return SweptBox {
+        wykobi::make_point(a[0], a[1]),
+        wykobi::make_point(b[0], b[1]),
+        { w, h },
+        wykobi::make_quadix(v1[0], v1[1], v2[0], v2[1], v3[0], v3[1], v4[0], v4[1]),
+        index
+    };
+}
+
+inline bool pointInCircle(const Vec p, const Vec c, const double r) {
+    return diffLength2(p, c) <= r * r;
+}
+
+inline bool pointInBox(const Vec p, const Vec c, const Vec dim) {
+    return ((c[0] - dim[0] <= p[0]) && (p[0] <= c[0] + dim[0]) &&
+            (c[1] - dim[1] <= p[1]) && (p[1] <= c[1] + dim[1]));
+
+}
+
+inline bool lineCircleCollision(const Vec from, const Vec to,
+                                const Vec pos, const double r, double &t) {
+    Vec d = to - from;
+    gmtl::normalize(d);
+    const Vec m = from - pos;
+    const double b = gmtl::dot(m, d);
+    const double c = gmtl::dot(m, m) - r * r;
+    if (c > .0 && b > 0.0) { return false; }
+    const double discr = b * b - c;
+    if (discr < 0.0) { return false; }
+
+    t = (-b - std::sqrt(discr)) / diffLength(to, from);
+    return true;
+}
+
+inline bool lineBoxCollision(const Vec from, const Vec to,
+                             const Vec pos, const Vec dim, double &t) {
+    Vec d = to - from;
+    gmtl::normalize(d);
+    double tmin = 0.0;
+    double tmax = infty< double >();
+    for (size_t i = 0; i < 2; ++i) {
+        if (0.0 == std::abs(d[i])) {
+            if (from[i] < pos[i] - dim[i] || from[i] > pos[i] + dim[i]) { return false; }
+        } else {
+            const double inv = 1.0 / d[i];
+            double t1 = (pos[i] - dim[i] - from[i]) * inv;
+            double t2 = (pos[i] + dim[i] - from[i]) * inv;
+            if (t1 > t2) { std::swap(t1, t2); }
+            tmin = std::max(tmin, t1);
+            tmax = std::min(tmax, t2);
+            if (tmin > tmax) { return false; }
+        }
+    }
+    t = tmin / diffLength(to, from);
+    return true;
+}
+
+inline bool lineCircleCircleSum(const Vec from, const Vec to,
+                                const Vec cc, const double rad1,
+                                const double rad2, double &t) {
+    const double rad = rad1 + rad2;
+    if (pointInCircle(cc, from, rad)) {
+        t = 0.0;
+        return true;
+    }
+    if (lineCircleCollision(from, to, cc, rad, t)) {
+        return t <= 1.0;
+    }
+    return false;
+}
+
+inline bool lineCircleBoxSum(const Vec from, const Vec to,
+                             const Vec box, const Vec dim,
+                             const double rad, double &t, Core &core) {
+    // Collision against a circle on each corner, and then 2 rectangles
+    // covering vertical and horizontal ranges
+    for (double xx = -1.0; xx <= 1.0; xx += 2.0) {
+        for (double yy = -1.0; yy <= 1.0; yy += 2.0) {
+            const Vec corn = box + Vec(dim[0] * xx, dim[1] * yy);
+            if (pointInCircle(corn, from, rad)) {
+                const auto view = core.visuals.getViewMatrix(core.renderer);
+                core.renderer.drawCircle(view * gmtl::Point2d(corn), view * Vec(rad, rad), Vec3(0xFF, 0, 0));
+                t = 0.0;
+                return true;
+            }
+        }
+    }
+
+    const Vec dimVert(dim[0], dim[1] + rad);
+    const Vec dimHori(dim[0] + rad, dim[1]);
+
+    if (pointInBox(from, box, dimVert)) {
+        const auto view = core.visuals.getViewMatrix(core.renderer);
+        core.renderer.drawBox(view * gmtl::Point2d(box), view * dimVert, Vec3(0xFF, 0, 0));
+        t = 0.0;
+        return true;
+    }
+    if (pointInBox(from, box, dimHori)) {
+        const auto view = core.visuals.getViewMatrix(core.renderer);
+        core.renderer.drawBox(view * gmtl::Point2d(box), view * dimHori, Vec3(0xFF, 0, 0));
+        t = 0.0;
+        return true;
+    }
+
+    double minty = infty< double >();
+    for (double xx = -1.0; xx <= 1.0; xx += 2.0) {
+        for (double yy = -1.0; yy <= 1.0; yy += 2.0) {
+            const Vec corn = box + Vec(dim[0] * xx, dim[1] * yy);
+            double tt;
+            if (lineCircleCollision(from, to, corn, rad, tt)) {
+                minty = std::min(minty, tt);
+            }
+        }
+    }
+
+    double tt;
+    if (lineBoxCollision(from, to, box, dimVert, tt)) {
+        minty = std::min(minty, tt);
+    }
+    if (lineBoxCollision(from, to, box, dimHori, tt)) {
+        minty = std::min(minty, tt);
+    }
+    t = minty;
+    return t <= 1.0;
+}
+
+bool collideBox(Core &core, const SweptCircle &sc, const PhysicsComponent &phys, double &t) {
+    // circle, circle, quadix - box
+    return lineCircleBoxSum(Vec(sc.from[0], sc.from[1]), Vec(sc.to[0], sc.to[1]),
+                            phys.pos, phys.rad, sc.radius, t, core);
+}
+
+bool collideCircle(const SweptCircle &sc, const PhysicsComponent &phys, double &t) {
+    return lineCircleCircleSum(Vec(sc.from[0], sc.from[1]), Vec(sc.to[0], sc.to[1]),
+                                phys.pos, phys.rad[0], sc.radius, t);
+}
+
+bool collideSC(const SweptCircle &sc, const SweptCircle &phys, double &t) {
+    const Vec p0(sc.from[0], sc.from[1]);
+    const Vec p1(phys.from[0], phys.from[1]);
+    const Vec v0 = Vec(sc.to[0], sc.to[1]) - Vec(sc.from[0], sc.from[1]);
+    const Vec v1 = Vec(phys.to[0], phys.to[1]) - Vec(phys.from[0], phys.from[1]);
+
+    const Vec s = p1 - p0;
+    const Vec v = v1 - v0;
+    const double r = sc.radius + phys.radius;
+    const double c = gmtl::dot(s, s) - r * r;
+    if (c < 0.0) {
+        t = 0.0;
+        return true;
+    }
+
+    const double a = gmtl::dot(v, v);
+    if (a < 0.0) { return false; }
+    const double b = gmtl::dot(v, s);
+    if (b >= 0.0) { return false; }
+
+    const double d = b * b - a * c;
+    if (d < 0.0) { return false; }
+
+    t = (-b - std::sqrt(d)) / a;
+    return true;
+}
+
 void PhysicsManager::updatePhysics(Core &core) {
-    move(components);
-    collide(core, components);
+    //move(components);
+    //collide(core, components);
+    
+    std::vector< SweptBox > sweepB;
+    std::vector< SweptCircle > sweepC;
+    std::vector< size_t > stillB;
+    std::vector< size_t > stillC;
+    for (size_t i = 0; i < components.size(); ++i) {
+        PhysicsComponent &phys = components[i];
+        moveSingle(phys);
+        const bool still = 0.0 == phys.vel[0] && 0.0 == phys.vel[1];
+        if (Shape::Circle == phys.shape) {
+            if (still) {
+                stillC.push_back(i);
+            } else {
+                sweepC.push_back(getSweepC(phys, i));
+            }
+        } else {
+            if (still) {
+                stillB.push_back(i);
+            } else {
+                sweepB.push_back(getSweepB(phys, i));
+            }
+        }
+    }
+    rassert(sweepB.empty(), "Cannot handle non-static boxes");
+
+    // sweepC:
+    //  stillB
+    //  stillC
+    //  sweepC
+    for (const SweptCircle &sc : sweepC) {
+        double minty = 1.0;
+        double t;
+        for (const size_t i : stillB) {
+            if (collideBox(core, sc, components[i], t)) { minty = std::min(minty, t); }
+        }
+        for (const size_t i : stillC) {
+            if (collideCircle(sc, components[i], t)) { minty = std::min(minty, t); }
+        }
+        for (const SweptCircle &other : sweepC) {
+            if (&other == &sc) { continue; }
+            if (collideSC(sc, other, t)) { minty = std::min(minty, t); }
+        }
+        const size_t i = sc.index;
+        components[i].pos += minty * components[i].vel * PHYSICS_TIMESTEP;
+        components[i].vel = Vec(0, 0);
+    }
+    std::cout << sweepC.size() << '\n';
 }
 
 namespace {
