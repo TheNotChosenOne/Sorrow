@@ -42,79 +42,12 @@ def easyWall(core, left, top, right, bot):
     y = (top + bot) / 2.0
     return putWall(core, x, y, abs(right - left), abs(top - bot))
 
-def putWeapons(ent):
-    log = ent.getLog()
-    log["reload"] = 0.0
-    log["reloadTime"] = 5.0 / ent.getPhys().rad[0]
-    log["bulletForce"] = 1000
-    log["blifetime"] = 1
-
-def putNPC(ent, controller):
-    ent.getPhys().gather = True
-    log = ent.getLog()
-    log["npc"] = True
-    log["hp"] = 100
-    log["maxHP"] = log["hp"]
-    log["speed"] = 900 * ent.getPhys().mass
-    log["controller"] = controller
-
 def randomAroundCircle(x, y, rad):
     theta = random.random() * 2.0 * math.pi
     return (x + rad * math.cos(theta), y + rad * math.sin(theta))
 
 def randomInCircle(x, y, rad):
     return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
-
-def putLittleDecay(core, source, x, y, rad, lifetime):
-    sp = source.getPhys()
-    e = core.entities.create()
-    where = randomInCircle(x, y, rad)
-    putPhys(e, where[0], where[1], rad, rad, False, "circle", 1.0, 0.95)
-    e.getPhys().vel = Vec2( *randomAroundCircle(0, 0, 120.0 * math.log2(sp.mass)) )
-    putVis(e, 0, 0, 0)
-    setDecaying(core, e, lifetime, Vec3(0xFF, 0xFF, 0xFF))
-    return e
-
-def droneDeath(core, drone):
-    phys = drone.getPhys()
-    rad = phys.rad[0] / 4.0
-    bits = math.ceil((phys.rad[0] * phys.rad[1]) / (rad * rad))
-    for i in range(bits):
-        putLittleDecay(core, drone, phys.pos[0], phys.pos[1], rad, 3.0 + random.uniform(0, 3.0))
-
-def putDrone(core, x, y, hive, rad, density, elasticity):
-    e = core.entities.create()
-    putPhys(e, x, y, rad, rad, False, "circle", density, elasticity)
-    putVis(e, 0xFF, 0, 0)
-    putNPC(e, "drone")
-    putWeapons(e)
-    log = e.getLog()
-    log["team"] = hive.getLog()["team"]
-    log["hive"] = hive
-    log["npc"] = True
-    log["onDeath"] = droneDeath
-    def refund():
-        if hive.isAlive():
-            hive.getLog()["budget"] += 1
-    log["npcDeath"] = refund
-    return e
-
-def putHive(core, team, x, y, r, g, b):
-    e = core.entities.create()
-    putPhys(e, x, y, 20, 20, False, "circle")
-    e.getPhys().area = 9999999
-    putVis(e, r, g, b)
-    putNPC(e, "hive")
-    log = e.getLog()
-    log["controller"] = "hive"
-    log["team"] = team
-    log["hp"] = 1000
-    log["maxHP"] = log["hp"]
-    log["budget"] = 7
-    log["spawnCooldown"] = 1.0
-    log["spawnCooling"] = 0.0
-    log["onDeath"] = droneDeath
-    return e
 
 def setup(core):
     rad = 100.0
@@ -130,7 +63,7 @@ def setup(core):
     easyWall(core, 0 - rad, 0 - rad, 0, height + rad)
     easyWall(core, width, 0 - rad, width + rad, height + rad)
 
-    for i in range(32):
+    for i in range(0):
         left = 250 + i * 5
         top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
@@ -142,140 +75,3 @@ def setup(core):
         easyWall(core, left, top, left + 10, top + 10)
         top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
-
-    aHive = putHive(core, "A", 200, midY + 45, 0xFF, 0, 0)
-    bHive = putHive(core, "B", width - 200, midY - 45, 0, 0, 0xFF)
-
-def fire(core, log, phys, direction):
-    brad = 2.5
-    b = core.entities.create()
-    force = 50 * log["bulletForce"] * core.physics.stepsPerSecond()
-    offset = 1.0001 * (phys.rad[0] + brad)
-    bphys = b.getPhys()
-    bphys.pos = phys.pos + direction * offset
-    bphys.impulse = direction * force
-    phys.impulse -= bphys.impulse / core.physics.stepsPerSecond()
-    bphys.rad = Vec2(brad)
-    bphys.mass = math.pi * brad * brad
-    bphys.area = brad * brad
-    bphys.elasticity = 0.95
-    bphys.shape = "circle"
-    bphys.isStatic = False
-    bphys.phased = False
-    bphys.gather = True
-    b.getVis().draw = True
-    b.getVis().colour = Vec3(125, 60, 152)
-    b.getLog()["dmg"] = 1
-    b.getLog()["team"] = log["team"]
-    b.getLog()["lifetime"] = log["blifetime"] + random.uniform(0, 0.75)
-    b.getLog()["controller"] = "bullet"
-    return b
-
-def control_bullet(core, bullet):
-    phys = bullet.getPhys()
-    for k in phys.contacts:
-        l = core.entities.getHandle(k.which).getLog()
-        if (not "controller" in l) or "bullet" != l["controller"]:
-            log = bullet.getLog()
-            log["lifetime"] = random.uniform(0, 0.01)
-            del log["controller"]
-            phys.gather = False
-            break
-
-def firing_control(core, shouldFire, log, phys, direction):
-    log["reload"] = max(0.0, log["reload"] - core.physics.timestep())
-    if shouldFire and 0.0 == log["reload"]:
-        log["reload"] = log["reloadTime"]
-        return fire(core, log, phys, direction)
-    return None
-
-def cooldownFunc(d, timeKey, coolKey, func, tick=None):
-    if tick:
-        d[timeKey] = max(0.0, d[timeKey] - tick)
-    if 0.0 == d[timeKey]:
-        d[timeKey] = d[coolKey]
-        return func()
-    return None
-
-def getTarget(core, pos, r, team):
-    ll = core.ai.findIn(pos, 512 + 256, team, False)
-    for l in ll:
-        direct = normalized(l.getPhys().pos - pos)
-        e, d = core.physics.rayCast(pos + direct * r * 1.1, direct)
-        if l.id() == e.id(): return e
-        #return l
-    return None
-
-def setDecaying(core, ent, lifetime, to=Vec3(0, 0, 0)):
-    log = ent.getLog()
-    log["lifetime"] = lifetime
-    log["maxLifetime"] = lifetime
-    log["controller"] = "decay"
-    log["originalColour"] = ent.getVis().colour
-    log["targetColour"] = to
-
-def control_decay(core, decay):
-    log = decay.getLog()
-    perc = log["lifetime"] / log["maxLifetime"]
-    goal = log["originalColour"]
-    base = log["targetColour"]
-    decay.getVis().colour = base + (goal - base) * perc
-
-def updateTarget(core, pos, r, log):
-    replace = not "target" in log or \
-              not log["target"] or \
-              not log["target"].isAlive() or \
-              not "npc" in log["target"].getLog()
-    if replace:
-        log["target"] = getTarget(core, pos, r, log["team"])
-
-def contactDamage(core, e, log, phys):
-    for k in phys.contacts:
-        ent = core.entities.getHandle(k.which)
-        elog = ent.getLog()
-
-        dmg = 0.0
-        converted = (1.0 - phys.elasticity * ent.getPhys().elasticity)
-        forceDmg = (k.force * converted) / 2500
-
-        if forceDmg > log["maxHP"] / 20:
-            dmg = forceDmg
-
-        if "dmg" in elog and elog["team"] != log["team"]:
-            dmg += elog["dmg"]
-
-        log["hp"] = max(0, log["hp"] - dmg)
-        if 0.0 == log["hp"]:
-            e.getVis().colour = e.getVis().colour * 0.9
-            phys.gather = False
-            if "npcDeath" in log: log["npcDeath"]()
-            setDecaying(core, e, 0.3 + random.uniform(0, 2.0))
-            break
-
-def control_drone(core, drone):
-    log = drone.getLog()
-    phys = drone.getPhys()
-    updateTarget(core, phys.pos, phys.rad.x, log)
-    targetEnt = log["target"]
-    if targetEnt:
-        target = targetEnt.getPhys().pos
-        direction = normalized(target - phys.pos)
-        phys.impulse += direction * log["speed"]
-        e, d = core.physics.rayCast(phys.pos + direction * phys.rad[0] * 1.1, direction)
-        if not e.empty() and targetEnt.id() == e.id():
-            firing_control(core, True, log, phys, direction)
-
-    contactDamage(core, drone, log, phys)
-
-def control_hive(core, hive):
-    phys = hive.getPhys()
-    log = hive.getLog()
-    def spawn():
-        x, y = randomAroundCircle(phys.pos.x, phys.pos.y, phys.rad[0] + 7.1 + 10)
-        drone = putDrone(core, x, y, hive, 10, 0.2, 1.0)
-        log["budget"] -= 1
-        drone.getVis().colour = hive.getVis().colour
-    if log["budget"] > 0:
-        cooldownFunc(log, "spawnCooling", "spawnCooldown", spawn, core.physics.timestep())
-
-    contactDamage(core, hive, log, phys)
