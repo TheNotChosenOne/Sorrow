@@ -40,14 +40,6 @@ static void gather(DrawLists &dl, const VisualManager::Components &comps,
             vis.colour, view * gmtl::Point2d(phys.pos), view * phys.rad
         });
     }
-    const auto &contacts = core.player->getPhys().contacts;
-    for (const auto &k : contacts) {
-        const double d = std::max(k.depth, 0.5);
-        const Vec rad(d, d);
-        dl[2].push_back({
-            Vec3(0xFF, 0, 0), view * gmtl::Point2d(k.where), view * rad
-        });
-    }
 }
 
 };

@@ -186,12 +186,11 @@ static void run(boost::program_options::variables_map &options) {
 
     AI ai;
 
-    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, ai, 0, options };
+    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, ai, options };
     entityMan->setCore(core);
     physicsRef.setCore(core);
     ai.setCore(core);
 
-    core.player = core.entities.getHandle(core.entities.create());
     core.logic.setup(core);
 
     mainLoop(core);

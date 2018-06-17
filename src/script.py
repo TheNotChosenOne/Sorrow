@@ -116,24 +116,6 @@ def putHive(core, team, x, y, r, g, b):
     log["onDeath"] = droneDeath
     return e
 
-def setupPlayer(core):
-    midY = core.renderer.getHeight() / 2.0
-    midX = core.renderer.getWidth() / 2.0
-
-    putPhys(core.player, midX, midY, 10, 10, False, "circle")
-    putVis(core.player, 0, 0xFF, 0)
-
-    phys = core.player.getPhys()
-    phys.gather = False
-    phys.phased = False
-
-    putNPC(core.player, "player")
-    putWeapons(core.player)
-    core.player.getLog()["speed"] = 150
-    core.player.getLog()["team"] = "player"
-    core.player.getLog()["npc"] = False
-    core.player.getLog()["reloadTime"] = 0.01
-
 def setup(core):
     rad = 100.0
     clear = 5.0
@@ -141,8 +123,6 @@ def setup(core):
     height = core.renderer.getHeight()
     midX = width / 2.0
     midY = height / 2.0
-
-    setupPlayer(core)
 
     easyWall(core, 200, 200, 250, 250)
     easyWall(core, 0 - rad, 0, width + rad, 0 - rad)
@@ -217,9 +197,13 @@ def cooldownFunc(d, timeKey, coolKey, func, tick=None):
         return func()
     return None
 
-def getTarget(core, pos, team):
+def getTarget(core, pos, r, team):
     ll = core.ai.findIn(pos, 512 + 256, team, False)
-    if ll: return ll[0]
+    for l in ll:
+        direct = normalized(l.getPhys().pos - pos)
+        e, d = core.physics.rayCast(pos + direct * r * 1.1, direct)
+        if l.id() == e.id(): return e
+        #return l
     return None
 
 def setDecaying(core, ent, lifetime, to=Vec3(0, 0, 0)):
@@ -237,13 +221,13 @@ def control_decay(core, decay):
     base = log["targetColour"]
     decay.getVis().colour = base + (goal - base) * perc
 
-def updateTarget(core, pos, log):
+def updateTarget(core, pos, r, log):
     replace = not "target" in log or \
               not log["target"] or \
               not log["target"].isAlive() or \
               not "npc" in log["target"].getLog()
     if replace:
-        log["target"] = getTarget(core, pos, log["team"])
+        log["target"] = getTarget(core, pos, r, log["team"])
 
 def contactDamage(core, e, log, phys):
     for k in phys.contacts:
@@ -271,7 +255,7 @@ def contactDamage(core, e, log, phys):
 def control_drone(core, drone):
     log = drone.getLog()
     phys = drone.getPhys()
-    updateTarget(core, phys.pos, log)
+    updateTarget(core, phys.pos, phys.rad.x, log)
     targetEnt = log["target"]
     if targetEnt:
         target = targetEnt.getPhys().pos
@@ -295,31 +279,3 @@ def control_hive(core, hive):
         cooldownFunc(log, "spawnCooling", "spawnCooldown", spawn, core.physics.timestep())
 
     contactDamage(core, hive, log, phys)
-
-def control_player(core, player):
-    log = player.getLog()
-    phys = player.getPhys()
-
-    direction = core.visuals.screenToWorld(core.input.mousePos())
-    direction = normalized(direction - phys.pos)
-    b = firing_control(core, core.input.mouseHeld(1), log, phys, direction)
-    if b:
-        b.getVis().colour = Vec3(0xFF, 0, 0xFF)
-        bp = b.getPhys()
-        bp.impulse = bp.impulse * 70
-        bp.mass = bp.mass * 70
-        bp.area = bp.area / 10.0
-
-    # https://wiki.libsdl.org/SDLKeycodeLookup
-    speed = log["speed"] * 10
-    fact = 100.0
-    dirs = Vec2(0, 0)
-    if core.input.isHeld(97):
-        dirs[0] += -1
-    if core.input.isHeld(100):
-        dirs[0] += 1
-    if core.input.isHeld(119):
-        dirs[1] += 1
-    if core.input.isHeld(115):
-        dirs[1] += -1
-    phys.acc += clampVec(-speed, speed, phys.acc + dirs * (speed / fact))

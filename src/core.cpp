@@ -21,7 +21,6 @@ static char *PyCoreArr[][2] = {
     { const_cast< char * >("visuals"), const_cast< char * >("Visualizes stuff") },
     { const_cast< char * >("logic"), const_cast< char * >("Thinks for stuff") },
     { const_cast< char * >("ai"), const_cast< char * >("Assistant intelligence") },
-    { const_cast< char * >("player"), const_cast< char * >("The real enemy") },
     { nullptr, nullptr }
 };
 
@@ -52,6 +51,5 @@ PyObject *toPython< Core >(Core &core) {
     PyStructSequence_SetItem(obj, index++, toPython(core.visuals));
     PyStructSequence_SetItem(obj, index++, toPython(core.logic));
     PyStructSequence_SetItem(obj, index++, toPython(core.ai));
-    PyStructSequence_SetItem(obj, index++, toPython(core.player));
     return obj;
 }

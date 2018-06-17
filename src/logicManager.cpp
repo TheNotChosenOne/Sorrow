@@ -297,10 +297,6 @@ void LogicManager::logicUpdate(Core &core) {
         pyPerfStop();
         perfActive = false;
     }
-
-    const double interp = 0.00000001;
-    const Vec target = core.player->getPhys().pos - (core.visuals.FOV / 2.0);
-    core.visuals.cam = interp * core.visuals.cam + (1.0 - interp) * target;
 }
 
 namespace {

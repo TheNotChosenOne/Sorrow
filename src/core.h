@@ -14,9 +14,7 @@ class PhysicsManager;
 class VisualManager;
 class LogicManager;
 typedef size_t Entity;
-class EntityView;
 class AI;
-typedef std::shared_ptr< EntityView > EntityHandle;
 
 struct Core {
     Renderer &renderer;
@@ -26,7 +24,6 @@ struct Core {
     VisualManager &visuals;
     LogicManager &logic;
     AI &ai;
-    EntityHandle player;
     boost::program_options::variables_map options;
 };
 
