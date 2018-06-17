@@ -52,6 +52,7 @@ class LogicManager: public BaseComponentManager {
 
     private:
         std::map< std::string, PyObject * > controlFuncs;
+        std::map< std::string, std::set< size_t > > groups;
         PyObject *pyCore;
         ActionTimer perfTimer;
         bool perfActive;

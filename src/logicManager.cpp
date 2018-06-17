@@ -25,11 +25,14 @@ static bool PyHas(PyObject *dict, const std::string &key) {
     return result;
 }
 
-static PyObject *getGlobalFunc(const std::string &name) {
+static PyObject *getGlobalFunc(const std::string &name, bool required=true) {
     PyObject *mods = PyImport_GetModuleDict();
     PyObject *mainString = Py_BuildValue("s", "__main__");
     PyObject *funcString = Py_BuildValue("s", name.c_str());
     PyObject *main = PyDict_GetItem(mods, mainString);
+    const bool has = PyObject_HasAttr(main, funcString);
+    rassert(!required || has, "Script must define function: ", name);
+    if (!required && !has) { return nullptr; }
     PyObject *func = PyObject_GetAttr(main, funcString);
     rassert(func, "Script must define function: ", name);
     rassert(PyCallable_Check(func), "Function must be callable: ", name);
@@ -64,6 +67,18 @@ static void pyPerfStart() {
 
 static void pyPerfStop() {
     PyRun_SimpleString("_profileStop(pr, ('cumulative',))");
+}
+
+static void safeCall(PyObject *func, PyObject *args) {
+    PyObject *result = PyObject_CallObject(func, args);
+    if (!result) {
+        if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
+            std::cout << "\nKeyboard interrupt caught\n";
+            exit(1);
+        }
+        PyErr_Print();
+    }
+    Py_XDECREF(result);
 }
 
 };
@@ -162,15 +177,7 @@ void LogicManager::setup(Core &core) {
     PyObject *func = getGlobalFunc("setup");
     PyObject *args = PyTuple_New(1);
     PyTuple_SetItem(args, 0, pyCore);
-    PyObject *result = PyObject_CallObject(func, args);
-    if (!result) {
-        if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
-            std::cout << "\nKeyboard interrupt caught\n";
-            exit(1);
-        }
-        PyErr_Print();
-    }
-    Py_XDECREF(result);
+    safeCall(func, args);
     Py_DECREF(args);
     Py_DECREF(func);
 
@@ -226,6 +233,16 @@ const PythonData &LogicManager::get(Entity e) const {
 }
 
 void LogicManager::logicUpdate(Core &core) {
+    for (auto &p : groups) {
+        p.second.clear();
+    }
+    for (size_t i = 0; i < components.size(); ++i) {
+        if (components[i]->has("group")) {
+            const std::string &g = components[i]->getString("group");
+            groups[g].insert(i);
+        }
+    }
+
     PyObject *lifeString = toPython("lifetime");
     PyObject *deathString = toPython("onDeath");
     PyObject *args = PyTuple_New(2);
@@ -238,6 +255,21 @@ void LogicManager::logicUpdate(Core &core) {
     }
     const auto startTime = std::chrono::high_resolution_clock::now();
 
+    for (const auto &group : groups) {
+        const std::string &name = group.first;
+        PyObject *func = getGlobalFunc("control_pre_" + name, false);
+        if (func) {
+            PyObject *listy = PyList_New(group.second.size());
+            size_t i = 0;
+            for (const auto x : group.second) {
+                EntityHandle &eh = core.entities.getHandleFromLow(x);
+                PyList_SetItem(listy, i++, toPython(eh));
+            }
+            PyTuple_SetItem(args, 1, listy);
+            safeCall(func, args);
+        }
+    }
+
     for (size_t i = 0; i < components.size(); ++i) {
         if (components[i]->has("controller")) {
             const std::string &c = components[i]->getString("controller");
@@ -247,15 +279,7 @@ void LogicManager::logicUpdate(Core &core) {
             }
             EntityHandle &eh = core.entities.getHandleFromLow(i);
             PyTuple_SetItem(args, 1, toPython(eh));
-            PyObject *result = PyObject_CallObject(loc->second, args);
-            if (!result) {
-                if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
-                    std::cout << "\nKeyboard interrupt caught\n";
-                    exit(1);
-                }
-                PyErr_Print();
-            }
-            Py_XDECREF(result);
+            safeCall(loc->second, args);
         }
     }
     for (size_t i = 0; i < components.size(); ++i) {
@@ -275,18 +299,26 @@ void LogicManager::logicUpdate(Core &core) {
             EntityHandle &handle = core.entities.getHandleFromLow(i);
             if (handle->dying()) {
                 PyTuple_SetItem(args, 1, toPython(handle));
-                PyObject *result = PyObject_CallObject(PyDict_GetItem(dict, deathString), args);
-                if (!result) {
-                    if (PyErr_ExceptionMatches(PyExc_KeyboardInterrupt)) {
-                        std::cout << "\nKeyboard interrupt caught\n";
-                        exit(1);
-                    }
-                    PyErr_Print();
-                }
-                Py_XDECREF(result);
+                safeCall(PyDict_GetItem(dict, deathString), args);
             }
         }
     }
+
+    for (const auto &group : groups) {
+        const std::string &name = group.first;
+        PyObject *func = getGlobalFunc("control_post_" + name, false);
+        if (func) {
+            PyObject *listy = PyList_New(group.second.size());
+            size_t i = 0;
+            for (const auto x : group.second) {
+                EntityHandle &eh = core.entities.getHandleFromLow(x);
+                PyList_SetItem(listy, i++, toPython(eh));
+            }
+            PyTuple_SetItem(args, 1, listy);
+            safeCall(func, args);
+        }
+    }
+
     Py_DECREF(deathString);
     Py_DECREF(lifeString);
     Py_DECREF(args);
@@ -296,6 +328,12 @@ void LogicManager::logicUpdate(Core &core) {
     if (perfActive && perfTimer.tick(duration)) {
         pyPerfStop();
         perfActive = false;
+    }
+
+    for (const auto &p : groups) {
+        if (p.second.empty()) {
+            groups.erase(p.first);
+        }
     }
 }
 

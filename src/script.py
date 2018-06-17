@@ -75,3 +75,10 @@ def setup(core):
         easyWall(core, left, top, left + 10, top + 10)
         top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
+
+    e = core.entities.create()
+    e.getLog()["group"] = "test"
+
+def control_pre_test(core, which):
+    for w in which:
+        core.entities.kill(w)
