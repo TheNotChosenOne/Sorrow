@@ -3,6 +3,11 @@
 #include <gmtl/Vec.h>
 #include <gmtl/VecOps.h>
 #include <gmtl/Output.h>
+#include <gmtl/MatrixOps.h>
+#include <gmtl/CoordOps.h>
+#include <gmtl/Coord.h>
+#include <gmtl/Xforms.h>
+#include <gmtl/Matrix.h>
 
 #include <algorithm>
 #include <iostream>

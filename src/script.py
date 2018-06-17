@@ -133,6 +133,7 @@ def setupPlayer(core):
     core.player.getLog()["team"] = "player"
     core.player.getLog()["npc"] = False
     core.player.getLog()["reloadTime"] = 0.01
+    core.player.getLog()["helper"] = 0
 
 def setup(core):
     rad = 100.0
@@ -143,6 +144,12 @@ def setup(core):
     midY = height / 2.0
 
     setupPlayer(core)
+
+    #easyWall(core, midX - 20, midY + 40, midX + 20, midY + 39.999)
+    #e = core.entities.create()
+    #putPhys(e, midX - 40, midY, 10, 10, True, "circle")
+    #putVis(e, 0x88, 0x88, 0x88)
+    return
 
     easyWall(core, 200, 200, 250, 250)
     easyWall(core, 0 - rad, 0, width + rad, 0 - rad)
@@ -162,6 +169,13 @@ def setup(core):
         easyWall(core, left, top, left + 10, top + 10)
         top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
+
+    for i in range(0):
+        x = random.randrange(0, width)
+        y = random.randrange(0, height)
+        w = random.randrange(1, 50)
+        h = random.randrange(1, 70)
+        easyWall(core, x, y, x + w, y + h)
 
     aHive = putHive(core, "A", 200, midY + 45, 0xFF, 0, 0)
     bHive = putHive(core, "B", width - 200, midY - 45, 0, 0, 0xFF)
@@ -287,6 +301,7 @@ def control_hive(core, hive):
     phys = hive.getPhys()
     log = hive.getLog()
     def spawn():
+        return
         x, y = randomAroundCircle(phys.pos.x, phys.pos.y, phys.rad[0] + 7.1 + 10)
         drone = putDrone(core, x, y, hive, 10, 0.2, 1.0)
         log["budget"] -= 1
@@ -309,6 +324,44 @@ def control_player(core, player):
         bp.impulse = bp.impulse * 70
         bp.mass = bp.mass * 70
         bp.area = bp.area / 10.0
+
+    log["helper"] = max(log["helper"] - core.physics.timestep(), 0.0)
+    if 0.0 == log["helper"]:
+        midY = core.renderer.getHeight() / 2.0
+        midX = core.renderer.getWidth() / 2.0
+        log["helper"] = 10.0 / 250
+
+        b1 = core.entities.create()
+        bphys = b1.getPhys()
+        bphys.rad = Vec2(10)
+        bphys.mass = math.pi
+        bphys.area = 2
+        bphys.elasticity = 0.95
+        bphys.shape = "circle"
+        bphys.isStatic = False
+        bphys.gather = False
+        bphys.pos = Vec2(midX - 40, midY + 30)
+        #bphys.vel = Vec2(100, 100) * core.physics.stepsPerSecond()
+        bphys.vel = Vec2(-200, 0) * core.physics.stepsPerSecond()
+        bvis = b1.getVis()
+        bvis.draw = True
+        bvis.colour = Vec3(0xFF, 0, 0)
+
+        b2 = core.entities.create()
+        bphys = b2.getPhys()
+        bphys.rad = Vec2(10)
+        bphys.mass = math.pi
+        bphys.area = 2
+        bphys.elasticity = 0.95
+        bphys.shape = "circle"
+        bphys.isStatic = False
+        bphys.gather = False
+        bphys.pos = Vec2(midX + 40, midY + 30)
+        #bphys.vel = Vec2(-100, 100) * core.physics.stepsPerSecond()
+        bphys.vel = Vec2(-400, 0) * core.physics.stepsPerSecond()
+        bvis = b2.getVis()
+        bvis.draw = True
+        bvis.colour = Vec3(0xFF, 0, 0)
 
     # https://wiki.libsdl.org/SDLKeycodeLookup
     speed = log["speed"] * 10
