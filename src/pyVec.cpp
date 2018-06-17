@@ -101,13 +101,27 @@ static PyObject *Py_new(PyTypeObject *type, PyObject *, PyObject *) {
     return reinterpret_cast< PyObject * >(self);
 }
 
+template< typename T >
+static PyObject *Py_length(T *t, PyObject *) {
+    return toPython(gmtl::length(t->v));
+}
+
+template< typename T >
+static PyObject *Py_length2(T *t, PyObject *) {
+    return toPython(gmtl::lengthSquared(t->v));
+}
+
 static PyMethodDef PyVecMethods[] = {
     { "normalize", reinterpret_cast< PyCFunction >(Py_normalize< PyVec >), READONLY, "Normalize" },
+    { "length", reinterpret_cast< PyCFunction >(Py_length< PyVec >), READONLY, "Length" },
+    { "length2", reinterpret_cast< PyCFunction >(Py_length2< PyVec >), READONLY, "Length squared" },
     { nullptr, nullptr, 0, nullptr }
 };
 
 static PyMethodDef PyVec3Methods[] = {
     { "normalize", reinterpret_cast< PyCFunction >(Py_normalize< PyVec3 >), READONLY, "Normalize" },
+    { "length", reinterpret_cast< PyCFunction >(Py_length< PyVec3 >), READONLY, "Length" },
+    { "length2", reinterpret_cast< PyCFunction >(Py_length2< PyVec3 >), READONLY, "Length squared" },
     { nullptr, nullptr, 0, nullptr }
 };
 
