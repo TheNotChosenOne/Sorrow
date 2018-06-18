@@ -11,8 +11,7 @@
 #include <boost/hana.hpp>
 #include <Python.h>
 
-const double SPEED_LIMIT = 500.0;
-const double STEPS_PER_SECOND = 250.0;
+const double STEPS_PER_SECOND = 100.0;
 const double PHYSICS_TIMESTEP = 1.0 / STEPS_PER_SECOND;
 
 enum Shape {
