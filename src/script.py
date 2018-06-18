@@ -4,8 +4,6 @@ import random
 import sorrow
 from sorrow import *
 
-random.seed(0x88888888)
-
 def clamp(low, high, x):
     return min(high, max(low, x))
 
@@ -49,6 +47,49 @@ def randomAroundCircle(x, y, rad):
 def randomInCircle(x, y, rad):
     return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
 
+def putSwarm(core, xx, yy, name, k, attractor):
+    sr = 8
+    ran = 2
+    for x in range(-ran, ran):
+        for y in range(-ran, ran):
+            a = core.entities.create()
+            kk = k * 0.5
+            putVis(a, kk.x, kk.y, kk.z)
+            putPhys(a, xx + x * sr * 2.1, yy + y * sr * 2.1, sr * 10.1, sr * 10.1, False, "circle")
+            phys = a.getPhys()
+            phys.phased = True
+            a.getVis().depth = -1.0
+
+            e = core.entities.create()
+            putVis(e, k.x, k.y, k.z)
+            putPhys(e, xx + x * sr * 2.1, yy + y * sr * 2.1, sr, sr, False, "circle")
+            e.getPhys().gather = True
+            log = e.getLog()
+            log["group"] = name
+            log["controller"] = "drone"
+            log["attractor"] = attractor
+            log["size"] = sr
+            log["aura"] = a
+
+            def death(core, d):
+                aura = d.getLog()["aura"]
+                core.entities.kill(aura)
+                core.physics.unbind(d.id(), aura.id())
+            log["onDeath"] = death
+
+            core.physics.bind(e.id(), a.id(), Vec2())
+
+    def post_update(core, swarm):
+        for e in swarm:
+            e.getPhys().rad = Vec2(e.getLog()["size"])
+
+    def group_death(core, name):
+        print("Swarm", name, "has been vanquished!")
+
+    main = __import__(__name__)
+    setattr(main, "control_post_" + name, post_update)
+    setattr(main, "control_death_" + name, group_death)
+
 def setup(core):
     rad = 100.0
     clear = 5.0
@@ -76,9 +117,64 @@ def setup(core):
         top = midY + i * 7 - 7 * 31
         easyWall(core, left, top, left + 10, top + 10)
 
-    e = core.entities.create()
-    e.getLog()["group"] = "test"
+    def mouseAttract(core, name):
+        return core.visuals.screenToWorld(core.input.mousePos())
 
-def control_pre_test(core, which):
-    for w in which:
-        core.entities.kill(w)
+    def targetPlayer(core, name):
+        swarm = core.logic.getGroup("player")
+        com = Vec2()
+        for d in swarm:
+            com += d.getPhys().pos
+        com /= len(swarm)
+        return com
+
+    putSwarm(core, midX, midY, "A", Vec3(0xFF, 0, 0), targetPlayer)
+    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract)
+
+def control_drone(core, ent):
+    log = ent.getLog()
+    phys = ent.getPhys()
+
+    swarm = core.logic.getGroup(log["group"])
+
+    averad = phys.rad[0]
+    for d in swarm:
+        averad += d.getPhys().rad[0]
+
+    averad /= len(swarm)
+    com = Vec2()
+    avoid = Vec2()
+    match = Vec2()
+    if 1 != len(swarm):
+        for d in swarm:
+            if d.id() == ent.id(): continue
+            p = d.getPhys()
+            com += p.pos
+            shy = phys.rad[0] * 3
+            if (p.pos - phys.pos).length2() < shy * shy:
+                avoid -= (p.pos - phys.pos)
+            match += p.vel
+
+        com /= len(swarm) - 1
+        com = com - phys.pos
+        match /= len(swarm) - 1
+
+    attract = log["attractor"](core, log["group"]) - phys.pos
+    phys.acc += com * 0.01
+    phys.acc += avoid
+    phys.acc += match * pow(1.0 / 8.0, 3)
+    phys.acc += attract * 0.05
+
+    for k in phys.contacts:
+        other = core.entities.getHandle(k.which)
+        elog = other.getLog()
+        if (not "controller" in elog) or (elog["controller"] != "drone"): continue
+        if elog["group"] == log["group"]: continue
+
+        log["size"] *= min(1, log["size"] / elog["size"]) * 0.99
+        if log["size"] < 1:
+            core.entities.kill(ent)
+
+if __name__ == '__main__':
+    random.seed(0x88888888)
+

@@ -100,8 +100,30 @@ static PyObject *Py_screenToWorld(PyVisualManager *self, PyObject *args) {
     return toPython(self->visMan->screenToWorld(v));
 }
 
+static PyObject *Py_getCam(PyVisualManager *self, PyObject *) {
+    return toPython(self->visMan->cam);
+}
+
+static PyObject *Py_setCam(PyVisualManager *self, PyObject *args) {
+    fromPython(self->visMan->cam, PyTuple_GetItem(args, 0));
+    Py_RETURN_NONE;
+}
+
+static PyObject *Py_getFOV(PyVisualManager *self, PyObject *) {
+    return toPython(self->visMan->FOV);
+}
+
+static PyObject *Py_setFOV(PyVisualManager *self, PyObject *args) {
+    fromPython(self->visMan->FOV, PyTuple_GetItem(args, 0));
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef visManMethods[] = {
     { "screenToWorld", reinterpret_cast< PyCFunction >(Py_screenToWorld), READONLY, "Get world pos" },
+    { "getCam", reinterpret_cast< PyCFunction >(Py_getCam), READONLY, "Get camera" },
+    { "setCam", reinterpret_cast< PyCFunction >(Py_setCam), READONLY, "Set camera" },
+    { "getFOV", reinterpret_cast< PyCFunction >(Py_getFOV), READONLY, "Get FOV" },
+    { "setFOV", reinterpret_cast< PyCFunction >(Py_setFOV), READONLY, "Set FOV" },
     { nullptr, nullptr, 0, nullptr }
 };
 
