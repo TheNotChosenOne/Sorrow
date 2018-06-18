@@ -320,6 +320,18 @@ void LogicManager::logicUpdate(Core &core) {
         }
     }
 
+    for (const auto &p : groups) {
+        if (p.second.empty()) {
+            const std::string &name = p.first;
+            PyObject *func = getGlobalFunc("control_death_" + name, false);
+            if (func) {
+                PyTuple_SetItem(args, 1, toPython(name));
+                safeCall(func, args);
+            }
+            groups.erase(p.first);
+        }
+    }
+
     Py_DECREF(deathString);
     Py_DECREF(lifeString);
     Py_DECREF(args);
@@ -329,12 +341,6 @@ void LogicManager::logicUpdate(Core &core) {
     if (perfActive && perfTimer.tick(duration)) {
         pyPerfStop();
         perfActive = false;
-    }
-
-    for (const auto &p : groups) {
-        if (p.second.empty()) {
-            groups.erase(p.first);
-        }
     }
 }
 
