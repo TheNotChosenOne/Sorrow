@@ -64,6 +64,12 @@ struct RaycastResult {
     double dist;
 };
 
+struct Binding {
+    Entity to;
+    Entity which;
+    Vec offset;
+};
+
 class PhysicsManager: public BaseComponentManager {
     public:
         typedef PhysicsComponent Component;
@@ -73,6 +79,7 @@ class PhysicsManager: public BaseComponentManager {
         Components components;
         Components nursery;
         Core *core;
+        std::vector< Binding > bindings;
 
         void create() override;
         void graduate() override;
@@ -90,6 +97,8 @@ class PhysicsManager: public BaseComponentManager {
         Component &get(Entity e);
         const Component &get(Entity e) const;
 
+        void bind(Entity to, Entity which, const Vec offset);
+        void unbind(Entity to, Entity which);
         RaycastResult rayCast(const Vec pos, const Vec dir) const;
 };
 

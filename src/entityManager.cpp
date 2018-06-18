@@ -163,6 +163,10 @@ void EntityManager::kill(Entity e) {
     entities.erase(e);
 }
 
+Entity EntityManager::getLowFromID(Entity e) const {
+    return idToLow.at(e);
+}
+
 Entity EntityManager::getIDFromLow(size_t i) const {
     return lowToID[i];
 }

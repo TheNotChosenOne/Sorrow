@@ -192,6 +192,7 @@ static void run(boost::program_options::variables_map &options) {
     ai.setCore(core);
 
     core.logic.setup(core);
+    core.entities.update();
 
     mainLoop(core);
 }

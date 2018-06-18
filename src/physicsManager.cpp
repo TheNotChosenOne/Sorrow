@@ -372,6 +372,17 @@ void PhysicsManager::setCore(Core &core) {
 
 void PhysicsManager::updatePhysics(Core &core) {
     move(components);
+    for (const auto &binding : bindings) {
+        const size_t i = core.entities.getLowFromID(binding.to);
+        const size_t j = core.entities.getLowFromID(binding.which);
+
+        const PhysicsComponent &to = components[i];
+        PhysicsComponent &which = components[j];
+
+        which.pos = to.pos + binding.offset;
+        which.vel = to.vel;
+        which.acc = to.acc;
+    }
     collide(core, components);
 }
 
@@ -442,6 +453,19 @@ RaycastResult PhysicsManager::rayCast(const Vec pos, const Vec dir) const {
     return { core->entities.getHandleFromLow(minEnt), minty };
 }
 
+void PhysicsManager::bind(Entity to, Entity which, Vec offset) {
+    bindings.push_back({ to, which, offset });
+}
+
+void PhysicsManager::unbind(Entity to, Entity which) {
+    for (size_t i = 0; i < bindings.size(); ++i) {
+        if (bindings[i].to == to && bindings[i].which == which) {
+            bindings.erase(bindings.begin() + i);
+            return;
+        }
+    }
+}
+
 namespace {
 
 struct PyPhysicsManager {
@@ -473,11 +497,30 @@ static PyObject *Py_rayCast(PyPhysicsManager *self, PyObject *args) {
     return tupperware;
 }
 
+static PyObject *Py_bind(PyPhysicsManager *self, PyObject *args) {
+    Entity to, which;
+    Vec offset;
+    fromPython(to, PyTuple_GetItem(args, 0));
+    fromPython(which, PyTuple_GetItem(args, 1));
+    fromPython(offset, PyTuple_GetItem(args, 2));
+    self->pm->bind(to, which, offset);
+    Py_RETURN_NONE;
+}
+
+static PyObject *Py_unbind(PyPhysicsManager *self, PyObject *args) {
+    Entity to, which;
+    fromPython(to, PyTuple_GetItem(args, 0));
+    fromPython(which, PyTuple_GetItem(args, 1));
+    self->pm->unbind(to, which);
+    Py_RETURN_NONE;
+}
 static PyMethodDef pmMethods[] = {
     { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get physics component" },
     { "timestep", reinterpret_cast< PyCFunction >(Py_timestep), READONLY, "Time between physics steps" },
     { "stepsPerSecond", reinterpret_cast< PyCFunction >(Py_stepsPerSecond), READONLY, "Physics steps per second" },
     { "rayCast", reinterpret_cast< PyCFunction >(Py_rayCast), READONLY, "Cast a ray" },
+    { "bind", reinterpret_cast< PyCFunction >(Py_bind), READONLY, "Bind two objects together" },
+    { "unbind", reinterpret_cast< PyCFunction >(Py_unbind), READONLY, "Remove a binding" },
     { nullptr, nullptr, 0, nullptr }
 };
 
