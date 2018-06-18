@@ -47,7 +47,7 @@ def randomAroundCircle(x, y, rad):
 def randomInCircle(x, y, rad):
     return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
 
-def putSwarm(core, xx, yy, name, k, attractor):
+def putSwarm(core, xx, yy, name, k, attractor, post=None):
     sr = 8
     ran = 2
     for x in range(-ran, ran):
@@ -82,6 +82,7 @@ def putSwarm(core, xx, yy, name, k, attractor):
     def post_update(core, swarm):
         for e in swarm:
             e.getPhys().rad = Vec2(e.getLog()["size"])
+        if post: post(core, swarm)
 
     def group_death(core, name):
         print("Swarm", name, "has been vanquished!")
@@ -128,8 +129,18 @@ def setup(core):
         com /= len(swarm)
         return com
 
+    def cameraMover(core, swarm):
+        if not swarm: return
+        com = Vec2()
+        for d in swarm:
+            com += d.getPhys().pos
+        com /= len(swarm)
+        com -= core.visuals.getFOV() / 2.0
+        interp = 0.1
+        core.visuals.setCam(core.visuals.getCam() * (1 - interp) + com * interp)
+
     putSwarm(core, midX, midY, "A", Vec3(0xFF, 0, 0), targetPlayer)
-    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract)
+    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract, cameraMover)
 
 def control_drone(core, ent):
     log = ent.getLog()
