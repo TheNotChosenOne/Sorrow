@@ -66,6 +66,7 @@ class LogicManager: public BaseComponentManager {
         void cull(size_t count) override;
 
     public:
+        Core *core;
         explicit LogicManager(const boost::program_options::variables_map &options);
         ~LogicManager();
         void setup(Core &core);
@@ -73,6 +74,7 @@ class LogicManager: public BaseComponentManager {
 
         PythonData &get(Entity e);
         const PythonData &get(Entity e) const;
+        const std::set< size_t > &getGroup(const std::string &name) const;
 };
 
 template<>

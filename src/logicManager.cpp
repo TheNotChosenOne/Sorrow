@@ -172,6 +172,7 @@ LogicManager::LogicManager(const boost::program_options::variables_map &opts)
 }
 
 void LogicManager::setup(Core &core) {
+    this->core = &core;
     pyCore = toPython(core);
     Py_INCREF(pyCore);
     PyObject *func = getGlobalFunc("setup");
@@ -337,6 +338,10 @@ void LogicManager::logicUpdate(Core &core) {
     }
 }
 
+const std::set< size_t > &LogicManager::getGroup(const std::string &name) const {
+    return groups.at(name);
+}
+
 namespace {
 
 struct PyLogicManager {
@@ -348,8 +353,23 @@ static PyObject *Py_get(PyLogicManager *self, PyObject *args) {
     return toPython(self->lm->get(fromPython< int64_t >(PyTuple_GetItem(args, 0))));
 }
 
+static PyObject *Py_getGroup(PyLogicManager *self, PyObject *args) {
+    std::string name;
+    fromPython(name, PyTuple_GetItem(args, 0));
+    const auto &in = self->lm->getGroup(name);
+    PyObject *listy = PyList_New(in.size());
+    size_t i = 0;
+    Core &core = *self->lm->core;
+    for (const auto &x : in) {
+        EntityHandle eh = core.entities.getHandleFromLow(x);
+        PyList_SetItem(listy, i++, toPython(eh));
+    }
+    return listy;
+}
+
 static PyMethodDef lmMethods[] = {
     { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get logic component" },
+    { "getGroup", reinterpret_cast< PyCFunction >(Py_getGroup), READONLY, "Get logic group" },
     { nullptr, nullptr, 0, nullptr }
 };
 
