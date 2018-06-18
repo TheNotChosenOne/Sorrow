@@ -1,10 +1,12 @@
 #include "rendererSDL.h"
 
+#include <functional>
 #include <exception>
 #include <iostream>
 #include <sstream>
 #include <vector>
 #include <cmath>
+#include <map>
 
 #include "utility.h"
 
@@ -24,9 +26,17 @@ static inline void setColour(SDL_Renderer *renderer, const Vec3 col) {
 
 };
 
-void RendererSDL::drawPoint(Vec pos, Vec3 col) {
+void RendererSDL::drawPoint(Vec pos, Vec3 col, double depth) {
+    commands.push_back({ col, pos, { 0, 0 }, depth, DrawType::Point });
+}
+
+void RendererSDL::drawPoint(Vec pos, Vec, Vec3 col) {
     setColour(renderer, col);
     SDL_RenderDrawPoint(renderer, pos[0], height - pos[1] - 1.0);
+}
+
+void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col, double depth) {
+    commands.push_back({ col, pos, rad, depth, DrawType::Box });
 }
 
 void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col) {
@@ -37,6 +47,10 @@ void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col) {
     rect.x = std::round(pos[0] - rad[0]);
     rect.y = height - 1 - (std::round(pos[1] + rad[1]));
     SDL_RenderFillRect(renderer, &rect);
+}
+
+void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col, double depth) {
+    commands.push_back({ col, pos, rad, depth, DrawType::Circle });
 }
 
 void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col) {
@@ -115,11 +129,26 @@ RendererSDL::~RendererSDL() {
 }
 
 void RendererSDL::clear() {
+    commands.clear();
     setWhite(renderer);
     SDL_RenderClear(renderer);
 }
 
 void RendererSDL::update() {
+    typedef void (RendererSDL::*Drawer)(Vec, Vec, Vec3);
+    Drawer drawers[3] = { &RendererSDL::drawPoint,
+                          &RendererSDL::drawCircle,
+                          &RendererSDL::drawBox };
+    std::map< double, std::vector< const DrawCommand * > > depthed;
+    for (const auto &dc : commands) {
+        depthed[dc.depth].push_back(&dc);
+    }
+    for (const auto &depth : depthed) {
+        for (const auto &dcp : depth.second) {
+            const auto &dc = *dcp;
+            std::invoke(drawers[dc.type], *this, dc.pos, dc.rad, dc.col);
+        }
+    }
     SDL_RenderPresent(renderer);
 }
 
