@@ -22,6 +22,7 @@ struct MinVis {
     Vec3 col;
     Vec pos;
     Vec rad;
+    double alpha;
     double depth;
 };
 
@@ -38,7 +39,7 @@ static void gather(DrawLists &dl, const VisualManager::Components &comps,
         const auto &vis = comps[i];
         const size_t which = static_cast< size_t >(phys.shape);
         dl[vis.draw * (which + 1)].push_back({
-            vis.colour, view * gmtl::Point2d(phys.pos), view * phys.rad, vis.depth,
+            vis.colour, view * gmtl::Point2d(phys.pos), view * phys.rad, 1.0 - vis.transparency, vis.depth
         });
     }
 }
@@ -63,10 +64,10 @@ void VisualManager::updater(Core &core, const Components &lasts, Components &nex
     const auto viewMat = getViewMatrix(core.renderer);
     gather(shaped, next, core, viewMat);
     for (const MinVis &mv : shaped[1]) { // Boxes
-        core.renderer.drawBox(mv.pos, mv.rad, mv.col, mv.depth);
+        core.renderer.drawBox(mv.pos, mv.rad, mv.col, mv.alpha, mv.depth);
     }
     for (const MinVis &mv : shaped[2]) { // Circles
-        core.renderer.drawCircle(mv.pos, mv.rad, mv.col, mv.depth);
+        core.renderer.drawCircle(mv.pos, mv.rad, mv.col, mv.alpha, mv.depth);
     }
     core.renderer.update();
     core.renderer.clear();

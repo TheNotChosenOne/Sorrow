@@ -11,6 +11,7 @@ struct VisualComponent {
     BOOST_HANA_DEFINE_STRUCT(VisualComponent,
         (Vec3, colour),
         (double, depth),
+        (double, transparency),
         (bool, draw));
 };
 

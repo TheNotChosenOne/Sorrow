@@ -59,6 +59,7 @@ def putSwarm(core, xx, yy, name, k, attractor, post=None):
             phys = a.getPhys()
             phys.phased = True
             a.getVis().depth = -1.0
+            a.getVis().transparency = 0.5
 
             e = core.entities.create()
             putVis(e, k.x, k.y, k.z)
