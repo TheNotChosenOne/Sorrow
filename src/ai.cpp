@@ -16,10 +16,10 @@ void AI::setCore(Core &core) {
     this->core = &core;
 }
 
-std::vector< EntityHandle > AI::findIn(Vec pos, double radius, const std::string &team, bool match) {
+std::vector< EntityHandle > AI::findIn(Vec pos, double radius, const std::string &group, bool match) {
     const double rad2 = radius * radius;
     std::vector< EntityHandle > handles;
-    if (team.empty()) {
+    if (group.empty()) {
         for (auto &e : core->entities.all()) {
             auto &eh = core->entities.getHandle(e);
             const auto phys = eh->getPhys();
@@ -33,7 +33,7 @@ std::vector< EntityHandle > AI::findIn(Vec pos, double radius, const std::string
             const auto &phys = eh->getPhys();
             if (diffLength2(pos, phys.pos) < rad2) {
                 auto &log = eh->getLog();
-                if (log.has("team") && team == log.getString(team)) {
+                if (log.has("group") && group == log.getString("group")) {
                     handles.push_back(eh);
                 }
             }
@@ -44,7 +44,7 @@ std::vector< EntityHandle > AI::findIn(Vec pos, double radius, const std::string
             const auto &phys = eh->getPhys();
             if (diffLength2(pos, phys.pos) < rad2) {
                 auto &log = eh->getLog();
-                if (log.has("team") && team != log.getString("team")) {
+                if (log.has("group") && group != log.getString("group")) {
                     handles.push_back(eh);
                 }
             }
@@ -63,17 +63,17 @@ struct PyAI {
 static PyObject *Py_findIn(PyAI *pai, PyObject *args) {
     Vec pos;
     double rad;
-    std::string team;
+    std::string group;
     bool match = true;
     fromPython(pos, PyTuple_GetItem(args, 0));
     fromPython(rad, PyTuple_GetItem(args, 1));
     if (PyTuple_Size(args) > 2) {
-        fromPython(team, PyTuple_GetItem(args, 2));
+        fromPython(group, PyTuple_GetItem(args, 2));
         if (PyTuple_Size(args) > 3) {
             fromPython(match, PyTuple_GetItem(args, 3));
         }
     }
-    auto listy = pai->ai->findIn(pos, rad, team, match);
+    auto listy = pai->ai->findIn(pos, rad, group, match);
     if (!listy.empty()) {
         static std::mt19937_64 mt;
         size_t index = std::uniform_int_distribution< size_t >(0, listy.size() - 1)(mt);
