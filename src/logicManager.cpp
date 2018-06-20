@@ -243,6 +243,11 @@ void LogicManager::logicUpdate(Core &core) {
             groups[g].insert(i);
         }
     }
+    for (const auto &p : groups) {
+        if (groupData.end() == groupData.find(p.first)) {
+            groupData[p.first] = PyDict_New();
+        }
+    }
 
     PyObject *lifeString = toPython("lifetime");
     PyObject *deathString = toPython("onDeath");
@@ -260,13 +265,9 @@ void LogicManager::logicUpdate(Core &core) {
         const std::string &name = group.first;
         PyObject *func = getGlobalFunc("control_pre_" + name, false);
         if (func) {
-            PyObject *listy = PyList_New(group.second.size());
-            size_t i = 0;
-            for (const auto x : group.second) {
-                EntityHandle &eh = core.entities.getHandleFromLow(x);
-                PyList_SetItem(listy, i++, toPython(eh));
-            }
-            PyTuple_SetItem(args, 1, listy);
+            PyObject *data = groupData[name];
+            Py_INCREF(data);
+            PyTuple_SetItem(args, 1, data);
             safeCall(func, args);
         }
     }
@@ -309,13 +310,9 @@ void LogicManager::logicUpdate(Core &core) {
         const std::string &name = group.first;
         PyObject *func = getGlobalFunc("control_post_" + name, false);
         if (func) {
-            PyObject *listy = PyList_New(group.second.size());
-            size_t i = 0;
-            for (const auto x : group.second) {
-                EntityHandle &eh = core.entities.getHandleFromLow(x);
-                PyList_SetItem(listy, i++, toPython(eh));
-            }
-            PyTuple_SetItem(args, 1, listy);
+            PyObject *data = groupData[name];
+            Py_INCREF(data);
+            PyTuple_SetItem(args, 1, data);
             safeCall(func, args);
         }
     }
@@ -325,10 +322,14 @@ void LogicManager::logicUpdate(Core &core) {
             const std::string &name = p.first;
             PyObject *func = getGlobalFunc("control_death_" + name, false);
             if (func) {
-                PyTuple_SetItem(args, 1, toPython(name));
+                PyObject *data = groupData[name];
+                Py_INCREF(data);
+                PyTuple_SetItem(args, 1, data);
                 safeCall(func, args);
             }
-            groups.erase(p.first);
+            groups.erase(name);
+            Py_DECREF(groupData[name]);
+            groupData.erase(name);
         }
     }
 
@@ -346,6 +347,14 @@ void LogicManager::logicUpdate(Core &core) {
 
 const std::set< size_t > &LogicManager::getGroup(const std::string &name) const {
     return groups.at(name);
+}
+
+PyObject *LogicManager::getGroupData(const std::string &name) const {
+    return groupData.at(name);
+}
+
+bool LogicManager::hasGroup(const std::string &name) const {
+    return groups.end() != groups.find(name);
 }
 
 namespace {
@@ -373,9 +382,26 @@ static PyObject *Py_getGroup(PyLogicManager *self, PyObject *args) {
     return listy;
 }
 
+static PyObject *Py_getGroupData(PyLogicManager *self, PyObject *args) {
+    std::string name;
+    fromPython(name, PyTuple_GetItem(args, 0));
+    PyObject *data = self->lm->getGroupData(name);
+    Py_INCREF(data);
+    return data;
+}
+
+static PyObject *Py_hasGroup(PyLogicManager *self, PyObject *args) {
+    std::string name;
+    fromPython(name, PyTuple_GetItem(args, 0));
+    Py_RETURN_BOOL(self->lm->hasGroup(name));
+}
+
+
 static PyMethodDef lmMethods[] = {
     { "get", reinterpret_cast< PyCFunction >(Py_get), READONLY, "Get logic component" },
     { "getGroup", reinterpret_cast< PyCFunction >(Py_getGroup), READONLY, "Get logic group" },
+    { "getGroupData", reinterpret_cast< PyCFunction >(Py_getGroupData), READONLY, "Get logic group data" },
+    { "hasGroup", reinterpret_cast< PyCFunction >(Py_hasGroup), READONLY, "Check if logic group exists" },
     { nullptr, nullptr, 0, nullptr }
 };
 

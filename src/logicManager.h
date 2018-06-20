@@ -53,6 +53,7 @@ class LogicManager: public BaseComponentManager {
     private:
         std::map< std::string, PyObject * > controlFuncs;
         std::map< std::string, std::set< size_t > > groups;
+        std::map< std::string, PyObject * > groupData;
         PyObject *pyCore;
         ActionTimer perfTimer;
         bool perfActive;
@@ -75,6 +76,8 @@ class LogicManager: public BaseComponentManager {
         PythonData &get(Entity e);
         const PythonData &get(Entity e) const;
         const std::set< size_t > &getGroup(const std::string &name) const;
+        PyObject *getGroupData(const std::string &name) const;
+        bool hasGroup(const std::string &name) const;
 };
 
 template<>
