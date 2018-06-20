@@ -300,45 +300,8 @@ void RendererSDL::update() {
     GL_ERROR
 
     for (size_t i = 0; i < 3; ++i) {
-        rassert(commands[i].size() <= MAX_INSTANCES, "Need to deal with too many objects to draw");
-        size_t count = 0;
-        for (const auto &dc : commands[i]) {
-            const Vec p = toScreen * gmtl::Point2d(dc.pos);
-            const Vec r = toScreen * dc.rad;
-
-            posData[3 * count + 0] = p[0];
-            posData[3 * count + 1] = p[1];
-            posData[3 * count + 2] = dc.depth / 2.0 + 0.5;
-
-            radData[2 * count + 0] = r[0];
-            radData[2 * count + 1] = r[1];
-
-            colData[4 * count + 0] = dc.col[0];
-            colData[4 * count + 1] = dc.col[1];
-            colData[4 * count + 2] = dc.col[2];
-            colData[4 * count + 3] = dc.alpha * 255.0;
-
-            ++count;
-        }
-
-        // Set program
         glUseProgram(programs[i]);
         if (1 == i) { glUniform2f(hsdLoc, width / 2.0, height / 2.0); }
-
-        // Stream frame data
-        glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
-        glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 3 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(GLfloat), posData);
-
-        glBindBuffer(GL_ARRAY_BUFFER, colBuffer);
-        glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 4 * sizeof(GLubyte), nullptr, GL_STREAM_DRAW);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, count * 4 * sizeof(GLubyte), colData);
-
-        if (i > 0) {
-            glBindBuffer(GL_ARRAY_BUFFER, radBuffer);
-            glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 2 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, count * 2 * sizeof(GLfloat), radData);
-        }
 
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
@@ -361,14 +324,58 @@ void RendererSDL::update() {
 
         glVertexAttribDivisor(0, 1);
         glVertexAttribDivisor(1, 1);
-        if (0 == i) {
-            glDrawArraysInstanced(GL_POINTS, 0, 1, count);
-        } else {
+        if (i > 0) {
             glVertexAttribDivisor(2, 0);
             glVertexAttribDivisor(3, 1);
+        }
 
-            glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, count);
+        size_t start = 0;
+        while (start < commands[i].size()) {
+            size_t count = 0;
+            const size_t until = std::min(commands[i].size(), start + MAX_INSTANCES);
+            for (size_t j = start; j < until; ++j) {
+                const auto &dc = commands[i][j];
+                const Vec p = toScreen * gmtl::Point2d(dc.pos);
+                const Vec r = toScreen * dc.rad;
 
+                posData[3 * count + 0] = p[0];
+                posData[3 * count + 1] = p[1];
+                posData[3 * count + 2] = dc.depth / 2.0 + 0.5;
+
+                radData[2 * count + 0] = r[0];
+                radData[2 * count + 1] = r[1];
+
+                colData[4 * count + 0] = dc.col[0];
+                colData[4 * count + 1] = dc.col[1];
+                colData[4 * count + 2] = dc.col[2];
+                colData[4 * count + 3] = dc.alpha * 255.0;
+
+                ++count;
+            }
+            start = until;
+
+            glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
+            glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 3 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(GLfloat), posData);
+
+            glBindBuffer(GL_ARRAY_BUFFER, colBuffer);
+            glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 4 * sizeof(GLubyte), nullptr, GL_STREAM_DRAW);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, count * 4 * sizeof(GLubyte), colData);
+
+            if (i > 0) {
+                glBindBuffer(GL_ARRAY_BUFFER, radBuffer);
+                glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 2 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, count * 2 * sizeof(GLfloat), radData);
+            }
+
+            if (0 == i) {
+                glDrawArraysInstanced(GL_POINTS, 0, 1, count);
+            } else {
+                glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, count);
+            }
+        }
+
+        if (i > 0) {
             glDisableVertexAttribArray(3);
             glDisableVertexAttribArray(2);
         }
