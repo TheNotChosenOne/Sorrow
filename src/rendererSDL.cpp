@@ -1,5 +1,11 @@
 #include "rendererSDL.h"
 
+#include <gmtl/MatrixOps.h>
+#include <gmtl/CoordOps.h>
+#include <gmtl/Generate.h>
+#include <gmtl/Matrix.h>
+#include <gmtl/Xforms.h>
+#include <gmtl/Coord.h>
 #include <functional>
 #include <exception>
 #include <iostream>
@@ -12,144 +18,375 @@
 
 namespace {
 
+static constexpr size_t MAX_INSTANCES = 1024;
+
+static const char *glErrorReasons[] = {
+    "GL_INVALID_ENUM: Used invalid enum parameter",
+    "GL_INVALID_VALUE: Used invalid parameter",
+    "GL_INVALID_OPERATION: Invalid state for command or invalid parameter combination",
+    "GL_STACK_OVERFLOW: <-",
+    "GL_STACK_UNDERFLOW: ... How?",
+    "GL_OUT_OF_MEMORY: I can't remember this",
+    "GL_INVALID_FRAMEBUFFER_OPERATION: read/write/render with incomplete framebuffer",
+    "GL_CONTEXT_LIST: Where did the graphics card go?"
+};
+
+static constexpr const char *getGLerrorReason(const size_t e) {
+    return (0x500 <= e && e <= 0x507) ? glErrorReasons[e - 0x500] : "Unknown OpenGL error";
+}
+
+#define GL_ERROR {\
+    GLenum err = glGetError();\
+    rassert(GL_NO_ERROR == err, err, std::hex, "0x", err, getGLerrorReason(err));\
+}
+
+#define GLEW_ERROR(x) {\
+    GLenum err = x;\
+    rassert(GLEW_OK == err, "GLEW Error:", glewGetErrorString(err));\
+}
+
+static void checkShaderCompile(GLuint id) {
+    GLint res;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &res);
+    if (GL_FALSE == res) {
+        int infoLen = 0;
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &infoLen);
+        GLchar buff[infoLen];
+        GLsizei wrote;
+        glGetShaderInfoLog(id, infoLen, &wrote, buff);
+        rassert(false, "Failed to compile shader:", static_cast< const char * >(buff));
+    }
+}
+
+static void checkShaderLink(GLuint id) {
+    GLint res;
+    glGetProgramiv(id, GL_LINK_STATUS, &res);
+    if (GL_FALSE == res) {
+        int infoLen = 0;
+        glGetProgramiv(id, GL_LINK_STATUS, &infoLen);
+        GLchar buff[infoLen];
+        GLsizei wrote;
+        glGetShaderInfoLog(id, infoLen, &wrote, buff);
+        rassert(false, "Failed to link OpenGL program:", static_cast< const char * >(buff));
+    }
+}
+
 static inline void setWhite(SDL_Renderer *renderer) {
     SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 }
 
-static inline void setColour(SDL_Renderer *renderer, const Vec3 col) {
-    SDL_SetRenderDrawColor(renderer,
-            static_cast< uint8_t >(clamp(0.0, 255.0, col[0])),
-            static_cast< uint8_t >(clamp(0.0, 255.0, col[1])),
-            static_cast< uint8_t >(clamp(0.0, 255.0, col[2])),
-            0xFF);
+static GLuint addGLProgram(const GLchar *vertSrc[], const GLchar *fragSrc[]) {
+    GLuint vertShader = glCreateShader(GL_VERTEX_SHADER); GL_ERROR
+    glShaderSource(vertShader, 1, vertSrc, nullptr); GL_ERROR
+    glCompileShader(vertShader); GL_ERROR
+    checkShaderCompile(vertShader);
+
+    GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER); GL_ERROR
+    glShaderSource(fragShader, 1, fragSrc, nullptr); GL_ERROR
+    glCompileShader(fragShader); GL_ERROR
+    checkShaderCompile(fragShader);
+
+    GLuint prog = glCreateProgram(); GL_ERROR
+    glAttachShader(prog, vertShader); GL_ERROR
+    glAttachShader(prog, fragShader); GL_ERROR
+    glLinkProgram(prog); GL_ERROR
+    checkShaderLink(prog);
+
+    glDeleteShader(vertShader); GL_ERROR
+    glDeleteShader(fragShader); GL_ERROR
+
+    return prog;
+}
+
+static GLuint addPointProgram() {
+    static const GLchar *vertShaderSrc[] = {
+        "#version 450 core\n"
+        "layout (location = 0) in vec3 pos;"
+        "layout (location = 1) in vec4 col;"
+        "out vec4 fcol;"
+        "void main() {"
+        "   fcol = col;"
+        "   gl_Position = vec4(pos, 1);"
+        "}"
+    };
+    static const GLchar *fragShaderSrc[] = {
+        "#version 450 core\n"
+        "in vec4 fcol;"
+        "out vec4 color;"
+        "void main() {"
+        "   color = fcol;"
+        "}"
+    };
+    return addGLProgram(vertShaderSrc, fragShaderSrc);
+}
+
+static GLuint addCircProgram() {
+    static const GLchar *vertShaderSrc[] = {
+        "#version 450 core\n"
+        "layout (location = 0) in vec3 off;"
+        "layout (location = 1) in vec4 col;"
+        "layout (location = 2) in vec2 pos;"
+        "layout (location = 3) in vec2 rad;"
+        "out vec2 centre;"
+        "out float radius;"
+        "out vec4 fcol;"
+        "void main() {"
+        "   centre = vec2(off);"
+        "   radius = rad[0];"
+        "   fcol = col;"
+        "   gl_Position = vec4("
+        "       off[0] + pos[0] * rad[0],"
+        "       off[1] + pos[1] * rad[1],"
+        "       off[2], 1);"
+        "}"
+    };
+    static const GLchar *fragShaderSrc[] = {
+        "#version 450 core\n"
+        "uniform vec2 halfScreenDim;"
+        "in vec2 centre;"
+        "in float radius;"
+        "in vec4 fcol;"
+        "out vec4 color;"
+        "void main() {"
+        "   vec2 at = (gl_FragCoord.xy - halfScreenDim) / halfScreenDim;"
+        "   vec2 diff = centre - at;"
+        "   if (dot(diff, diff) > radius * radius) { discard; }"
+        "   color = fcol;"
+        "}"
+    };
+    return addGLProgram(vertShaderSrc, fragShaderSrc);
+}
+
+static GLuint addRectProgram() {
+    static const GLchar *vertShaderSrc[] = {
+        "#version 450 core\n"
+        "layout (location = 0) in vec3 off;"
+        "layout (location = 1) in vec4 col;"
+        "layout (location = 2) in vec2 pos;"
+        "layout (location = 3) in vec2 rad;"
+        "out vec4 fcol;"
+        "void main() {"
+        "   fcol = col;"
+        "   gl_Position = vec4("
+        "       off[0] + pos[0] * rad[0],"
+        "       off[1] + pos[1] * rad[1],"
+        "       off[2], 1);"
+        "}"
+    };
+    static const GLchar *fragShaderSrc[] = {
+        "#version 450 core\n"
+        "in vec4 fcol;"
+        "out vec4 color;"
+        "void main() {"
+        "   color = fcol;"
+        "}"
+    };
+    return addGLProgram(vertShaderSrc, fragShaderSrc);
 }
 
 };
 
-void RendererSDL::drawPoint(Vec pos, Vec3 col, double depth) {
-    commands.push_back({ col, pos, { 0, 0 }, depth, DrawType::Point });
+void RendererSDL::drawPoint(Vec pos, Vec3 col, double alpha, double depth) {
+    commands[0].push_back({ col, pos, { 0, 0 }, alpha, depth });
 }
 
-void RendererSDL::drawPoint(Vec pos, Vec, Vec3 col) {
-    setColour(renderer, col);
-    SDL_RenderDrawPoint(renderer, pos[0], height - pos[1] - 1.0);
+void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col, double alpha, double depth) {
+    commands[2].push_back({ col, pos, rad, alpha, depth });
 }
 
-void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col, double depth) {
-    commands.push_back({ col, pos, rad, depth, DrawType::Box });
-}
-
-void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col) {
-    setColour(renderer, col);
-    SDL_Rect rect;
-    rect.w = std::round(rad[0] * 2.0);
-    rect.h = std::round(rad[1] * 2.0);
-    rect.x = std::round(pos[0] - rad[0]);
-    rect.y = height - 1 - (std::round(pos[1] + rad[1]));
-    SDL_RenderFillRect(renderer, &rect);
-}
-
-void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col, double depth) {
-    commands.push_back({ col, pos, rad, depth, DrawType::Circle });
-}
-
-void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col) {
-    setColour(renderer, col);
-    const double r = rad[0];
-
-    const int64_t xMin = clamp(0.0, 1.0 * width, std::round(pos[0] - r));
-    const int64_t xMax = clamp(0.0, 1.0 * width, std::round(pos[0] + r));
-    const int64_t yMin = clamp(0.0, 1.0 * height, std::round(pos[1] - r));
-    const int64_t yMax = clamp(0.0, 1.0 * height, std::round(pos[1] + r));
-
-    size_t pixels = 0;
-    const double r2 = r * r;
-    for (int64_t y = yMin; y <= yMax; ++y) {
-        int64_t xBegin = xMin;
-        for (; xBegin <= xMax; ++xBegin) {
-            const Vec diff = Vec(xBegin, y) - pos;
-            if (gmtl::lengthSquared(diff) <= r2) { break; }
-        }
-        int64_t xEnd = xMax;
-        for (; xEnd >= xMin; --xEnd) {
-            const Vec diff = Vec(xEnd, y) - pos;
-            if (gmtl::lengthSquared(diff) <= r2) { break; }
-        }
-        if (xBegin <= xEnd) {
-            SDL_RenderDrawLine(renderer, xBegin, height - y, xEnd, height - y);
-            pixels += xEnd - xBegin + 1;
-        }
-    }
-    if (0 == pixels) {
-        setColour(renderer, pi< double > * r2 * col);
-        SDL_RenderDrawPoint(renderer, std::round(pos[0]), height - std::round(pos[1]));
-    }
+void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col, double alpha, double depth) {
+    commands[1].push_back({ col, pos, rad, alpha, depth });
 }
 
 RendererSDL::RendererSDL(size_t width, size_t height)
     : Renderer(width, height)
     , width(width)
     , height(height)
-    , window(nullptr)
-    , surface(nullptr)
-    , renderer(nullptr) {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::stringstream ss;
-        ss << "Failed to initialize SDL: " << SDL_GetError();
-        throw ss.str();
-    }
+    , window(nullptr) {
+    rassert(SDL_Init(SDL_INIT_VIDEO) >= 0, "Failed to initialize SDL", SDL_GetError());
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4); GL_ERROR
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5); GL_ERROR
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE); GL_ERROR
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); GL_ERROR
 
     window = SDL_CreateWindow("Hallway",
             SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-            width, height, SDL_WINDOW_SHOWN);
+            width, height, SDL_WINDOW_OPENGL);
+    rassert(window, "Failed to create window", SDL_GetError());
 
-    if (nullptr == window) {
-        std::stringstream ss;
-        ss << "Failed to create window: " << SDL_GetError();
-        throw ss.str();
-    }
+    context = SDL_GL_CreateContext(window);
+    rassert(context, "Failed to create OpenGL context", SDL_GetError());
 
-    surface = SDL_GetWindowSurface(window);
+    GLEW_ERROR(glewInit());
 
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (nullptr == renderer) {
-        std::stringstream ss;
-        ss << "Failed to create SDL renderer: " << SDL_GetError();
-        throw ss.str();
-    }
+    GL_ERROR
+    SDL_GL_SetSwapInterval(0); GL_ERROR
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); GL_ERROR
+    glClearDepth(0.0); GL_ERROR;
+    glEnable(GL_BLEND); GL_ERROR
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GL_ERROR
+    glEnable(GL_DEPTH_TEST); GL_ERROR
+    glDepthFunc(GL_GEQUAL); GL_ERROR
+
+    programs[0] = addPointProgram();
+    programs[1] = addCircProgram();
+    programs[2] = addRectProgram();
+    hsdLoc = glGetUniformLocation(programs[1], "halfScreenDim"); GL_ERROR
+
+    GLfloat verts[] = {
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+         1.0f,  1.0f,
+        -1.0f,  1.0f
+    };
+    GLuint indices[] = { 0, 1, 2, 3 };
+
+    glGenBuffers(1, &vbo); GL_ERROR
+    glBindBuffer(GL_ARRAY_BUFFER, vbo); GL_ERROR
+    glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), verts, GL_STATIC_DRAW); GL_ERROR
+
+    glGenBuffers(1, &ibo); GL_ERROR
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo); GL_ERROR
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), indices, GL_STATIC_DRAW); GL_ERROR
+
+    glGenBuffers(1, &posBuffer); GL_ERROR
+    glBindBuffer(GL_ARRAY_BUFFER, posBuffer); GL_ERROR
+    // x, y, d
+    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 3 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+
+    glGenBuffers(1, &radBuffer); GL_ERROR
+    glBindBuffer(GL_ARRAY_BUFFER, radBuffer); GL_ERROR
+    // w, h
+    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 2 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+
+    glGenBuffers(1, &colBuffer); GL_ERROR
+    glBindBuffer(GL_ARRAY_BUFFER, colBuffer); GL_ERROR
+    // r, g, b, a
+    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 4 * sizeof(GLubyte), nullptr, GL_STREAM_DRAW);
+
+    glGenVertexArrays(1, &vao); GL_ERROR
+    glBindVertexArray(vao); GL_ERROR
 
     clear();
     update();
 }
 
 RendererSDL::~RendererSDL() {
-    SDL_DestroyRenderer(renderer);
+    glDeleteVertexArrays(1, &vao);
+    for (const auto &p : programs) {
+        glDeleteProgram(p);
+    }
+    SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit();
 }
 
 void RendererSDL::clear() {
-    commands.clear();
-    setWhite(renderer);
-    SDL_RenderClear(renderer);
+    for (auto &v : commands) { v.clear(); }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); GL_ERROR
 }
 
 void RendererSDL::update() {
-    typedef void (RendererSDL::*Drawer)(Vec, Vec, Vec3);
-    Drawer drawers[3] = { &RendererSDL::drawPoint,
-                          &RendererSDL::drawCircle,
-                          &RendererSDL::drawBox };
-    std::map< double, std::vector< const DrawCommand * > > depthed;
-    for (const auto &dc : commands) {
-        depthed[dc.depth].push_back(&dc);
-    }
-    for (const auto &depth : depthed) {
-        for (const auto &dcp : depth.second) {
-            const auto &dc = *dcp;
-            std::invoke(drawers[dc.type], *this, dc.pos, dc.rad, dc.col);
+    static GLfloat posData[MAX_INSTANCES * 3];
+    static GLfloat radData[MAX_INSTANCES * 2];
+    static GLubyte colData[MAX_INSTANCES * 4];
+
+    gmtl::Matrix33d toScreen;
+    gmtl::identity(toScreen);
+    gmtl::setScale(toScreen, Vec(2.0 / width, 2.0 / height));
+    gmtl::setTrans(toScreen, Vec(-1.0, -1.0));
+
+    GL_ERROR
+
+    for (size_t i = 0; i < 3; ++i) {
+        glUseProgram(programs[i]);
+        if (1 == i) { glUniform2f(hsdLoc, width / 2.0, height / 2.0); }
+
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, colBuffer);
+        glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
+
+        if (i > 0) {
+            glEnableVertexAttribArray(2);
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+
+            glEnableVertexAttribArray(3);
+            glBindBuffer(GL_ARRAY_BUFFER, radBuffer);
+            glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
         }
+
+        glVertexAttribDivisor(0, 1);
+        glVertexAttribDivisor(1, 1);
+        if (i > 0) {
+            glVertexAttribDivisor(2, 0);
+            glVertexAttribDivisor(3, 1);
+        }
+
+        size_t start = 0;
+        while (start < commands[i].size()) {
+            size_t count = 0;
+            const size_t until = std::min(commands[i].size(), start + MAX_INSTANCES);
+            for (size_t j = start; j < until; ++j) {
+                const auto &dc = commands[i][j];
+                const Vec p = toScreen * gmtl::Point2d(dc.pos);
+                const Vec r = toScreen * dc.rad;
+
+                posData[3 * count + 0] = p[0];
+                posData[3 * count + 1] = p[1];
+                posData[3 * count + 2] = dc.depth / 2.0 + 0.5;
+
+                radData[2 * count + 0] = r[0];
+                radData[2 * count + 1] = r[1];
+
+                colData[4 * count + 0] = dc.col[0];
+                colData[4 * count + 1] = dc.col[1];
+                colData[4 * count + 2] = dc.col[2];
+                colData[4 * count + 3] = dc.alpha * 255.0;
+
+                ++count;
+            }
+            start = until;
+
+            glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
+            glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 3 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(GLfloat), posData);
+
+            glBindBuffer(GL_ARRAY_BUFFER, colBuffer);
+            glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 4 * sizeof(GLubyte), nullptr, GL_STREAM_DRAW);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, count * 4 * sizeof(GLubyte), colData);
+
+            if (i > 0) {
+                glBindBuffer(GL_ARRAY_BUFFER, radBuffer);
+                glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 2 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, count * 2 * sizeof(GLfloat), radData);
+            }
+
+            if (0 == i) {
+                glDrawArraysInstanced(GL_POINTS, 0, 1, count);
+            } else {
+                glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, count);
+            }
+        }
+
+        if (i > 0) {
+            glDisableVertexAttribArray(3);
+            glDisableVertexAttribArray(2);
+        }
+        glDisableVertexAttribArray(1);
+        glDisableVertexAttribArray(0);
     }
-    SDL_RenderPresent(renderer);
+
+    glUseProgram(0);
+    SDL_GL_SwapWindow(window);
+    
+    GL_ERROR
 }
 
 size_t RendererSDL::getWidth() const {

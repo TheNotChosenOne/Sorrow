@@ -1,6 +1,10 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#include <GL/glew.h>
+#include <SDL2/SDL_opengl.h>
+#include <GL/glu.h>
+#include <array>
 
 #include "utility.h"
 #include "renderer.h"
@@ -11,27 +15,26 @@ class RendererSDL: public Renderer {
         size_t height;
 
         SDL_Window *window;
-        SDL_Surface *surface;
-        SDL_Renderer *renderer;
+        SDL_GLContext context;
 
-        enum DrawType {
-            Point = 0,
-            Circle = 1,
-            Box = 2
-        };
+        std::array< GLuint, 3 > programs;
+        GLuint vbo;
+        GLuint ibo;
+        GLuint vao;
+        GLuint posBuffer;
+        GLuint radBuffer;
+        GLuint colBuffer;
+        GLuint hsdLoc;
+
         struct DrawCommand {
             Vec3 col;
             Vec pos;
             Vec rad;
+            double alpha;
             double depth;
-            DrawType type;
         };
 
-        std::vector< DrawCommand > commands;
-
-        void drawPoint(Vec pos, Vec, Vec3 col);
-        void drawBox(Vec pos, Vec rad, Vec3 col);
-        void drawCircle(Vec pos, Vec rad, Vec3 col);
+        std::array< std::vector< DrawCommand >, 3 > commands;
 
     public:
         RendererSDL(size_t width, size_t height);
@@ -39,9 +42,9 @@ class RendererSDL: public Renderer {
 
         void clear() override;
         void update() override;
-        void drawPoint(Vec pos, Vec3 col, double depth) override;
-        void drawBox(Vec pos, Vec rad, Vec3 col, double depth) override;
-        void drawCircle(Vec pos, Vec rad, Vec3 col, double depth) override;
+        void drawPoint(Vec pos, Vec3 col, double alpha, double depth) override;
+        void drawBox(Vec pos, Vec rad, Vec3 col, double alpha, double depth) override;
+        void drawCircle(Vec pos, Vec rad, Vec3 col, double alpha, double depth) override;
 
         size_t getWidth() const override;
         size_t getHeight() const override;
