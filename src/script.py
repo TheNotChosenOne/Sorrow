@@ -31,6 +31,7 @@ def putWall(core, x, y, w, h):
     e = core.entities.create()
     putPhys(e, x, y, w, h, True, "box")
     putVis(e, 0x88, 0x88, 0x88)
+    e.getVis().depth = -0.9
     return e
 
 def easyWall(core, left, top, right, bot):
@@ -47,9 +48,8 @@ def randomAroundCircle(x, y, rad):
 def randomInCircle(x, y, rad):
     return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
 
-def putSwarm(core, xx, yy, name, k, attractor, post=None):
+def putSwarm(core, xx, yy, name, k, attractor, ran, post=None):
     sr = 8
-    ran = 2
     for x in range(-ran, ran):
         for y in range(-ran, ran):
             a = core.entities.create()
@@ -80,15 +80,27 @@ def putSwarm(core, xx, yy, name, k, attractor, post=None):
 
             core.physics.bind(e.id(), a.id(), Vec2())
 
-    def post_update(core, swarm):
+    def pre_update(core, data):
+        swarm = core.logic.getGroup(name)
+        if not swarm: return
+
+        c = Vec2()
+        for e in swarm: c += e.getPhys().pos
+        data["c"] = c / len(swarm)
+
+        data["a"] = swarm[0].getLog()["attractor"](core, name)
+
+    def post_update(core, data):
+        swarm = core.logic.getGroup(name)
         for e in swarm:
             e.getPhys().rad = Vec2(e.getLog()["size"])
         if post: post(core, swarm)
 
-    def group_death(core, name):
+    def group_death(core, data):
         print("Swarm", name, "has been vanquished!")
 
     main = __import__(__name__)
+    setattr(main, "control_pre_" + name, pre_update)
     setattr(main, "control_post_" + name, post_update)
     setattr(main, "control_death_" + name, group_death)
 
@@ -123,15 +135,22 @@ def setup(core):
         return core.visuals.screenToWorld(core.input.mousePos())
 
     def targetPlayer(core, name):
-        swarm = core.logic.getGroup("player")
-        com = Vec2()
-        for d in swarm:
-            com += d.getPhys().pos
-        com /= len(swarm)
-        return com
+        if core.logic.hasGroup("player"):
+            swarm = core.logic.getGroup("player")
+            if swarm:
+                com = Vec2()
+                for d in swarm:
+                    com += d.getPhys().pos
+                com /= len(swarm)
+                return com
+        return Vec2(core.renderer.getWidth(), core.renderer.getHeight()) / 2.0
 
     def cameraMover(core, swarm):
-        if not swarm: return
+        if not swarm:
+            cent = Vec2(core.renderer.getWidth(), core.renderer.getHeight()) / 2.0
+            cent -= core.visuals.getFOV() / 2.0
+            core.visuals.setCam(cent)
+            return
         com = Vec2()
         for d in swarm:
             com += d.getPhys().pos
@@ -140,52 +159,51 @@ def setup(core):
         interp = 0.1
         core.visuals.setCam(core.visuals.getCam() * (1 - interp) + com * interp)
 
-    putSwarm(core, midX, midY, "A", Vec3(0xFF, 0, 0), targetPlayer)
-    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract, cameraMover)
+    putSwarm(core, 40, 40, "A", Vec3(0xFF, 0, 0), targetPlayer, 4)
+    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract, 4, cameraMover)
+
+def droneDamage(core, ent, log, phys, group):
+    for k in phys.contacts:
+        other = core.entities.getHandle(k.which)
+        elog = other.getLog()
+        if (not "controller" in elog) or (elog["controller"] != "drone"): continue
+        if elog["group"] == group: continue
+
+        log["size"] *= min(1, log["size"] / elog["size"]) * 0.99
+        if log["size"] < 1:
+            core.entities.kill(ent)
+
+def droneSeek(core, phys, group):
+    data = core.logic.getGroupData(group)
+    phys.acc += (data["c"] - phys.pos) * 0.01
+    phys.acc += (data["a"] - phys.pos) * 0.04
+
+def droneAlign(core, phys, group):
+    pos = phys.pos
+    localSwarm = core.ai.findIn(pos, 25, group, True)
+    if len(localSwarm) > 1:
+        avoid = Vec2()
+        match = Vec2()
+        shy2 = pow(phys.rad[0] * 3, 2)
+
+        for d in localSwarm:
+            p = d.getPhys()
+            diff = p.pos - pos
+            if diff.length2() < shy2:
+                avoid -= diff
+            match += p.vel
+
+        phys.acc += avoid
+        phys.acc += (match / (len(localSwarm) - 1)) * 0.001953125
 
 def control_drone(core, ent):
     log = ent.getLog()
     phys = ent.getPhys()
 
-    swarm = core.logic.getGroup(log["group"])
-
-    averad = phys.rad[0]
-    for d in swarm:
-        averad += d.getPhys().rad[0]
-
-    averad /= len(swarm)
-    com = Vec2()
-    avoid = Vec2()
-    match = Vec2()
-    if 1 != len(swarm):
-        for d in swarm:
-            if d.id() == ent.id(): continue
-            p = d.getPhys()
-            com += p.pos
-            shy = phys.rad[0] * 3
-            if (p.pos - phys.pos).length2() < shy * shy:
-                avoid -= (p.pos - phys.pos)
-            match += p.vel
-
-        com /= len(swarm) - 1
-        com = com - phys.pos
-        match /= len(swarm) - 1
-
-    attract = log["attractor"](core, log["group"]) - phys.pos
-    phys.acc += com * 0.01
-    phys.acc += avoid
-    phys.acc += match * pow(1.0 / 8.0, 3)
-    phys.acc += attract * 0.05
-
-    for k in phys.contacts:
-        other = core.entities.getHandle(k.which)
-        elog = other.getLog()
-        if (not "controller" in elog) or (elog["controller"] != "drone"): continue
-        if elog["group"] == log["group"]: continue
-
-        log["size"] *= min(1, log["size"] / elog["size"]) * 0.99
-        if log["size"] < 1:
-            core.entities.kill(ent)
+    group = log["group"]
+    droneSeek(core, phys, group)
+    droneAlign(core, phys, group)
+    droneDamage(core, ent, log, phys, group)
 
 if __name__ == '__main__':
     random.seed(0x88888888)
