@@ -128,8 +128,7 @@ class HanaMirror: public Mirror {
         PyObject *get(const std::string &name) override {
             PyObject *obj = nullptr;
             boost::hana::for_each(boost::hana::keys(*mirroring), [&](auto key) {
-                const std::string attr = boost::hana::to< const char * >(key);
-                if (name == attr) {
+                if (boost::hana::to< const char * >(key) == name) {
                     obj = toPython(boost::hana::at_key(*mirroring, key));
                 }
             });
@@ -138,10 +137,8 @@ class HanaMirror: public Mirror {
 
         void set(const std::string &name, PyObject *obj) override {
             boost::hana::for_each(boost::hana::keys(*mirroring), [&](auto key) {
-                const std::string attr = boost::hana::to< const char * >(key);
-                if (name == attr) {
-                    auto &member = boost::hana::at_key(*mirroring, key);
-                    fromPython(member, obj);
+                if (boost::hana::to< const char * >(key) == name) {
+                    fromPython(boost::hana::at_key(*mirroring, key), obj);
                 }
             });
         }
