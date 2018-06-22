@@ -49,9 +49,11 @@ def randomInCircle(x, y, rad):
     return randomAroundCircle(x, y, rad * math.sqrt(random.random()))
 
 def putSwarm(core, xx, yy, name, k, attractor, ran, post=None):
-    sr = 8
+    sr = 4
+    spawned = 0
     for x in range(-ran, ran):
         for y in range(-ran, ran):
+            spawned += 1
             a = core.entities.create()
             kk = k * 0.5
             putVis(a, kk.x, kk.y, kk.z)
@@ -63,7 +65,7 @@ def putSwarm(core, xx, yy, name, k, attractor, ran, post=None):
 
             e = core.entities.create()
             putVis(e, k.x, k.y, k.z)
-            putPhys(e, xx + x * sr * 2.1, yy + y * sr * 2.1, sr, sr, False, "circle")
+            putPhys(e, xx + x * sr * 2.1, yy + y * sr * 2.1, sr * 0.02, sr * 0.02, False, "circle")
             e.getPhys().gather = True
             log = e.getLog()
             log["group"] = name
@@ -103,6 +105,7 @@ def putSwarm(core, xx, yy, name, k, attractor, ran, post=None):
     setattr(main, "control_pre_" + name, pre_update)
     setattr(main, "control_post_" + name, post_update)
     setattr(main, "control_death_" + name, group_death)
+    print("Created swarm %s: %d" % (name, spawned))
 
 def setup(core):
     rad = 100.0
@@ -118,18 +121,15 @@ def setup(core):
     easyWall(core, 0 - rad, 0 - rad, 0, height + rad)
     easyWall(core, width, 0 - rad, width + rad, height + rad)
 
-    for i in range(0):
-        left = 250 + i * 5
-        top = midY + i * 7 - 7 * 31
-        easyWall(core, left, top, left + 10, top + 10)
-        top = midY - i * 7 + 7 * 31
-        easyWall(core, left, top, left + 10, top + 10)
-
-        left = width - 250 - i * 5
-        top = midY - i * 7 + 7 * 31
-        easyWall(core, left, top, left + 10, top + 10)
-        top = midY + i * 7 - 7 * 31
-        easyWall(core, left, top, left + 10, top + 10)
+    spacing = 400 * 0.2401
+    wallRad = 30 * 0.2401
+    xx = 100
+    while xx < width - 100:
+        yy = 100
+        while yy < height - 100:
+            easyWall(core, xx - wallRad, yy - wallRad, xx + wallRad, yy + wallRad)
+            yy += spacing
+        xx += spacing
 
     def mouseAttract(core, name):
         return core.visuals.screenToWorld(core.input.mousePos())
@@ -159,8 +159,8 @@ def setup(core):
         interp = 0.1
         core.visuals.setCam(core.visuals.getCam() * (1 - interp) + com * interp)
 
-    putSwarm(core, 40, 40, "A", Vec3(0xFF, 0, 0), targetPlayer, 4)
-    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract, 4, cameraMover)
+    #putSwarm(core, 40, 40, "A", Vec3(0xFF, 0, 0), targetPlayer, 8)
+    putSwarm(core, midX, midY, "player", Vec3(0, 0xFF, 0), mouseAttract, 16, cameraMover)
 
 def droneDamage(core, ent, log, phys, group):
     for k in phys.contacts:
@@ -170,17 +170,18 @@ def droneDamage(core, ent, log, phys, group):
         if elog["group"] == group: continue
 
         log["size"] *= min(1, log["size"] / elog["size"]) * 0.99
-        if log["size"] < 1:
+        if log["size"] < 0.2:
             core.entities.kill(ent)
 
+multiplier = 10
 def droneSeek(core, phys, group):
     data = core.logic.getGroupData(group)
-    phys.acc += (data["c"] - phys.pos) * 0.01
-    phys.acc += (data["a"] - phys.pos) * 0.04
+    phys.acc += (data["c"] - phys.pos) * multiplier * 10
+    phys.acc += (data["a"] - phys.pos) * multiplier * 10
 
 def droneAlign(core, phys, group):
     pos = phys.pos
-    localSwarm = core.ai.findIn(pos, 25, group, True)
+    localSwarm = core.ai.findIn(pos, 50, group, True)
     if len(localSwarm) > 1:
         avoid = Vec2()
         match = Vec2()
@@ -193,8 +194,8 @@ def droneAlign(core, phys, group):
                 avoid -= diff
             match += p.vel
 
-        phys.acc += avoid
-        phys.acc += (match / (len(localSwarm) - 1)) * 0.001953125
+        phys.acc += avoid * multiplier * 2000
+        phys.acc += (match / (len(localSwarm) - 1)) * multiplier
 
 def control_drone(core, ent):
     log = ent.getLog()
