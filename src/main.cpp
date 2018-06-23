@@ -150,7 +150,51 @@ static void mainLoop(Core &core) {
     }
 }
 
+#include "tracker.h"
+#include "test.h"
+
+static void test() {
+    Tracker tracker;
+    Signature sLoc = getSignature< Location >();
+    Signature sDir = getSignature< Direction >();
+    Signature sBoth = getSignature< Direction, Location >();
+
+    auto l = std::make_unique< LocationData >();
+    rassert(*sLoc.begin() == l->type(), *sLoc.begin(), l->type());
+    tracker.sources[l->type()] = std::move(l);
+    auto d = std::make_unique< DirectionData >();
+    rassert(*sDir.begin() == d->type(), *sDir.begin(), d->type());
+    tracker.sources[d->type()] = std::move(d);
+
+    for (size_t i = 0; i < 4; ++i) {
+        tracker.create(sBoth);
+        tracker.create(sLoc);
+    }
+
+    std::cout << "Location: " << tracker.getSource< Location >() << '\n';
+    std::cout << "Direction: " << tracker.getSource< Direction >() << '\n';
+
+    typedef std::tuple<
+            std::unique_ptr< std::vector< Location > >,
+            std::unique_ptr< std::vector< Direction > > > TupleType;
+    typedef std::function< void(TupleType &) > FuncType;
+    FuncType f = [](std::tuple< std::unique_ptr< std::vector< Location > >,
+                    std::unique_ptr< std::vector< Direction  > > > &tu) {
+        std::cout << "Grouped function execution\n";
+        std::cout << std::get< 0 >(tu)->size() << ' ' << std::get< 1 >(tu)->size() << '\n';
+        for (auto &x : *std::get< 0 >(tu)) { x.v = Vec(1.0, 2.0); }
+        for (auto &x : *std::get< 1 >(tu)) { x.v = Vec(3.0, 4.0); }
+    };
+    std::vector< bool > writes = { true, false };
+    tracker.executeOn< TupleType, FuncType, Location, Direction >(f, writes);
+
+    std::cout << "Location: " << tracker.getSource< Location >() << '\n';
+    std::cout << "Direction: " << tracker.getSource< Direction >() << '\n';
+}
+
 static void run(boost::program_options::variables_map &options) {
+    test();
+    return;
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
     if (options["headless"].as< bool >()) {
