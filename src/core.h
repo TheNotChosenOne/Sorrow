@@ -7,23 +7,14 @@
 #include "forwardMirror.h"
 
 
-class Renderer;
 class Input;
-class EntityManager;
-class PhysicsManager;
-class VisualManager;
-class LogicManager;
-typedef size_t Entity;
-class AI;
+class Tracker;
+class Renderer;
 
 struct Core {
-    Renderer &renderer;
     Input &input;
-    EntityManager &entities;
-    PhysicsManager &physics;
-    VisualManager &visuals;
-    LogicManager &logic;
-    AI &ai;
+    Tracker &tracker;
+    Renderer &renderer;
     boost::program_options::variables_map options;
 };
 

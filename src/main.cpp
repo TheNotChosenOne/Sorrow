@@ -14,21 +14,19 @@
 
 #include <valgrind/valgrind.h>
 
-#include "ai.h"
+#include "tracker.h"
 #include "renderer.h"
 #include "rendererSDL.h"
 #include "input.h"
 #include "inputSDL.h"
-#include "entityManager.h"
-#include "physicsManager.h"
-#include "visualManager.h"
-#include "logicManager.h"
 
 #include "timers.h"
 #include "core.h"
 
 const size_t SCREEN_WIDTH = 1024;
 const size_t SCREEN_HEIGHT = 1024;
+
+static const size_t STEPS_PER_SECOND = 25;
 
 static void mainLoop(Core &core) {
     AccumulateTimer visualsUse;
@@ -70,13 +68,6 @@ static void mainLoop(Core &core) {
             ++logicCount;
             // Update input
             inputUse.add([&](){ core.input.update(); });
-            const auto time = physicsUse.add([&](){ core.physics.updatePhysics(core); });
-            physics.tick(time);
-
-            // Update entity physics
-            logicUse.add([&](){ core.logic.logicUpdate(core); });
-
-            entityUse.add([&]() { core.entities.update(); });
 
             if (core.input.isReleased(SDLK_q)) {
                 timescale *= 0.7;
@@ -86,29 +77,25 @@ static void mainLoop(Core &core) {
                 timescale /= 0.7;
                 physTick.setTimeScale(timescale);
             }
-            if (core.input.isReleased(SDLK_r)) {
-                core.visuals.FOV *= 0.7;
-            }
-            if (core.input.isReleased(SDLK_f)) {
-                core.visuals.FOV /= 0.7;
-            }
         }
 
         if (drawTick.tick(duration)) {
             ++renderCount;
             // Update entity logic
-            const auto time = visualsUse.add([&](){ core.visuals.visualUpdate(core); });
-            visuals.tick(time);
+            //const auto time = visualsUse.add([&](){ core.visuals.visualUpdate(core); });
+            //visuals.tick(time);
         }
 
         if (infoTick.tick(duration)) {
-            const Vec centre(core.renderer.getWidth() / 2.0, core.renderer.getHeight() / 2.0);
-            double screenRad = core.renderer.getWidth() * core.renderer.getHeight();
+            //const Vec centre(core.renderer.getWidth() / 2.0, core.renderer.getHeight() / 2.0);
+            //double screenRad = core.renderer.getWidth() * core.renderer.getHeight();
             size_t count = 0;
+            /*
             for (const Entity e : core.entities.all()) {
                 const Vec diff = core.entities.getHandle(e)->getPhys().pos - centre;
                 count += static_cast< size_t >(gmtl::lengthSquared(diff) > screenRad);
             }
+            */
 
             const double phys = physicsUse.empty();
             const double vis = visualsUse.empty();
@@ -127,7 +114,7 @@ static void mainLoop(Core &core) {
                 std::cout << "Spare: " << sp << " Busy: " << busy;
                 std::cout << ' ' << std::setw(10) << 100 * (busy / act) << "%";
                 std::cout << " (" << act << ")\n";
-                std::cout << "Entities: " << std::setw(6) << core.entities.all().size();
+                //std::cout << "Entities: " << std::setw(6) << core.entities.all().size();
                 std::cout << " Timescale: " << timescale;
                 std::cout << " Escaped: " << count << '\n';
                 std::cout << '\n';
@@ -150,10 +137,8 @@ static void mainLoop(Core &core) {
     }
 }
 
-#include "tracker.h"
-#include "test.h"
-
-static void test() {
+void test() {
+    /*
     Tracker tracker;
     Signature sLoc = getSignature< Location >();
     Signature sDir = getSignature< Direction >();
@@ -190,11 +175,10 @@ static void test() {
 
     std::cout << "Location: " << tracker.getSource< Location >() << '\n';
     std::cout << "Direction: " << tracker.getSource< Direction >() << '\n';
+    */
 }
 
 static void run(boost::program_options::variables_map &options) {
-    test();
-    return;
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
     if (options["headless"].as< bool >()) {
@@ -205,38 +189,14 @@ static void run(boost::program_options::variables_map &options) {
         input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
     }
 
-    std::unique_ptr< EntityManager > entityMan;
-    entityMan = std::make_unique< EntityManager >();
-
-    std::unique_ptr< PhysicsManager > physicsMan;
-    physicsMan = std::make_unique< PhysicsManager >();
-    PhysicsManager &physicsRef = *physicsMan;
-    entityMan->attach(std::move(physicsMan));
-
-    std::unique_ptr< VisualManager > visMan;
-    visMan = std::make_unique< VisualManager >();
-    VisualManager &visRef = *visMan;
-    entityMan->attach(std::move(visMan));
-
-    std::unique_ptr< LogicManager > logMan;
-    logMan = std::make_unique< LogicManager >(options);
-    LogicManager &logRef = *logMan;
-    entityMan->attach(std::move(logMan));
-
     renderer->clear();
     renderer->update();
 
     input->update();
 
-    AI ai;
+    Tracker tracker;
 
-    Core core{ *renderer, *input, *entityMan, physicsRef, visRef, logRef, ai, options };
-    entityMan->setCore(core);
-    physicsRef.setCore(core);
-    ai.setCore(core);
-
-    core.logic.setup(core);
-    core.entities.update();
+    Core core{ *input, tracker, *renderer, options };
 
     mainLoop(core);
 }
