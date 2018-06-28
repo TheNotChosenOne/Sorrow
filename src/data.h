@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <iostream>
 #include <typeindex>
 
 typedef uint64_t TypeID;
@@ -14,6 +15,8 @@ class BaseData {
         virtual TypeID type() const = 0;
         virtual const std::string &TypeName() const = 0;
 };
+std::ostream &operator<<(std::ostream &os, const BaseData &bd);
+
 
 template< typename... >
 struct DataTypeName;
