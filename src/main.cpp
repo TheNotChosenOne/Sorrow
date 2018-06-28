@@ -35,7 +35,7 @@ static const size_t STEPS_PER_SECOND = 25;
 static void mainLoop(Core &core) {
     const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
     const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
-    for (size_t i = 0; i < 100; ++i) {
+    for (size_t i = 0; i < 100000; ++i) {
         core.tracker.create(speed);
         core.tracker.create(noSpeed);
     }
@@ -80,8 +80,8 @@ static void mainLoop(Core &core) {
     DurationTimer physics;
 
     const bool sprint = core.options.count("sprint");
-    const double pps = core.options["pps"].as< size_t >();
-    const double fps = core.options["fps"].as< size_t >();
+    const double pps = core.options["pps"].as< double >();
+    const double fps = core.options["fps"].as< double >();
 
     ActionTimer physTick((sprint && core.options["pps"].defaulted()) ? 0 : 1.0 / pps);
     ActionTimer drawTick((sprint && core.options["fps"].defaulted()) ? 0 : 1.0 / fps);
@@ -238,8 +238,8 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("headless",
          po::value< bool >()->default_value(RUNNING_ON_VALGRIND),
          "disable rendering and input")
-        ("fps", po::value< size_t >()->default_value(STEPS_PER_SECOND), "Frames  / second")
-        ("pps", po::value< size_t >()->default_value(STEPS_PER_SECOND), "Physics / second")
+        ("fps", po::value< double >()->default_value(STEPS_PER_SECOND), "Frames  / second")
+        ("pps", po::value< double >()->default_value(STEPS_PER_SECOND), "Physics / second")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),
