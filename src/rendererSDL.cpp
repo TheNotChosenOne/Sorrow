@@ -18,7 +18,7 @@
 
 namespace {
 
-static constexpr size_t MAX_INSTANCES = 1024;
+static constexpr size_t MAX_INSTANCES = 4096;
 
 static const char *glErrorReasons[] = {
     "GL_INVALID_ENUM: Used invalid enum parameter",
