@@ -1,18 +1,18 @@
 #include "timers.h"
 
 DurationTimer::DurationTimer()
-    : timings(256, 0)
-    , timingIndex(0) {
+    : timingIndex(0) {
 }
 
 void DurationTimer::tick(const std::chrono::duration< double > seconds) {
-    timings[timingIndex++] = seconds.count();
+    if (timings.size() < 256) { timings.push_back(seconds.count()); return; }
+    timings[timingIndex++ % 256] = seconds.count();
 }
 
 double DurationTimer::average() const {
     double total = 0.0;
     for (const auto x : timings) { total += x; }
-    return total / 256.0;
+    return total / std::max(size_t(1), timings.size());
 }
 
 double DurationTimer::perSecond() const {
