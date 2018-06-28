@@ -14,6 +14,10 @@ std::string sigToStr(const Signature &sig, const Tracker &track) {
     return ss.str();
 }
 
+void Tracker::addSource(SourcePtr &&ptr) {
+    sources[ptr->type()] = std::move(ptr);
+}
+
 EntityID Tracker::create(const Signature &sig) {
     for (const TypeID tid : sig) { rassert(sources.count(tid), tid, sig); }
 
