@@ -35,10 +35,8 @@ static const size_t STEPS_PER_SECOND = 25;
 static void mainLoop(Core &core) {
     const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
     const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
-    for (size_t i = 0; i < 100000; ++i) {
-        core.tracker.create(speed);
-        core.tracker.create(noSpeed);
-    }
+    core.tracker.create(speed, 100000);
+    core.tracker.create(noSpeed, 100000);
 
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);

@@ -12,6 +12,7 @@ class BaseData {
     public:
         virtual ~BaseData() { }
         virtual void add(uint64_t id) = 0;
+        virtual void reserve(size_t more) = 0;
         virtual TypeID type() const = 0;
         virtual const std::string &TypeName() const = 0;
 };
@@ -46,6 +47,9 @@ class Data: public BaseData {
         void add(size_t id) override {
             idToLow[id] = data.size();
             data.resize(data.size() + 1);
+        }
+        void reserve(size_t more) {
+            data.reserve(data.size() + more);
         }
         const std::string &TypeName() const override {
             return DataTypeName< T >::name();

@@ -157,13 +157,13 @@ class Tracker {
     private:
         typedef std::unique_ptr< BaseData > SourcePtr;
 
-        EntityID nextID = 0;
+        EntityID nextID = 1;
 
     public:
         std::map< TypeID, SourcePtr > sources;
         std::map< Signature, EntityVec > entities;
 
-        EntityID create(const Signature &sig);
+        EntityID create(const Signature &sig, size_t count=1);
 
         void addSource(SourcePtr &&ptr);
 
