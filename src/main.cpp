@@ -41,20 +41,15 @@ static void mainLoop(Core &core) {
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-    DataExec< Speed >::execute(core.tracker, [&](DataExec< Speed >::TupleType &tuple) {
-        std::vector< Speed > &speeds = *std::get< 0 >(tuple);
+    core.tracker.exec< Speed >([&](std::vector< Speed > &speeds) {
         for (size_t i = 0; i < speeds.size(); ++i) {
             speeds[i].d = distro(rng);
         }
-    }, { true });
+    });
 
-    typedef DataExec< Position, Shape, Direction, Colour > PSDCDE;
-    PSDCDE::execute(core.tracker, [&](PSDCDE::TupleType &tuple) {
+    core.tracker.exec< Position, Shape, Direction, Colour >([&](
+                auto &positions, auto &shapes, auto &directions, auto &colours) {
         const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
-        std::vector< Position > &positions = *std::get< 0 >(tuple);
-        std::vector< Shape > &shapes = *std::get< 1 >(tuple);
-        std::vector< Direction > &directions = *std::get< 2 >(tuple);
-        std::vector< Colour > &colours = *std::get< 3 >(tuple);
         for (size_t i = 0; i < directions.size(); ++i) {
             positions[i].v = Vec(512, 512) + Vec(rnd(256), rnd(256));
             shapes[i].type = ShapeType::Circle;
@@ -63,7 +58,7 @@ static void mainLoop(Core &core) {
             directions[i].v = Vec(rnd(1), rnd(1));
             gmtl::normalize(directions[i].v);
         }
-    }, { true, true, true, true });
+    });
     std::cout << "Finished setup\n";
 
     AccumulateTimer visualsUse;
@@ -115,15 +110,12 @@ static void mainLoop(Core &core) {
                 physTick.setTimeScale(timescale);
             }
             const auto time = physicsUse.add([&](){
-                typedef DataExec< Position, Direction, Speed > PDSDE;
-                PDSDE::execute(core.tracker, [&](PDSDE::TupleType &tu) {
-                    std::vector< Position > &positions = *std::get< 0 >(tu);
-                    std::vector< Direction > &directions = *std::get< 1 >(tu);
-                    std::vector< Speed > &speeds = *std::get< 2 >(tu);
+                core.tracker.exec< Position, const Direction, const Speed >([&](
+                        auto &positions, auto &directions, auto &speeds) {
                     for (size_t i = 0; i < positions.size(); ++i) {
                         positions[i].v += directions[i].v * speeds[i].d;
                     }
-                }, { true, false, false });
+                });
             });
             physics.tick(time);
         }
@@ -132,11 +124,8 @@ static void mainLoop(Core &core) {
             ++renderCount;
             // Update entity logic
             const auto time = visualsUse.add([&](){
-                typedef DataExec< Position, Shape, Colour > PSCDE;
-                PSCDE::execute(core.tracker, [&](PSCDE::TupleType &tu) {
-                    std::vector< Position > &positions = *std::get< 0 >(tu);
-                    std::vector< Shape > &shapes = *std::get< 1 >(tu);
-                    std::vector< Colour > &colours = *std::get< 2 >(tu);
+                core.tracker.exec< Position, Shape, Colour >([&](
+                        auto &positions, auto &shapes, auto &colours) {
                     for (size_t i = 0; i < positions.size(); ++i) {
                         if (ShapeType::Circle == shapes[i].type) {
                             core.renderer.drawBox(positions[i].v, shapes[i].rad, colours[i].colour);
@@ -144,7 +133,7 @@ static void mainLoop(Core &core) {
                             core.renderer.drawCircle(positions[i].v, shapes[i].rad, colours[i].colour);
                         }
                     }
-                }, { false, false, false });
+                });
                 core.renderer.update();
                 core.renderer.clear();
             });
