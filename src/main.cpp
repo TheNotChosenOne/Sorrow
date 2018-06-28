@@ -10,15 +10,19 @@
 #include <memory>
 #include <limits>
 #include <chrono>
+#include <random>
 #include <ratio>
 
 #include <valgrind/valgrind.h>
 
-#include "tracker.h"
 #include "renderer.h"
 #include "rendererSDL.h"
 #include "input.h"
 #include "inputSDL.h"
+
+#include "tracker.h"
+#include "physics.h"
+#include "visuals.h"
 
 #include "timers.h"
 #include "core.h"
@@ -29,6 +33,41 @@ const size_t SCREEN_HEIGHT = 1024;
 static const size_t STEPS_PER_SECOND = 25;
 
 static void mainLoop(Core &core) {
+    const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
+    const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
+    for (size_t i = 0; i < 100; ++i) {
+        core.tracker.create(speed);
+        core.tracker.create(noSpeed);
+    }
+
+    std::mt19937_64 rng(0x88888888);
+    std::uniform_real_distribution< double > distro(0.0, 1.0);
+
+    DataExec< Speed >::execute(core.tracker, [&](DataExec< Speed >::TupleType &tuple) {
+        std::vector< Speed > &speeds = *std::get< 0 >(tuple);
+        for (size_t i = 0; i < speeds.size(); ++i) {
+            speeds[i].d = distro(rng);
+        }
+    }, { true });
+
+    typedef DataExec< Position, Shape, Direction, Colour > PSDCDE;
+    PSDCDE::execute(core.tracker, [&](PSDCDE::TupleType &tuple) {
+        const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
+        std::vector< Position > &positions = *std::get< 0 >(tuple);
+        std::vector< Shape > &shapes = *std::get< 1 >(tuple);
+        std::vector< Direction > &directions = *std::get< 2 >(tuple);
+        std::vector< Colour > &colours = *std::get< 3 >(tuple);
+        for (size_t i = 0; i < directions.size(); ++i) {
+            positions[i].v = Vec(512, 512) + Vec(rnd(256), rnd(256));
+            shapes[i].type = ShapeType::Circle;
+            shapes[i].rad = Vec(10, 10);
+            colours[i].colour = Vec3(0xFF, 0, 0);
+            directions[i].v = Vec(rnd(1), rnd(1));
+            gmtl::normalize(directions[i].v);
+        }
+    }, { true, true, true, true });
+    std::cout << "Finished setup\n";
+
     AccumulateTimer visualsUse;
     AccumulateTimer physicsUse;
     AccumulateTimer entityUse;
@@ -77,13 +116,41 @@ static void mainLoop(Core &core) {
                 timescale /= 0.7;
                 physTick.setTimeScale(timescale);
             }
+            const auto time = physicsUse.add([&](){
+                typedef DataExec< Position, Direction, Speed > PDSDE;
+                PDSDE::execute(core.tracker, [&](PDSDE::TupleType &tu) {
+                    std::vector< Position > &positions = *std::get< 0 >(tu);
+                    std::vector< Direction > &directions = *std::get< 1 >(tu);
+                    std::vector< Speed > &speeds = *std::get< 2 >(tu);
+                    for (size_t i = 0; i < positions.size(); ++i) {
+                        positions[i].v += directions[i].v * speeds[i].d;
+                    }
+                }, { true, false, false });
+            });
+            physics.tick(time);
         }
 
         if (drawTick.tick(duration)) {
             ++renderCount;
             // Update entity logic
-            //const auto time = visualsUse.add([&](){ core.visuals.visualUpdate(core); });
-            //visuals.tick(time);
+            const auto time = visualsUse.add([&](){
+                typedef DataExec< Position, Shape, Colour > PSCDE;
+                PSCDE::execute(core.tracker, [&](PSCDE::TupleType &tu) {
+                    std::vector< Position > &positions = *std::get< 0 >(tu);
+                    std::vector< Shape > &shapes = *std::get< 1 >(tu);
+                    std::vector< Colour > &colours = *std::get< 2 >(tu);
+                    for (size_t i = 0; i < positions.size(); ++i) {
+                        if (ShapeType::Circle == shapes[i].type) {
+                            core.renderer.drawBox(positions[i].v, shapes[i].rad, colours[i].colour);
+                        } else {
+                            core.renderer.drawCircle(positions[i].v, shapes[i].rad, colours[i].colour);
+                        }
+                    }
+                }, { false, false, false });
+                core.renderer.update();
+                core.renderer.clear();
+            });
+            visuals.tick(time);
         }
 
         if (infoTick.tick(duration)) {
@@ -137,47 +204,6 @@ static void mainLoop(Core &core) {
     }
 }
 
-void test() {
-    /*
-    Tracker tracker;
-    Signature sLoc = getSignature< Location >();
-    Signature sDir = getSignature< Direction >();
-    Signature sBoth = getSignature< Direction, Location >();
-
-    auto l = std::make_unique< LocationData >();
-    rassert(*sLoc.begin() == l->type(), *sLoc.begin(), l->type());
-    tracker.sources[l->type()] = std::move(l);
-    auto d = std::make_unique< DirectionData >();
-    rassert(*sDir.begin() == d->type(), *sDir.begin(), d->type());
-    tracker.sources[d->type()] = std::move(d);
-
-    for (size_t i = 0; i < 4; ++i) {
-        tracker.create(sBoth);
-        tracker.create(sLoc);
-    }
-
-    std::cout << "Location: " << tracker.getSource< Location >() << '\n';
-    std::cout << "Direction: " << tracker.getSource< Direction >() << '\n';
-
-    typedef std::tuple<
-            std::unique_ptr< std::vector< Location > >,
-            std::unique_ptr< std::vector< Direction > > > TupleType;
-    typedef std::function< void(TupleType &) > FuncType;
-    FuncType f = [](std::tuple< std::unique_ptr< std::vector< Location > >,
-                    std::unique_ptr< std::vector< Direction  > > > &tu) {
-        std::cout << "Grouped function execution\n";
-        std::cout << std::get< 0 >(tu)->size() << ' ' << std::get< 1 >(tu)->size() << '\n';
-        for (auto &x : *std::get< 0 >(tu)) { x.v = Vec(1.0, 2.0); }
-        for (auto &x : *std::get< 1 >(tu)) { x.v = Vec(3.0, 4.0); }
-    };
-    std::vector< bool > writes = { true, false };
-    tracker.executeOn< TupleType, FuncType, Location, Direction >(f, writes);
-
-    std::cout << "Location: " << tracker.getSource< Location >() << '\n';
-    std::cout << "Direction: " << tracker.getSource< Direction >() << '\n';
-    */
-}
-
 static void run(boost::program_options::variables_map &options) {
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
@@ -195,7 +221,11 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Tracker tracker;
-
+    tracker.addSource(std::make_unique< PositionData >());
+    tracker.addSource(std::make_unique< DirectionData >());
+    tracker.addSource(std::make_unique< ShapeData >());
+    tracker.addSource(std::make_unique< SpeedData >());
+    tracker.addSource(std::make_unique< ColourData >());
     Core core{ *input, tracker, *renderer, options };
 
     mainLoop(core);
