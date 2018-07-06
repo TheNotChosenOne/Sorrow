@@ -35,26 +35,32 @@ static const size_t STEPS_PER_SECOND = 25;
 static void mainLoop(Core &core) {
     const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
     const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
-    core.tracker.create(speed, 100000);
-    core.tracker.create(noSpeed, 100000);
+    core.tracker.create(speed, 10);
+    core.tracker.create(noSpeed, 10);
 
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-    core.tracker.exec< Speed >([&](std::vector< Speed > &speeds) {
-        for (size_t i = 0; i < speeds.size(); ++i) {
-            speeds[i].d = distro(rng);
+    core.tracker.exec< Colour >([&](auto &colours) {
+        for (size_t i = 0; i < colours.size(); ++i) {
+            colours[i].colour = Vec3(0, 0xFF, 0);
         }
     });
 
-    core.tracker.exec< Position, Shape, Direction, Colour >([&](
-                auto &positions, auto &shapes, auto &directions, auto &colours) {
+    core.tracker.exec< Speed, Colour >([&](auto &speeds, auto &colours) {
+        for (size_t i = 0; i < speeds.size(); ++i) {
+            speeds[i].d = distro(rng);
+            colours[i].colour = Vec3(0xFF, 0, 0);
+        }
+    });
+
+    core.tracker.exec< Position, Shape, Direction >([&](
+                auto &positions, auto &shapes, auto &directions) {
         const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
         for (size_t i = 0; i < directions.size(); ++i) {
             positions[i].v = Vec(512, 512) + Vec(rnd(256), rnd(256));
             shapes[i].type = ShapeType::Circle;
             shapes[i].rad = Vec(10, 10);
-            colours[i].colour = Vec3(0xFF, 0, 0);
             directions[i].v = Vec(rnd(1), rnd(1));
             gmtl::normalize(directions[i].v);
         }
@@ -110,12 +116,7 @@ static void mainLoop(Core &core) {
                 physTick.setTimeScale(timescale);
             }
             const auto time = physicsUse.add([&](){
-                core.tracker.exec< Position, const Direction, const Speed >([&](
-                        auto &positions, auto &directions, auto &speeds) {
-                    for (size_t i = 0; i < positions.size(); ++i) {
-                        positions[i].v += directions[i].v * speeds[i].d;
-                    }
-                });
+                updatePhysics(core);
             });
             physics.tick(time);
         }
@@ -124,16 +125,7 @@ static void mainLoop(Core &core) {
             ++renderCount;
             // Update entity logic
             const auto time = visualsUse.add([&](){
-                core.tracker.exec< Position, Shape, Colour >([&](
-                        auto &positions, auto &shapes, auto &colours) {
-                    for (size_t i = 0; i < positions.size(); ++i) {
-                        if (ShapeType::Circle == shapes[i].type) {
-                            core.renderer.drawBox(positions[i].v, shapes[i].rad, colours[i].colour);
-                        } else {
-                            core.renderer.drawCircle(positions[i].v, shapes[i].rad, colours[i].colour);
-                        }
-                    }
-                });
+                draw(core.tracker, core.renderer);
                 core.renderer.update();
                 core.renderer.clear();
             });

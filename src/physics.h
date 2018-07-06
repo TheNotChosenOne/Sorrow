@@ -24,3 +24,6 @@ struct Shape {
     Vec rad;
 };
 DeclareDataType(Shape);
+
+class Core;
+void updatePhysics(Core &core);
