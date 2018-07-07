@@ -23,11 +23,11 @@ size_t Renderer::getHeight() const {
     return height;
 }
 
-void Renderer::drawPoint(Vec, Vec3, double, double) {
+void Renderer::drawPoint(Point, Point3, double, double) {
 }
 
-void Renderer::drawBox(Vec, Vec, Vec3, double, double) {
+void Renderer::drawBox(Point, Vec, Point3, double, double) {
 }
 
-void Renderer::drawCircle(Vec, Vec, Vec3, double, double) {
+void Renderer::drawCircle(Point, Vec, Point3, double, double) {
 }

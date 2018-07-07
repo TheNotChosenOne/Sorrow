@@ -1,15 +1,12 @@
 #pragma once
 
 #include "data.h"
+#include "geometry.h"
 
-#include <gmtl/Vec.h>
-
-typedef gmtl::Vec2d Vec;
-
-struct Position { Vec v; };
+struct Position { Point v; };
 DeclareDataType(Position);
 
-struct Direction { Vec v; };
+struct Direction { Dir v; };
 DeclareDataType(Direction);
 
 struct Speed { double d; };

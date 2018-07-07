@@ -6,7 +6,29 @@
 #include <iostream>
 #include <typeindex>
 
-typedef uint64_t TypeID;
+#include <ctti/type_id.hpp>
+
+typedef ctti::type_id_t TypeID;
+std::ostream &operator<<(std::ostream &os, const TypeID &tid);
+constexpr bool operator<(const TypeID &left, const TypeID &right) {
+    return left.hash() < right.hash();
+}
+template<>
+struct std::less< TypeID > {
+bool operator()(const TypeID &left, const TypeID &right) const {
+    return ::operator<(left, right);
+}
+};
+
+template< typename T >
+constexpr TypeID DataTypeID() {
+    return ctti::type_id< std::remove_const_t< T > >();
+}
+
+template< typename T >
+constexpr ctti::detail::cstring DataTypeName() {
+    return ctti::nameof< std::remove_const_t< T > >();
+}
 
 class BaseData {
     public:
@@ -14,33 +36,17 @@ class BaseData {
         virtual void add(uint64_t id) = 0;
         virtual void reserve(size_t more) = 0;
         virtual TypeID type() const = 0;
-        virtual const std::string &TypeName() const = 0;
 };
 std::ostream &operator<<(std::ostream &os, const BaseData &bd);
 
-
-template< typename... >
-struct DataTypeName;
-template< typename T >
-struct DataTypeName< T > {
-    static const std::string &name() {
-        static const std::string &name = "Unnamed";
-        return name;
-    }
-};
-#define SetDataTypeName(T, n) \
-    template<> struct DataTypeName< T > { static const std::string &name() {\
-        static const std::string &name = n; return name; } };
 #define DeclareDataType(T) \
     typedef Data< T > T ## Data; \
-    SetDataTypeName(T, #T)
 
 template< typename T >
 class Data: public BaseData {
     public:
         typedef T Type;
-        static void idFunc() { }
-        TypeID type() const { return reinterpret_cast< TypeID >(idFunc); }
+        TypeID type() const override { return DataTypeID< T >(); }
         std::map< uint64_t, size_t > idToLow;
         std::vector< T > data;
         virtual ~Data() { }
@@ -50,8 +56,5 @@ class Data: public BaseData {
         }
         void reserve(size_t more) {
             data.reserve(data.size() + more);
-        }
-        const std::string &TypeName() const override {
-            return DataTypeName< T >::name();
         }
 };

@@ -1,9 +1,6 @@
 #pragma once
 
-#include <gmtl/Vec.h>
-#include <gmtl/VecOps.h>
-#include <gmtl/Output.h>
-
+#include <unordered_set>
 #include <algorithm>
 #include <iostream>
 #include <utility>
@@ -14,6 +11,8 @@
 #include <limits>
 #include <map>
 #include <set>
+
+#include "geometry.h"
 
 template< typename T >
 constexpr T infty() {
@@ -34,9 +33,6 @@ std::string sp(const T &x) {
     return ss.str();
 }
 
-typedef gmtl::Vec2d Vec;
-typedef gmtl::Vec3d Vec3;
-
 template< typename T >
 constexpr T pi = T(3.1415926535897932385);
 
@@ -44,10 +40,6 @@ template< typename T >
 T clamp(const T low, const T high, const T val) {
     return std::min(high, std::max(low, val));
 }
-
-double diffLength(const Vec a, const Vec b);
-
-double diffLength2(const Vec a, const Vec b);
 
 template< typename T >
 std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
@@ -64,14 +56,23 @@ std::ostream &operator<<(std::ostream &os, const std::pair< K, V > &p) {
     return (os << '(' << p.first << ", " << p.second << ')');
 }
 
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::set< T > &s) {
+template< template< typename ... > typename C, typename T >
+std::ostream &dumpContainer(std::ostream &os, const C< T > &s) {
     os << '(' << s.size() << "){ ";
     for (const auto &v : s) {
         os << v << ' ';
     }
     return (os << '}');
 }
+
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::set< T > &s) {
+    return dumpContainer(os, s);
+};
+template< typename T >
+std::ostream &operator<<(std::ostream &os, const std::unordered_set< T > &s) {
+    return dumpContainer(os, s);
+};
 
 template< typename K, typename V >
 std::ostream &operator<<(std::ostream &os, const std::map< K, V > &m) {

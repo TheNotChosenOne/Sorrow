@@ -18,9 +18,9 @@ class Renderer {
         virtual void update();
         virtual size_t getWidth() const;
         virtual size_t getHeight() const;
-        virtual void drawPoint(Vec pos, Vec3 col, double alpha=1.0, double depth=0.0);
-        virtual void drawBox(Vec pos, Vec rad, Vec3 col, double alpha=1.0, double depth=0.0);
-        virtual void drawCircle(Vec pos, Vec rad, Vec3 col, double alpha=1.0, double depth=0.0);
+        virtual void drawPoint(Point pos, Point3 col, double alpha=1.0, double depth=0.0);
+        virtual void drawBox(Point pos, Vec rad, Point3 col, double alpha=1.0, double depth=0.0);
+        virtual void drawCircle(Point pos, Vec rad, Point3 col, double alpha=1.0, double depth=0.0);
 };
 
 template<>

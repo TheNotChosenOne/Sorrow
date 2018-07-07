@@ -1,11 +1,5 @@
 #include "rendererSDL.h"
 
-#include <gmtl/MatrixOps.h>
-#include <gmtl/CoordOps.h>
-#include <gmtl/Generate.h>
-#include <gmtl/Matrix.h>
-#include <gmtl/Xforms.h>
-#include <gmtl/Coord.h>
 #include <functional>
 #include <exception>
 #include <iostream>
@@ -13,6 +7,9 @@
 #include <vector>
 #include <cmath>
 #include <map>
+
+#include <CGAL/Aff_transformation_2.h>
+#include <CGAL/aff_transformation_tags.h>
 
 #include "utility.h"
 
@@ -186,15 +183,15 @@ static GLuint addRectProgram() {
 
 };
 
-void RendererSDL::drawPoint(Vec pos, Vec3 col, double alpha, double depth) {
+void RendererSDL::drawPoint(Point pos, Point3 col, double alpha, double depth) {
     commands[0].push_back({ col, pos, { 0, 0 }, alpha, depth });
 }
 
-void RendererSDL::drawBox(Vec pos, Vec rad, Vec3 col, double alpha, double depth) {
+void RendererSDL::drawBox(Point pos, Vec rad, Point3 col, double alpha, double depth) {
     commands[2].push_back({ col, pos, rad, alpha, depth });
 }
 
-void RendererSDL::drawCircle(Vec pos, Vec rad, Vec3 col, double alpha, double depth) {
+void RendererSDL::drawCircle(Point pos, Vec rad, Point3 col, double alpha, double depth) {
     commands[1].push_back({ col, pos, rad, alpha, depth });
 }
 
@@ -292,10 +289,11 @@ void RendererSDL::update() {
     static GLfloat radData[MAX_INSTANCES * 2];
     static GLubyte colData[MAX_INSTANCES * 4];
 
-    gmtl::Matrix33d toScreen;
-    gmtl::identity(toScreen);
-    gmtl::setScale(toScreen, Vec(2.0 / width, 2.0 / height));
-    gmtl::setTrans(toScreen, Vec(-1.0, -1.0));
+    const auto scaler = Kernel::Aff_transformation_2(
+            2.0 / width, 0.0, 0.0, 0.0, 2.0 / height, 0.0);
+    const auto transl = Kernel::Aff_transformation_2(CGAL::TRANSLATION,
+            Kernel::Vector_2(-1.0, -1.0));
+    const auto toScreen = transl * scaler;
 
     GL_ERROR
 
@@ -335,8 +333,8 @@ void RendererSDL::update() {
             const size_t until = std::min(commands[i].size(), start + MAX_INSTANCES);
             for (size_t j = start; j < until; ++j) {
                 const auto &dc = commands[i][j];
-                const Vec p = toScreen * gmtl::Point2d(dc.pos);
-                const Vec r = toScreen * dc.rad;
+                const Point p = toScreen.transform(dc.pos);
+                const Vec r = toScreen.transform(dc.rad);
 
                 posData[3 * count + 0] = p[0];
                 posData[3 * count + 1] = p[1];

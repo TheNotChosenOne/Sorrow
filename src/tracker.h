@@ -16,9 +16,8 @@ typedef uint64_t EntityID;
 
 typedef std::set< TypeID > Signature;
 typedef std::vector< TypeID > OrderedSignature;
-namespace std {
 template<>
-struct hash< Signature > {
+struct std::hash< Signature > {
     std::size_t operator()(const Signature &sig) const {
         size_t h = 0;
         for (const Signature::value_type v : sig) {
@@ -27,15 +26,15 @@ struct hash< Signature > {
         return h;
     }
 };
-}
-
-template< typename... >
-struct DataTypeID;
-template< typename T >
-struct DataTypeID< T > {
-    static TypeID id() {
-        static Data< std::remove_const_t< T > > instance;
-        return instance.type();
+template<>
+struct std::less< Signature > {
+    bool operator()(const Signature &l, const Signature &r) const {
+        if (l.size() != r.size()) { return l.size() < r.size(); }
+        for (auto li = l.cbegin(), ri = r.cbegin();
+             li != l.cend(); ++li, ++ri) {
+            if (*li != *ri) { return ::operator<(*li, *ri); }
+        }
+        return false;
     }
 };
 
@@ -44,11 +43,11 @@ struct SetSignature;
 template< typename T, typename ...Rest >
 struct SetSignature< T, Rest... > {
     static void set(Signature &sig) {
-        sig.insert(DataTypeID< T >::id());
+        sig.insert(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
     }
     static void set(OrderedSignature &sig) {
-        sig.push_back(DataTypeID< T >::id());
+        sig.push_back(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
     }
 };
@@ -130,7 +129,17 @@ struct ComponentCollection {
         return std::get< i >(data);
     };
     template< typename T >
+    const typename ConstLifter< T >::type &get() const {
+        constexpr size_t i = CCAccess< 0, T, Args... >::type::index;
+        return std::get< i >(data);
+    };
+    template< typename T >
     T &at(size_t i) {
+        constexpr size_t ti = CCAccess< 0, T, Args... >::type::index;
+        return std::get< ti >(data)[i];
+    }
+    template< typename T >
+    const T &at(size_t i) const {
         constexpr size_t ti = CCAccess< 0, T, Args... >::type::index;
         return std::get< ti >(data)[i];
     }
@@ -268,18 +277,23 @@ class Tracker {
 
         void addSource(SourcePtr &&ptr);
 
-        void findMatching(std::vector< EntityID > &into, const Signature &sig) {
-            for (const auto &pair : entities) {
-                if (typesSubset(pair.first, sig)) {
-                    std::copy(pair.second.begin(), pair.second.end(), std::back_inserter(into));
-                }
-            }
-        }
-
         void findMatching(std::set< EntityID > &into, const Signature &sig) {
             for (const auto &pair : entities) {
                 if (typesSubset(pair.first, sig)) {
                     std::copy(pair.second.begin(), pair.second.end(), std::inserter(into, into.begin()));
+                }
+            }
+        }
+
+        void restrictMatching(std::set< EntityID > &from, std::set< EntityID > &into, const Signature &sig) {
+            for (const auto &pair : entities) {
+                if (typesSubset(pair.first, sig)) {
+                    for (const EntityID id : pair.second) {
+                        const auto loc = from.find(id);
+                        if (from.end() != loc) {
+                            into.insert(from.extract(loc));
+                        }
+                    }
                 }
             }
         }
@@ -289,16 +303,16 @@ class Tracker {
             typedef Data< T > Source;
             typedef std::vector< T > Container;
 
-            const TypeID tid = DataTypeID< T >::id();
+            const TypeID tid = DataTypeID< T >();
 
             rassert(sources.count(tid), tid);
 
             Container into;
             const BaseData *base = sources.at(tid).get();
-            rassert(DataTypeName< T >::name() == base->TypeName(),
-                    DataTypeName< T >::name(), base->TypeName());
+            rassert(DataTypeID< T >() == base->type(),
+                    DataTypeName< T >(), base->type().name());
             const Source *sourcePtr = dynamic_cast< const Source * >(base);
-            rassert(sourcePtr, tid, base->type(), base->TypeName());
+            rassert(sourcePtr, tid, base->type().name());
             const Source &data = *sourcePtr;
             for (const EntityID id : only) {
                 const size_t low = data.idToLow.at(id);
@@ -312,7 +326,7 @@ class Tracker {
         void setDataFor(const EntitySet &only, const std::vector< T > &data) {
             typedef Data< T > Source;
 
-            const TypeID tid = DataTypeID< T >::id();
+            const TypeID tid = DataTypeID< T >();
             rassert(sources.count(tid), tid);
 
             Source &dataSource = dynamic_cast< Source & >(*sources.at(tid));
@@ -378,15 +392,8 @@ class Tracker {
             const Signature sig(osig.begin(), osig.end());
             rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
 
-            std::set< EntityID > cross;
-            findMatching(cross, sig);
             std::set< EntityID > ids;
-            std::set_intersection(gatherer.ids.begin(), gatherer.ids.end(),
-                                  cross.begin(), cross.end(), std::inserter(ids, ids.begin()));
-            std::set< EntityID > diff;
-            std::set_difference(gatherer.ids.begin(), gatherer.ids.end(),
-                                ids.begin(), ids.end(), std::inserter(diff, diff.begin()));
-            gatherer.ids = std::move(diff);
+            restrictMatching(gatherer.ids, ids, sig);
 
             ComponentCollection< All... > cc;
             typedef std::tuple< std::vector< typename std::remove_const_t< All > > ... > Holder;
@@ -414,7 +421,7 @@ class Tracker {
 
         template< typename T >
         std::vector< T > &getSource() {
-            const TypeID tid = DataTypeID< T >::id();
+            const TypeID tid = DataTypeID< T >();
             rassert(sources.count(tid), tid);
             return dynamic_cast< Data< T > & >(*sources.at(tid)).data;
         }

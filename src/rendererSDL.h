@@ -27,8 +27,8 @@ class RendererSDL: public Renderer {
         GLuint hsdLoc;
 
         struct DrawCommand {
-            Vec3 col;
-            Vec pos;
+            Point3 col;
+            Point pos;
             Vec rad;
             double alpha;
             double depth;
@@ -42,9 +42,9 @@ class RendererSDL: public Renderer {
 
         void clear() override;
         void update() override;
-        void drawPoint(Vec pos, Vec3 col, double alpha, double depth) override;
-        void drawBox(Vec pos, Vec rad, Vec3 col, double alpha, double depth) override;
-        void drawCircle(Vec pos, Vec rad, Vec3 col, double alpha, double depth) override;
+        void drawPoint(Point pos, Point3 col, double alpha, double depth) override;
+        void drawBox(Point pos, Vec rad, Point3 col, double alpha, double depth) override;
+        void drawCircle(Point pos, Vec rad, Point3 col, double alpha, double depth) override;
 
         size_t getWidth() const override;
         size_t getHeight() const override;

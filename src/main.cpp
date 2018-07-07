@@ -35,22 +35,22 @@ static const size_t STEPS_PER_SECOND = 25;
 static void mainLoop(Core &core) {
     const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
     const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
-    core.tracker.create(speed, 10);
-    core.tracker.create(noSpeed, 10);
+    core.tracker.create(speed, 4096);
+    core.tracker.create(noSpeed, 128);
 
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
     core.tracker.exec< Colour >([&](auto &colours) {
         for (size_t i = 0; i < colours.size(); ++i) {
-            colours[i].colour = Vec3(0, 0xFF, 0);
+            colours[i].colour = Point3(0, 0xFF, 0);
         }
     });
 
     core.tracker.exec< Speed, Colour >([&](auto &speeds, auto &colours) {
         for (size_t i = 0; i < speeds.size(); ++i) {
             speeds[i].d = distro(rng);
-            colours[i].colour = Vec3(0xFF, 0, 0);
+            colours[i].colour = Point3(0xFF, 0, 0);
         }
     });
 
@@ -58,12 +58,15 @@ static void mainLoop(Core &core) {
                 auto &positions, auto &shapes, auto &directions) {
         const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
         for (size_t i = 0; i < directions.size(); ++i) {
-            positions[i].v = Vec(512, 512) + Vec(rnd(256), rnd(256));
-            shapes[i].type = ShapeType::Circle;
+            positions[i].v = Point(512, 512) + Vec(rnd(256), rnd(256));
+            shapes[i].type = ShapeType::Box;
             shapes[i].rad = Vec(10, 10);
-            directions[i].v = Vec(rnd(1), rnd(1));
-            gmtl::normalize(directions[i].v);
+            directions[i].v = Dir(rnd(1), rnd(1));
         }
+    });
+
+    core.tracker.exec< Speed, Shape >([&](auto &, auto &shapes) {
+        for (auto &shape : shapes) { shape.type = ShapeType::Circle; }
     });
     std::cout << "Finished setup\n";
 
@@ -133,15 +136,7 @@ static void mainLoop(Core &core) {
         }
 
         if (infoTick.tick(duration)) {
-            //const Vec centre(core.renderer.getWidth() / 2.0, core.renderer.getHeight() / 2.0);
-            //double screenRad = core.renderer.getWidth() * core.renderer.getHeight();
             size_t count = 0;
-            /*
-            for (const Entity e : core.entities.all()) {
-                const Vec diff = core.entities.getHandle(e)->getPhys().pos - centre;
-                count += static_cast< size_t >(gmtl::lengthSquared(diff) > screenRad);
-            }
-            */
 
             const double phys = physicsUse.empty();
             const double vis = visualsUse.empty();
@@ -160,7 +155,6 @@ static void mainLoop(Core &core) {
                 std::cout << "Spare: " << sp << " Busy: " << busy;
                 std::cout << ' ' << std::setw(10) << 100 * (busy / act) << "%";
                 std::cout << " (" << act << ")\n";
-                //std::cout << "Entities: " << std::setw(6) << core.entities.all().size();
                 std::cout << " Timescale: " << timescale;
                 std::cout << " Escaped: " << count << '\n';
                 std::cout << '\n';

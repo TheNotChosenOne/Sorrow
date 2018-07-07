@@ -22,7 +22,7 @@ class Input {
         virtual bool mouseHeld(size_t button) const;
         virtual bool mousePressed(size_t button) const;
         virtual bool mouseReleased(size_t button) const;
-        virtual Vec mousePos() const;
+        virtual Point mousePos() const;
 };
 
 template<>

@@ -84,6 +84,6 @@ bool InputSDL::mouseReleased(size_t button) const {
     return mReleased.end() == loc ? false : loc->second;
 }
 
-Vec InputSDL::mousePos() const {
-    return Vec( mouse[0] / width, (height - mouse[1] - 1) / height );
+Point InputSDL::mousePos() const {
+    return Point( mouse[0] / width, (height - mouse[1] - 1) / height );
 }

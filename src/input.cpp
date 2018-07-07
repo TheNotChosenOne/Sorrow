@@ -41,6 +41,6 @@ bool Input::mouseReleased(size_t) const {
     return false;
 }
 
-Vec Input::mousePos() const {
-    return Vec();
+Point Input::mousePos() const {
+    return Point();
 }

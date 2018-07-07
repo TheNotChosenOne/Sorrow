@@ -16,7 +16,7 @@ class InputSDL: public Input {
         std::map< size_t, bool > mHeld;
         std::map< size_t, bool > mPressed;
         std::map< size_t, bool > mReleased;
-        Vec mouse;
+        Point mouse;
 
     public:
         InputSDL(size_t width, size_t height);
@@ -30,5 +30,5 @@ class InputSDL: public Input {
         bool mouseHeld(size_t button) const override;
         bool mousePressed(size_t button) const override;
         bool mouseReleased(size_t button) const override;
-        Vec mousePos() const override;
+        Point mousePos() const override;
 };

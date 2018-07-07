@@ -8,7 +8,7 @@ std::string sigToStr(const Signature &sig, const Tracker &track) {
     ss << '<';
     for (const TypeID tid : sig) {
         rassert(track.sources.count(tid), tid);
-        ss << ' ' << track.sources.at(tid)->TypeName();
+        ss << ' ' << track.sources.at(tid)->type().name();
     }
     ss << " >";
     return ss.str();

@@ -1,12 +1,9 @@
 #pragma once
 
 #include "data.h"
+#include "geometry.h"
 
-#include <gmtl/Vec.h>
-
-typedef gmtl::Vec3d Vec3;
-
-struct Colour { Vec3 colour; };
+struct Colour { Point3 colour; };
 DeclareDataType(Colour);
 
 class Tracker;

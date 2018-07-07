@@ -2,34 +2,39 @@
 #include "tracker.h"
 #include "core.h"
 
-void updatePhysics(Core &core) {
-    // find the entities with < A, B >
-    // restrict remaining to entities with also < C >
-    // restrict remaining to entities with also < D, E >
-    // restrict remaining to entities with also < >
+namespace {
 
-    typedef ComponentCollection< Position, Shape, Direction, Speed > Dynamics;
-    typedef ComponentCollection< Position, Shape > Statics;
+typedef ComponentCollection< Position, Shape, Direction, Speed > Dynamics;
+typedef ComponentCollection< Position, Shape > Statics;
+
+static inline bool miss(const Point &p1, const Shape &s1, const Point &p2, const Shape &s2) {
+    const Point bl1 = p1 - s1.rad;
+    const Point tr1 = p1 + s1.rad;
+    const Point bl2 = p2 - s2.rad;
+    const Point tr2 = p2 + s2.rad;
+    bool missed = false;
+    for (size_t i = 0; i < 2; ++i) {
+        missed = missed | (tr2[i] < bl1[i]) | (tr1[i] < bl2[i]);
+    }
+    return missed;
+}
+
+static inline bool miss(const Point &p, const Shape &s, const Statics &stat) {
+    for (size_t i = 0; i < stat.get< Position >().size(); ++i) {
+        if (!miss(p, s, stat.at< Position >(i).v, stat.at< Shape >(i))) { return false; }
+    }
+    return true;
+}
+
+}
+
+void updatePhysics(Core &core) {
     core.tracker.partitionExec< Statics, Dynamics >([&](Statics &s, Dynamics &d) {
         for (size_t i = 0; i < d.get< Position >().size(); ++i) {
-            d.at< Position >(i).v += d.at< Direction >(i).v * d.at< Speed >(i).d;
+            const Point maybe = d.at< Position >(i).v + d.at< Direction >(i).v.vector() * d.at< Speed >(i).d;
+            if (miss(maybe, d.at< Shape >(i), s)) {
+                d.at< Position >(i).v = maybe;
+            }
         }
     });
-
-    /*
-    core.tracker.fancyExec< Position, Shape >([&](auto &gatherer){
-        core.tracker.restrict(gatherer, [&](Dynamics &d) {
-            core.tracker.restrict< Position, Shape >(gatherer, [&](auto &s) {
-                //const size_t x = std::get< 0 >(d.data).size();
-                const size_t y = std::get< 0 >(s.data).size();
-                const size_t x = d.get< Position >().size();
-                std::cout << x << ' ' << y << '\n';
-                std::cout << "There are " << s.get< Position >().size() << " static phys entities\n";
-                std::cout << "There are " << d.get< Position >().size() << " dynamic phys entities\n";
-                //const size_t sc = s.get< Position >().size();
-                const size_t dc = d.get< Position >().size();
-            });
-        });
-    });
-    */
 }
