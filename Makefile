@@ -6,7 +6,7 @@ SRCDIR=src
 TMPDIR=.tmp
 
 CXX=g++
-CXXFLAGS=-Wall -Wextra --std=c++17 -lGL -lGLEW -lSDL2 -I/home/swan/code/ctti/include -I/usr/include/python3.6m -lpython3.6m -lboost_program_options -ffast-math -msse2 -march=native -ftree-vectorize -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops -lCGAL
+CXXFLAGS=-Wall -Wextra --std=c++17 -lGL -lGLEW -lSDL2 -I/home/swan/code/ctti/include -I/usr/include/python3.6m -lpython3.6m -lboost_program_options -ffast-math -msse2 -march=native -ftree-vectorize -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops -lCGAL -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON
 RLSFLAGS=-Ofast -g
 DBGFLAGS=-Og -ggdb -g
 
