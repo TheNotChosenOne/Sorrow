@@ -13,8 +13,8 @@ struct Speed { double d; };
 DeclareDataType(Speed);
 
 enum ShapeType {
-    Circle = 0,
-    Box = 1,
+    ShapeCircle = 0,
+    ShapeBox = 1,
 };
 struct Shape {
     ShapeType type;

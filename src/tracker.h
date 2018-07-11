@@ -108,12 +108,22 @@ struct ConstLifter {
         const std::vector< std::remove_const_t< T > >,
         std::vector< std::remove_const_t< T > > >::type type;
 };
+
+template< typename First, typename ...Rest >
+struct ArgCounter {
+    static constexpr size_t value = ArgCounter< Rest... >::value + 1;
+};
+template<>
+struct ArgCounter< void > {
+    static constexpr size_t value = 0;
+};
+
 template< size_t Index, typename Search, typename First, typename ...Rest >
 struct CCAccess {
+    static_assert(ArgCounter< Rest..., void >::value > 0, "Couldn't find type");
     typedef typename CCAccess< Index + 1, Search, Rest... >::type type;
     static constexpr size_t index = Index;
 };
-
 template< size_t Index, typename Search, typename ...Rest >
 struct CCAccess< Index, Search, Search, Rest... > {
     typedef CCAccess type;
@@ -273,7 +283,36 @@ class Tracker {
         std::map< TypeID, SourcePtr > sources;
         std::map< Signature, EntityVec > entities;
 
-        EntityID create(const Signature &sig, size_t count=1);
+        EntityID createSigned(const Signature &sig, size_t count=1);
+        template< typename ...Args >
+        EntityID create(size_t count=1) {
+            const OrderedSignature osig = getOrderedSignature< Args... >();
+            const Signature sig(osig.begin(), osig.end());
+            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
+            return createSigned(sig, count);
+        }
+
+        template< typename T >
+        void addForID(const EntityID id, const T &t) {
+            auto &source = *sources.at(DataTypeID< T >());
+            Data< T > &data = dynamic_cast< Data< T > & >(source);
+            data.idToLow[id] = data.data.size();
+            data.data.push_back(t);
+        }
+
+        template< typename ...Args >
+        EntityID createWith(const Args &... args) {
+            const OrderedSignature osig = getOrderedSignature< Args... >();
+            const Signature sig(osig.begin(), osig.end());
+            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
+
+            const EntityID id = nextID++;
+            entities[sig].push_back(id);
+
+            (addForID(id, args), ...);
+
+            return id;
+        }
 
         void addSource(SourcePtr &&ptr);
 

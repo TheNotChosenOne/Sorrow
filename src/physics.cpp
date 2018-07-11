@@ -4,24 +4,22 @@
 
 namespace {
 
-typedef ComponentCollection< Position, Shape, Direction, Speed > Dynamics;
-typedef ComponentCollection< Position, Shape > Statics;
+typedef ComponentCollection< Position, const Shape, const Direction, const Speed > Dynamics;
+typedef ComponentCollection< Position, const Shape > Statics;
 
-static inline bool miss(const Point &p1, const Shape &s1, const Point &p2, const Shape &s2) {
-    const Point bl1 = p1 - s1.rad;
-    const Point tr1 = p1 + s1.rad;
-    const Point bl2 = p2 - s2.rad;
-    const Point tr2 = p2 + s2.rad;
-    bool missed = false;
-    for (size_t i = 0; i < 2; ++i) {
-        missed = missed | (tr2[i] < bl1[i]) | (tr1[i] < bl2[i]);
-    }
-    return missed;
+static inline bool miss(const Point &bl, const Point &tr, const Point &p2, const Shape &s2) {
+    return (bl.x() + s2.rad.x() < p2.x()) ||
+           (tr.x() - s2.rad.x() > p2.x()) ||
+           (bl.y() + s2.rad.y() < p2.y()) ||
+           (tr.y() - s2.rad.y() > p2.y());
 }
 
 static inline bool miss(const Point &p, const Shape &s, const Statics &stat) {
+    const Rect thiss { p, s.rad };
     for (size_t i = 0; i < stat.get< Position >().size(); ++i) {
-        if (!miss(p, s, stat.at< Position >(i).v, stat.at< Shape >(i))) { return false; }
+        if (collide(thiss, Rect{ stat.at< Position >(i).v, stat.at< const Shape >(i).rad })) {
+            return false;
+        }
     }
     return true;
 }
@@ -31,8 +29,10 @@ static inline bool miss(const Point &p, const Shape &s, const Statics &stat) {
 void updatePhysics(Core &core) {
     core.tracker.partitionExec< Statics, Dynamics >([&](Statics &s, Dynamics &d) {
         for (size_t i = 0; i < d.get< Position >().size(); ++i) {
-            const Point maybe = d.at< Position >(i).v + d.at< Direction >(i).v.vector() * d.at< Speed >(i).d;
-            if (miss(maybe, d.at< Shape >(i), s)) {
+            Vec v = d.at< const Direction >(i).v.vector();
+            v /= std::sqrt(v.squared_length());
+            const Point maybe = d.at< Position >(i).v + v * d.at< const Speed >(i).d;
+            if (miss(maybe, d.at< const Shape >(i), s)) {
                 d.at< Position >(i).v = maybe;
             }
         }

@@ -23,6 +23,7 @@
 #include "tracker.h"
 #include "physics.h"
 #include "visuals.h"
+#include "swarm.h"
 
 #include "timers.h"
 #include "core.h"
@@ -33,42 +34,72 @@ const size_t SCREEN_HEIGHT = 1024;
 static const size_t STEPS_PER_SECOND = 25;
 
 static void mainLoop(Core &core) {
-    const Signature speed = getSignature< Position, Shape, Colour, Direction, Speed >();
-    const Signature noSpeed = getSignature< Position, Shape, Direction, Colour >();
-    core.tracker.create(speed, 4096);
-    core.tracker.create(noSpeed, 128);
+    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag >(
+            core.options["c"].as< size_t >());
 
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-    core.tracker.exec< Colour >([&](auto &colours) {
-        for (size_t i = 0; i < colours.size(); ++i) {
-            colours[i].colour = Point3(0, 0xFF, 0);
-        }
-    });
-
-    core.tracker.exec< Speed, Colour >([&](auto &speeds, auto &colours) {
-        for (size_t i = 0; i < speeds.size(); ++i) {
-            speeds[i].d = distro(rng);
+    std::map< size_t, size_t > tagCount;
+    const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
+    core.tracker.exec< Position, Shape, Colour, Direction, Speed, SwarmTag >([&](
+           auto &positions, auto &shapes, auto &colours, auto &directions,
+           auto &speeds, auto &tags) {
+        for (size_t i = 0; i < tags.size(); ++i) {
             colours[i].colour = Point3(0xFF, 0, 0);
-        }
-    });
-
-    core.tracker.exec< Position, Shape, Direction >([&](
-                auto &positions, auto &shapes, auto &directions) {
-        const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
-        for (size_t i = 0; i < directions.size(); ++i) {
+            speeds[i].d = 5.0 * distro(rng);
             positions[i].v = Point(512, 512) + Vec(rnd(256), rnd(256));
-            shapes[i].type = ShapeType::Box;
             shapes[i].rad = Vec(10, 10);
+            shapes[i].type = ShapeType::ShapeCircle;
             directions[i].v = Dir(rnd(1), rnd(1));
+
+            int64_t gridX = static_cast< int64_t >(positions[i].v.x()) / 128;
+            int64_t gridY = static_cast< int64_t >(positions[i].v.y()) / 128;
+            tags[i].tag = gridX * 8 + gridY;
+            ++tagCount[tags[i].tag];
+        }
+    });
+    size_t ave = 0;
+    for (auto &p : tagCount) {
+        ave += p.second;
+    }
+    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag, MouseFollow >(ave / tagCount.size());
+    core.tracker.exec< Position, Shape, Colour, Direction, Speed, SwarmTag, MouseFollow >([&](
+           auto &positions, auto &shapes, auto &colours, auto &directions,
+           auto &speeds, auto &tags, auto &) {
+        rassert(tags.size() > 0);
+        for (size_t i = 0; i < tags.size(); ++i) {
+            colours[i].colour = Point3(0, 0, 0xFF);
+            speeds[i].d = 5.0 * distro(rng);
+            positions[i].v = Point(512, 512) + Vec(rnd(256), rnd(256));
+            shapes[i].rad = Vec(10, 10);
+            shapes[i].type = ShapeType::ShapeCircle;
+            directions[i].v = Dir(rnd(1), rnd(1));
+            tags[i].tag = 0;
         }
     });
 
-    core.tracker.exec< Speed, Shape >([&](auto &, auto &shapes) {
-        for (auto &shape : shapes) { shape.type = ShapeType::Circle; }
-    });
-    std::cout << "Finished setup\n";
+    const double wallRad = 10.0;
+
+    const double width = core.renderer.getWidth();
+    const double height = core.renderer.getHeight();
+    const double hw = width / 2.0;
+    const double hh = height / 2.0;
+    const Colour wallCol { { 0xFF, 0, 0xFF } };
+    core.tracker.createWith< Position, Shape, Colour >(
+            {{ -wallRad, hh }}, { ShapeType::ShapeBox, { wallRad, hh } }, wallCol);
+    core.tracker.createWith< Position, Shape, Colour >(
+            {{ width + wallRad, hh }}, { ShapeType::ShapeBox, { wallRad, hh } }, wallCol);
+    core.tracker.createWith< Position, Shape, Colour >(
+            {{ hw, -wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
+    core.tracker.createWith< Position, Shape, Colour >(
+            {{ hw, height + wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
+    for (size_t i = 0; i < 0; ++i) {
+        core.tracker.createWith< Position, Shape, Colour >(
+            { Point(hw, hh) + Vec(rnd(400), rnd(400)) },
+            { ShapeType::ShapeBox, { 64.0 * distro(rng), 64.0 * distro(rng) } },
+            wallCol);
+    }
 
     AccumulateTimer visualsUse;
     AccumulateTimer physicsUse;
@@ -120,6 +151,7 @@ static void mainLoop(Core &core) {
             }
             const auto time = physicsUse.add([&](){
                 updatePhysics(core);
+                updateSwarms(core);
             });
             physics.tick(time);
         }
@@ -199,6 +231,8 @@ static void run(boost::program_options::variables_map &options) {
     tracker.addSource(std::make_unique< ShapeData >());
     tracker.addSource(std::make_unique< SpeedData >());
     tracker.addSource(std::make_unique< ColourData >());
+    tracker.addSource(std::make_unique< SwarmTagData >());
+    tracker.addSource(std::make_unique< MouseFollowData >());
     Core core{ *input, tracker, *renderer, options };
 
     mainLoop(core);
@@ -219,6 +253,11 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
                    "Show script performance monitoring information every x seconds")
         ("runfor", po::value< double >()->default_value(infty< double >()),
                    "Run only for x seconds")
+        ("c", po::value< size_t >()->default_value(256), "Dynamic object count")
+        ("avoid", po::value< double >()->default_value(2.0), "Boid avoidance factor")
+        ("align", po::value< double >()->default_value(2.0), "Boid aligning factor")
+        ("group", po::value< double >()->default_value(1.0), "Boid grouping factor")
+        ("bubble", po::value< double >()->default_value(15.0), "Boid personal space")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);

@@ -18,15 +18,12 @@ void Tracker::addSource(SourcePtr &&ptr) {
     sources[ptr->type()] = std::move(ptr);
 }
 
-EntityID Tracker::create(const Signature &sig, size_t count) {
+EntityID Tracker::createSigned(const Signature &sig, size_t count) {
     if (0 == count) { return 0; }
     for (const TypeID tid : sig) { rassert(sources.count(tid), tid, sig); }
 
     const EntityID id = nextID;
     nextID += count;
-    if (!entities.count(sig)) {
-        std::cout << "Creating entity group: " << sigToStr(sig, *this) << '\n';
-    }
     auto &v = entities[sig];
     v.reserve(v.size() + count);
     for (size_t i = 0; i < count; ++i) { v.push_back(id + i); }
