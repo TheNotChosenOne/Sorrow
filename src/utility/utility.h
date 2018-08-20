@@ -12,25 +12,11 @@
 #include <map>
 #include <set>
 
-#include "geometry.h"
+#include "io.h"
 
 template< typename T >
 constexpr T infty() {
     return std::numeric_limits< T >::infinity();
-}
-
-template< typename T >
-std::string str(const T &x) {
-    std::stringstream ss;
-    ss << x;
-    return ss.str();
-}
-
-template< typename T >
-std::string sp(const T &x) {
-    std::stringstream ss;
-    ss << x << ' ';
-    return ss.str();
 }
 
 template< typename T >
@@ -39,62 +25,6 @@ constexpr T pi = T(3.1415926535897932385);
 template< typename T >
 T clamp(const T low, const T high, const T val) {
     return std::min(high, std::max(low, val));
-}
-
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::vector< T > &v) {
-    os << '(' << v.size() << ")[ ";
-    for (const auto &x : v) {
-        os << x << ' ';
-    }
-    os << ']';
-    return os;
-}
-
-template< typename K, typename V >
-std::ostream &operator<<(std::ostream &os, const std::pair< K, V > &p) {
-    return (os << '(' << p.first << ", " << p.second << ')');
-}
-
-template< template< typename ... > typename C, typename T >
-std::ostream &dumpContainer(std::ostream &os, const C< T > &s) {
-    os << '(' << s.size() << "){ ";
-    for (const auto &v : s) {
-        os << v << ' ';
-    }
-    return (os << '}');
-}
-
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::set< T > &s) {
-    return dumpContainer(os, s);
-};
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::unordered_set< T > &s) {
-    return dumpContainer(os, s);
-};
-
-template< typename K, typename V >
-std::ostream &operator<<(std::ostream &os, const std::map< K, V > &m) {
-    os << '(' << m.size() << "){ ";
-    for (const auto &p : m) {
-        os << '(' << p.first << " -> " << p.second << ") ";
-    }
-    return (os  << '}');
-}
-
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::unique_ptr< T > &ptr) {
-    os << "unique_ptr {";
-    if (ptr) { os << *ptr; }
-    return (os << '}');
-}
-
-template< typename T >
-std::ostream &operator<<(std::ostream &os, const std::shared_ptr< T > &ptr) {
-    os << "shared_ptr {";
-    if (ptr) { os << *ptr; }
-    return (os << '}');
 }
 
 #define RUN_ONCE(body) { static bool _run_once_first = true; \

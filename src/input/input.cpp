@@ -42,5 +42,5 @@ bool Input::mouseReleased(size_t) const {
 }
 
 Point Input::mousePos() const {
-    return Point();
+    return Point(0.0, 0.0);
 }

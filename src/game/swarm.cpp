@@ -1,15 +1,16 @@
 #include "swarm.h"
-#include "core.h"
-#include "physics.h"
-#include "tracker.h"
-#include "input.h"
-#include "renderer.h"
+#include "core/core.h"
+#include "physics/physics.h"
+#include "entities/tracker.h"
+#include "entities/exec.h"
+#include "input/input.h"
+#include "visual/renderer.h"
 
 #include <map>
 
 void updateSwarms(Core &core) {
-    core.tracker.exec< const Position, Direction, Speed, const SwarmTag >([&](
-            auto &positions, auto &directions, auto &speeds, auto &tags) {
+    Entity::ExecSimple< const Position, Direction, Speed, const SwarmTag >::run(core.tracker,
+    [&](auto &positions, auto &directions, auto &speeds, auto &tags) {
         const size_t drones = tags.size();
 
         struct SwarmInfo {
@@ -57,8 +58,8 @@ void updateSwarms(Core &core) {
             speeds[i].d = std::sqrt(add.squared_length());
         }
     });
-    core.tracker.exec< const Position, Direction, const MouseFollow >([&](
-            auto &positions, auto &directions, auto &) {
+    Entity::ExecSimple< const Position, Direction, const MouseFollow >::run(core.tracker,
+    [&](auto &positions, auto &directions, auto &) {
         Point at = core.input.mousePos();
         at = Point(at.x() * core.renderer.getWidth(), at.y() * core.renderer.getHeight());
         for (size_t i = 0; i < directions.size(); ++i) {

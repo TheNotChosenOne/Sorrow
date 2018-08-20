@@ -15,18 +15,19 @@
 
 #include <valgrind/valgrind.h>
 
-#include "renderer.h"
-#include "rendererSDL.h"
-#include "input.h"
-#include "inputSDL.h"
+#include "visual/renderer.h"
+#include "visual/rendererSDL.h"
+#include "input/input.h"
+#include "input/inputSDL.h"
 
-#include "tracker.h"
-#include "physics.h"
-#include "visuals.h"
-#include "swarm.h"
+#include "entities/tracker.h"
+#include "entities/exec.h"
+#include "physics/physics.h"
+#include "visual/visuals.h"
+#include "game/swarm.h"
 
-#include "timers.h"
-#include "core.h"
+#include "utility/timers.h"
+#include "core/core.h"
 
 const size_t SCREEN_WIDTH = 1024;
 const size_t SCREEN_HEIGHT = 1024;
@@ -34,7 +35,7 @@ const size_t SCREEN_HEIGHT = 1024;
 static const size_t STEPS_PER_SECOND = 25;
 
 static void mainLoop(Core &core) {
-    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag >(
+    core.tracker.create< Position, Shape, Colour, Direction, Speed, const SwarmTag, HitData >(
             core.options["c"].as< size_t >());
 
     std::mt19937_64 rng(0x88888888);
@@ -42,9 +43,9 @@ static void mainLoop(Core &core) {
 
     std::map< size_t, size_t > tagCount;
     const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
-    core.tracker.exec< Position, Shape, Colour, Direction, Speed, SwarmTag >([&](
-           auto &positions, auto &shapes, auto &colours, auto &directions,
-           auto &speeds, auto &tags) {
+    Entity::ExecSimple< Position, Shape, Colour, Direction, Speed, SwarmTag >::run(core.tracker,
+    [&](auto &positions, auto &shapes, auto &colours, auto &directions,
+        auto &speeds, auto &tags) {
         for (size_t i = 0; i < tags.size(); ++i) {
             colours[i].colour = Point3(0xFF, 0, 0);
             speeds[i].d = 5.0 * distro(rng);
@@ -63,10 +64,10 @@ static void mainLoop(Core &core) {
     for (auto &p : tagCount) {
         ave += p.second;
     }
-    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag, MouseFollow >(ave / tagCount.size());
-    core.tracker.exec< Position, Shape, Colour, Direction, Speed, SwarmTag, MouseFollow >([&](
-           auto &positions, auto &shapes, auto &colours, auto &directions,
-           auto &speeds, auto &tags, auto &) {
+    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag, HitData, MouseFollow >(ave / tagCount.size());
+    Entity::ExecSimple< Position, Shape, Colour, Direction, Speed, SwarmTag, const MouseFollow >::run(core.tracker,
+    [&](auto &positions, auto &shapes, auto &colours, auto &directions,
+        auto &speeds, auto &tags, const auto &) {
         rassert(tags.size() > 0);
         for (size_t i = 0; i < tags.size(); ++i) {
             colours[i].colour = Point3(0, 0, 0xFF);
@@ -94,7 +95,7 @@ static void mainLoop(Core &core) {
             {{ hw, -wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
     core.tracker.createWith< Position, Shape, Colour >(
             {{ hw, height + wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
-    for (size_t i = 0; i < 0; ++i) {
+    for (size_t i = 0; i < 1; ++i) {
         core.tracker.createWith< Position, Shape, Colour >(
             { Point(hw, hh) + Vec(rnd(400), rnd(400)) },
             { ShapeType::ShapeBox, { 64.0 * distro(rng), 64.0 * distro(rng) } },
@@ -225,7 +226,7 @@ static void run(boost::program_options::variables_map &options) {
 
     input->update();
 
-    Tracker tracker;
+    Entity::Tracker tracker;
     tracker.addSource(std::make_unique< PositionData >());
     tracker.addSource(std::make_unique< DirectionData >());
     tracker.addSource(std::make_unique< ShapeData >());
@@ -233,6 +234,7 @@ static void run(boost::program_options::variables_map &options) {
     tracker.addSource(std::make_unique< ColourData >());
     tracker.addSource(std::make_unique< SwarmTagData >());
     tracker.addSource(std::make_unique< MouseFollowData >());
+    tracker.addSource(std::make_unique< HitDataData >());
     Core core{ *input, tracker, *renderer, options };
 
     mainLoop(core);
@@ -273,6 +275,5 @@ int main(int argc, char **argv) {
     boost::program_options::variables_map options;
     if (!getOptions(options, argc, argv)) { return 0; }
     run(options);
-    std::cout << "Finished\n";
     return 0;
 }

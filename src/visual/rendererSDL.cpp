@@ -11,7 +11,7 @@
 #include <CGAL/Aff_transformation_2.h>
 #include <CGAL/aff_transformation_tags.h>
 
-#include "utility.h"
+#include "utility/utility.h"
 
 namespace {
 

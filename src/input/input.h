@@ -2,8 +2,8 @@
 
 #include <cstdlib>
 
-#include "utility.h"
-#include "forwardMirror.h"
+#include "core/geometry.h"
+#include "utility/utility.h"
 
 // Held: True only if the button is currently down
 // Pressed: True only if the button was just pressed
@@ -24,6 +24,3 @@ class Input {
         virtual bool mouseReleased(size_t button) const;
         virtual Point mousePos() const;
 };
-
-template<>
-PyObject *toPython< Input >(Input &t);

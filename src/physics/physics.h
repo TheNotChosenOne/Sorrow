@@ -1,7 +1,10 @@
 #pragma once
 
-#include "data.h"
+#include "entities/data.h"
+#include "entities/tracker.h"
 #include "geometry.h"
+
+#include <vector>
 
 struct Position { Point v; };
 DeclareDataType(Position);
@@ -21,6 +24,11 @@ struct Shape {
     Vec rad;
 };
 DeclareDataType(Shape);
+
+struct HitData {
+    std::vector< Entity::EntityID > id;
+};
+DeclareDataType(HitData);
 
 class Core;
 void updatePhysics(Core &core);

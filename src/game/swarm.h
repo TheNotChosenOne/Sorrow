@@ -1,6 +1,6 @@
 #pragma once
 
-#include "data.h"
+#include "entities/data.h"
 
 struct SwarmTag {
     uint16_t tag;

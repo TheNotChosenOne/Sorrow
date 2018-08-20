@@ -6,7 +6,7 @@
 #include <GL/glu.h>
 #include <array>
 
-#include "utility.h"
+#include "utility/utility.h"
 #include "renderer.h"
 
 class RendererSDL: public Renderer {

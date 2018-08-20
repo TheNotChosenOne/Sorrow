@@ -2,8 +2,8 @@
 
 #include <cstddef>
 
-#include "utility.h"
-#include "forwardMirror.h"
+#include "core/geometry.h"
+#include "utility/utility.h"
 
 class Renderer {
     private:
@@ -22,6 +22,3 @@ class Renderer {
         virtual void drawBox(Point pos, Vec rad, Point3 col, double alpha=1.0, double depth=0.0);
         virtual void drawCircle(Point pos, Vec rad, Point3 col, double alpha=1.0, double depth=0.0);
 };
-
-template<>
-PyObject *toPython< Renderer >(Renderer &r);

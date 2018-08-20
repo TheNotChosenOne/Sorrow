@@ -1,7 +1,10 @@
 #include "visuals.h"
-#include "tracker.h"
+#include "entities/tracker.h"
+#include "entities/exec.h"
 #include "renderer.h"
-#include "physics.h"
+#include "physics/physics.h"
+
+#include <utility>
 
 namespace {
 
@@ -13,9 +16,12 @@ struct MinVis {
 
 }
 
-void draw(Tracker &tracker, Renderer &renderer) {
-    tracker.exec< const Position, const Shape, const Colour >([&](
-            auto &positions, auto &shapes, auto &colours) {
+using DrawPack = Entity::Packs< const Position, const Shape, const Colour >;
+void draw(Entity::Tracker &tracker, Renderer &renderer) {
+    Entity::Exec< DrawPack >::run(tracker, [&](auto &p) {
+        const auto &positions = p.first.template get< const Position >();
+        const auto &shapes = p.first.template get< const Shape >();
+        const auto &colours = p.first.template get< const Colour >();
         std::array< std::vector< MinVis >, 2 > arr;
         std::array< size_t, 2 > counts = { 0, 0 };
         for (auto &v : arr) { v.resize(positions.size()); }

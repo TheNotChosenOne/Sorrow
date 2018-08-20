@@ -1,7 +1,9 @@
 #include "tracker.h"
-#include "utility.h"
+#include "utility/utility.h"
 
 #include <sstream>
+
+namespace Entity {
 
 std::string sigToStr(const Signature &sig, const Tracker &track) {
     std::stringstream ss;
@@ -33,4 +35,6 @@ EntityID Tracker::createSigned(const Signature &sig, size_t count) {
         for (size_t i = 0; i < count; ++i) { v.add(id + i); }
     }
     return id;
+}
+
 }
