@@ -29,6 +29,8 @@
 #include "utility/timers.h"
 #include "core/core.h"
 
+#include "Box2D.h"
+
 const size_t SCREEN_WIDTH = 1024;
 const size_t SCREEN_HEIGHT = 1024;
 
@@ -235,7 +237,10 @@ static void run(boost::program_options::variables_map &options) {
     tracker.addSource(std::make_unique< SwarmTagData >());
     tracker.addSource(std::make_unique< MouseFollowData >());
     tracker.addSource(std::make_unique< HitDataData >());
-    Core core{ *input, tracker, *renderer, options };
+
+    b2Vec2 gravity(0.0f, 0.0f);
+    std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
+    Core core{ *input, tracker, *renderer, std::move(world), options };
 
     mainLoop(core);
 }
