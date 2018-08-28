@@ -71,7 +71,7 @@ struct Exec {
 
     template< typename Type >
     static typename std::enable_if< std::is_const< Type >::value, void >::type
-    setData(const std::vector< Type > &, const std::vector< EntityID > &, Tracker &) {
+    setData(const std::vector< std::remove_const_t< Type > > &, const std::vector< EntityID > &, Tracker &) {
         // Do nothing
     }
 
@@ -86,8 +86,17 @@ struct Exec {
     }
 
     template< typename ...Types >
+    struct WriteExtractor {
+        template< typename Type >
+        static void wb(std::pair< Packs< Types... >, IDMap > &pair, Tracker &tracker) {
+            setData< Type >(pair.first.template get< Type >(), pair.second, tracker);
+        }
+    };
+
+    template< typename ...Types >
     static void writeBack(std::pair< Packs< Types... >, IDMap > &pair, Tracker &tracker) {
-        (..., setData(pair.first.template get< Types >(), pair.second, tracker));
+        using extract = WriteExtractor< Types... >;
+        (..., extract::template wb< Types >(pair, tracker));
     }
 
     static void run(Tracker &tracker, const Func &f) {
