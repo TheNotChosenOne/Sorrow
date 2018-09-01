@@ -6,24 +6,11 @@
 
 #include <vector>
 
-struct Position { Point v; };
-DeclareDataType(Position);
-
-struct Direction { Dir v; };
-DeclareDataType(Direction);
-
-struct Speed { double d; };
-DeclareDataType(Speed);
-
-enum ShapeType {
-    ShapeCircle = 0,
-    ShapeBox = 1,
+class b2Body;
+struct PhysBody {
+    b2Body *body;
 };
-struct Shape {
-    ShapeType type;
-    Vec rad;
-};
-DeclareDataType(Shape);
+DeclareDataType(PhysBody);
 
 struct HitData {
     std::vector< Entity::EntityID > id;

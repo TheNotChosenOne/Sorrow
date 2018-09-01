@@ -34,30 +34,41 @@
 const size_t SCREEN_WIDTH = 1024;
 const size_t SCREEN_HEIGHT = 1024;
 
-static const size_t STEPS_PER_SECOND = 25;
+static const size_t STEPS_PER_SECOND = 60;
 
 static void mainLoop(Core &core) {
-    core.tracker.create< Position, Shape, Colour, Direction, Speed, const SwarmTag, HitData >(
-            core.options["c"].as< size_t >());
+    core.tracker.create< PhysBody, Colour, SwarmTag, HitData >(core.options["c"].as< size_t >());
 
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-    std::map< size_t, size_t > tagCount;
-    const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
-    Entity::ExecSimple< Position, Shape, Colour, Direction, Speed, SwarmTag >::run(core.tracker,
-    [&](auto &positions, auto &shapes, auto &colours, auto &directions,
-        auto &speeds, auto &tags) {
-        for (size_t i = 0; i < tags.size(); ++i) {
-            colours[i].colour = Point3(0xFF, 0, 0);
-            speeds[i].d = 5.0 * distro(rng);
-            positions[i].v = Point(512, 512) + Vec(rnd(256), rnd(256));
-            shapes[i].rad = Vec(10, 10);
-            shapes[i].type = ShapeType::ShapeCircle;
-            directions[i].v = Dir(rnd(1), rnd(1));
 
-            int64_t gridX = static_cast< int64_t >(positions[i].v.x()) / 128;
-            int64_t gridY = static_cast< int64_t >(positions[i].v.y()) / 128;
+    b2CircleShape circle;
+    b2BodyDef def;
+    def.type = b2_dynamicBody;
+    b2FixtureDef fixture;
+    fixture.density = 1.0f;
+    fixture.friction = 0.3f;
+    fixture.shape = &circle;
+    const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
+    const auto randomBall = [&]() -> b2Body * {
+        const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
+        def.position.Set(p.x(), p.y());
+        b2Body *body = core.b2world->CreateBody(&def);
+        circle.m_radius = 10.0f;
+        body->SetLinearVelocity(100.0 * distro(rng) * b2Vec2(rnd(1), rnd(1)));
+        body->CreateFixture(&fixture);
+        return body;
+    };
+
+    std::map< size_t, size_t > tagCount;
+    Entity::ExecSimple< PhysBody, Colour, SwarmTag >::run(core.tracker,
+    [&](auto &pbs, auto &colours, auto &tags) {
+        for (size_t i = 0; i < tags.size(); ++i) {
+            pbs[i].body = randomBall();
+            colours[i].colour = Point3(0xFF, 0, 0);
+            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 128;
+            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 128;
             tags[i].tag = gridX * 8 + gridY;
             ++tagCount[tags[i].tag];
         }
@@ -66,18 +77,13 @@ static void mainLoop(Core &core) {
     for (auto &p : tagCount) {
         ave += p.second;
     }
-    core.tracker.create< Position, Shape, Colour, Direction, Speed, SwarmTag, HitData, MouseFollow >(ave / tagCount.size());
-    Entity::ExecSimple< Position, Shape, Colour, Direction, Speed, SwarmTag, const MouseFollow >::run(core.tracker,
-    [&](auto &positions, auto &shapes, auto &colours, auto &directions,
-        auto &speeds, auto &tags, const auto &) {
+    core.tracker.create< PhysBody, Colour, SwarmTag, HitData, MouseFollow >(ave / tagCount.size());
+    Entity::ExecSimple< PhysBody, Colour, SwarmTag, const MouseFollow >::run(core.tracker,
+    [&](auto &pbs, auto &colours, auto &tags, auto &) {
         rassert(tags.size() > 0);
         for (size_t i = 0; i < tags.size(); ++i) {
+            pbs[i].body = randomBall();
             colours[i].colour = Point3(0, 0, 0xFF);
-            speeds[i].d = 5.0 * distro(rng);
-            positions[i].v = Point(512, 512) + Vec(rnd(256), rnd(256));
-            shapes[i].rad = Vec(10, 10);
-            shapes[i].type = ShapeType::ShapeCircle;
-            directions[i].v = Dir(rnd(1), rnd(1));
             tags[i].tag = 0;
         }
     });
@@ -89,18 +95,40 @@ static void mainLoop(Core &core) {
     const double hw = width / 2.0;
     const double hh = height / 2.0;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
-    core.tracker.createWith< Position, Shape, Colour >(
-            {{ -wallRad, hh }}, { ShapeType::ShapeBox, { wallRad, hh } }, wallCol);
-    core.tracker.createWith< Position, Shape, Colour >(
-            {{ width + wallRad, hh }}, { ShapeType::ShapeBox, { wallRad, hh } }, wallCol);
-    core.tracker.createWith< Position, Shape, Colour >(
-            {{ hw, -wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
-    core.tracker.createWith< Position, Shape, Colour >(
-            {{ hw, height + wallRad }}, { ShapeType::ShapeBox, { hw, wallRad } }, wallCol);
+    b2PolygonShape box;
+    def.type = b2_staticBody;
+    fixture.shape = &box;
+    const auto makeWall = [&](double x, double y, double w, double h) -> b2Body * {
+        if (w < 0.0) {
+            w = -w;
+            x -= w;
+        }
+        if (h < 0.0) {
+            h = -h;
+            y -= h;
+        }
+        w /= 2.0;
+        h /= 2.0;
+        x += w;
+        y += h;
+        box.SetAsBox(w, h);
+        def.position.Set(x, y);
+        b2Body *body = core.b2world->CreateBody(&def);
+        body->CreateFixture(&fixture);
+        return body;
+    };
+
+    core.tracker.createWith< PhysBody, Colour >(
+            { makeWall(0.0, -wallRad, -wallRad, height + 2.0 * wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(
+            { makeWall(width, -wallRad, wallRad, height + 2.0 * wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(
+            { makeWall(-wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(
+            { makeWall(-wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
     for (size_t i = 0; i < 1; ++i) {
-        core.tracker.createWith< Position, Shape, Colour >(
-            { Point(hw, hh) + Vec(rnd(400), rnd(400)) },
-            { ShapeType::ShapeBox, { 64.0 * distro(rng), 64.0 * distro(rng) } },
+        core.tracker.createWith< PhysBody, Colour >(
+            { makeWall(hw + rnd(400), hh + rnd(400), 64.0 * distro(rng), 64.0 * distro(rng)) },
             wallCol);
     }
 
@@ -229,10 +257,7 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Entity::Tracker tracker;
-    tracker.addSource(std::make_unique< PositionData >());
-    tracker.addSource(std::make_unique< DirectionData >());
-    tracker.addSource(std::make_unique< ShapeData >());
-    tracker.addSource(std::make_unique< SpeedData >());
+    tracker.addSource(std::make_unique< PhysBodyData >());
     tracker.addSource(std::make_unique< ColourData >());
     tracker.addSource(std::make_unique< SwarmTagData >());
     tracker.addSource(std::make_unique< MouseFollowData >());
@@ -261,10 +286,12 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("runfor", po::value< double >()->default_value(infty< double >()),
                    "Run only for x seconds")
         ("c", po::value< size_t >()->default_value(256), "Dynamic object count")
-        ("avoid", po::value< double >()->default_value(2.0), "Boid avoidance factor")
-        ("align", po::value< double >()->default_value(2.0), "Boid aligning factor")
-        ("group", po::value< double >()->default_value(1.0), "Boid grouping factor")
-        ("bubble", po::value< double >()->default_value(15.0), "Boid personal space")
+        // Boid values
+        ("avoid", po::value< double >()->default_value(   2.0), "Boid avoidance factor")
+        ("align", po::value< double >()->default_value( 200.0), "Boid aligning factor")
+        ("group", po::value< double >()->default_value( 100.0), "Boid grouping factor")
+        ("bubble", po::value< double >()->default_value( 15.0), "Boid personal space")
+        ("mouse", po::value< double >()->default_value(5000.0), "Boid mouse magnetism")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);
