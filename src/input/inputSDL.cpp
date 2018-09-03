@@ -29,7 +29,7 @@ void InputSDL::update() {
             quit = true;
         } else if (SDL_KEYDOWN == e.type) {
             size_t key = e.key.keysym.sym;
-            if (key < pressed.size()) {
+            if (key < pressed.size() && !held[key]) {
                 pressed[key] = true;
                 held[key] = true;
             }
