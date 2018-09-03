@@ -25,6 +25,7 @@
 #include "physics/physics.h"
 #include "visual/visuals.h"
 #include "game/swarm.h"
+#include "game/controller.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -42,20 +43,19 @@ static void mainLoop(Core &core) {
     std::mt19937_64 rng(0x88888888);
     std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-
     b2CircleShape circle;
     b2BodyDef def;
     def.type = b2_dynamicBody;
     b2FixtureDef fixture;
-    fixture.density = 1.0f;
-    fixture.friction = 0.3f;
+    fixture.density = 25.0f;
+    fixture.friction = 0.7f;
     fixture.shape = &circle;
     const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
     const auto randomBall = [&]() -> b2Body * {
         const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
-        def.position.Set(p.x(), p.y());
+        def.position.Set(p.x() / core.scale, p.y() / core.scale);
         b2Body *body = core.b2world->CreateBody(&def);
-        circle.m_radius = 10.0f;
+        circle.m_radius = 1.0f;
         body->SetLinearVelocity(100.0 * distro(rng) * b2Vec2(rnd(1), rnd(1)));
         body->CreateFixture(&fixture);
         return body;
@@ -67,8 +67,8 @@ static void mainLoop(Core &core) {
         for (size_t i = 0; i < tags.size(); ++i) {
             pbs[i].body = randomBall();
             colours[i].colour = Point3(0xFF, 0, 0);
-            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 128;
-            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 128;
+            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 16;
+            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 16;
             tags[i].tag = gridX * 8 + gridY;
             ++tagCount[tags[i].tag];
         }
@@ -77,10 +77,11 @@ static void mainLoop(Core &core) {
     for (auto &p : tagCount) {
         ave += p.second;
     }
+    ave = 0;
     core.tracker.create< PhysBody, Colour, SwarmTag, HitData, MouseFollow >(ave / tagCount.size());
     Entity::ExecSimple< PhysBody, Colour, SwarmTag, const MouseFollow >::run(core.tracker,
     [&](auto &pbs, auto &colours, auto &tags, auto &) {
-        rassert(tags.size() > 0);
+        //rassert(tags.size() > 0);
         for (size_t i = 0; i < tags.size(); ++i) {
             pbs[i].body = randomBall();
             colours[i].colour = Point3(0, 0, 0xFF);
@@ -88,10 +89,22 @@ static void mainLoop(Core &core) {
         }
     });
 
+    const Colour playerCol { { 0xFF, 0xFF, 0xFF } };
+    core.tracker.createWith< PhysBody, Colour, HitData, Controller >(
+        { randomBall() }, playerCol,  {}, { KeyboardController }
+    );
+
+    Entity::ExecSimple< PhysBody, const HitData >::run(core.tracker,
+    [&](auto &pbs, const auto &) {
+        for (size_t i = 0; i < pbs.size(); ++i) {
+            pbs[i];
+        }
+    });
+
     const double wallRad = 10.0;
 
-    const double width = core.renderer.getWidth();
-    const double height = core.renderer.getHeight();
+    const double width = core.renderer.getWidth() / core.scale;
+    const double height = core.renderer.getHeight() / core.scale;
     const double hw = width / 2.0;
     const double hh = height / 2.0;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
@@ -126,11 +139,13 @@ static void mainLoop(Core &core) {
             { makeWall(-wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
     core.tracker.createWith< PhysBody, Colour >(
             { makeWall(-wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
-    for (size_t i = 0; i < 1; ++i) {
+    for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
         core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(hw + rnd(400), hh + rnd(400), 64.0 * distro(rng), 64.0 * distro(rng)) },
+            { makeWall(hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
             wallCol);
     }
+
+    initPhysics(core);
 
     AccumulateTimer visualsUse;
     AccumulateTimer physicsUse;
@@ -181,6 +196,7 @@ static void mainLoop(Core &core) {
                 physTick.setTimeScale(timescale);
             }
             const auto time = physicsUse.add([&](){
+                applyControllers(core);
                 updatePhysics(core);
                 updateSwarms(core);
             });
@@ -191,7 +207,7 @@ static void mainLoop(Core &core) {
             ++renderCount;
             // Update entity logic
             const auto time = visualsUse.add([&](){
-                draw(core.tracker, core.renderer);
+                draw(core.tracker, core.renderer, core.scale);
                 core.renderer.update();
                 core.renderer.clear();
             });
@@ -257,15 +273,16 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Entity::Tracker tracker;
+    tracker.addSource(std::make_unique< ControllerData >());
     tracker.addSource(std::make_unique< PhysBodyData >());
     tracker.addSource(std::make_unique< ColourData >());
     tracker.addSource(std::make_unique< SwarmTagData >());
     tracker.addSource(std::make_unique< MouseFollowData >());
     tracker.addSource(std::make_unique< HitDataData >());
 
-    b2Vec2 gravity(0.0f, 0.0f);
+    b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, std::move(world), options };
+    Core core{ *input, tracker, *renderer, std::move(world), options, 10.0 };
 
     mainLoop(core);
 }
@@ -292,6 +309,9 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("group", po::value< double >()->default_value( 100.0), "Boid grouping factor")
         ("bubble", po::value< double >()->default_value( 15.0), "Boid personal space")
         ("mouse", po::value< double >()->default_value(5000.0), "Boid mouse magnetism")
+
+        ("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
+        ("walls", po::value< size_t >()->default_value(32), "Number of walls")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);

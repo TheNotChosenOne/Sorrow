@@ -18,4 +18,5 @@ struct HitData {
 DeclareDataType(HitData);
 
 class Core;
+void initPhysics(Core &core);
 void updatePhysics(Core &core);

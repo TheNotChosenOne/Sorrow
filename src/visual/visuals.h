@@ -8,4 +8,4 @@ DeclareDataType(Colour);
 
 namespace Entity { class Tracker; }
 class Renderer;
-void draw(Entity::Tracker &track, Renderer &renderer);
+void draw(Entity::Tracker &track, Renderer &renderer, const double scale);

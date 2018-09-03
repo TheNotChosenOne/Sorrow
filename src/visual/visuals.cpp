@@ -19,7 +19,7 @@ struct MinVis {
 }
 
 using DrawPack = Entity::Packs< const PhysBody, const Colour >;
-void draw(Entity::Tracker &tracker, Renderer &renderer) {
+void draw(Entity::Tracker &tracker, Renderer &renderer, const double scale) {
     Entity::Exec< DrawPack >::run(tracker, [&](auto &p) {
         const auto &pbs = p.first.template get< const PhysBody >();
         const auto &colours = p.first.template get< const Colour >();
@@ -32,12 +32,12 @@ void draw(Entity::Tracker &tracker, Renderer &renderer) {
             const b2Shape *shape = fixes->GetShape();
             const size_t index = b2Shape::Type::e_polygon == shape->GetType();
             MinVis &mv = arr[index][counts[index]++];
-            mv.p = PCast(body->GetPosition());
-            mv.r = Vec(shape->m_radius, shape->m_radius);
+            mv.p = PCast(scale * body->GetPosition());
+            mv.r = scale * Vec(shape->m_radius, shape->m_radius);
             mv.c = colours[i].colour;
             if (1 == index) {
                 const b2PolygonShape *box = dynamic_cast< const b2PolygonShape * >(shape);
-                mv.r = VCast(box->GetVertex(2));
+                mv.r = scale * VCast(box->GetVertex(2));
             }
         }
         for (size_t i = 0; i < counts.size(); ++i) {
