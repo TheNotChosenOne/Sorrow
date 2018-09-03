@@ -55,7 +55,7 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
         Vec add = normalized(diff) * fgroup;
         add += normalized(info.heading) * falign;
         add += normalized(avoid) * favoid;
-        pbs[i].body->ApplyForce(VCast(add), VCast(iAt), true);
+        pbs[i].body->ApplyForce(VCast(add), VCast(iAt), false);
     }
 }
 
