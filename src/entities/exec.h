@@ -3,11 +3,15 @@
 #include "utility/typelist.h"
 #include "tracker.h"
 #include "pack.h"
+#include "utility/timers.h"
 
 #include <utility>
+#include <chrono>
 #include <vector>
 
 namespace Entity {
+
+extern AccumulateTimer *k_entity_timer;
 
 using IDMap = std::vector< EntityID >;
 
@@ -100,6 +104,7 @@ struct Exec {
     }
 
     static void run(Tracker &tracker, const Func &f) {
+        const auto start = std::chrono::high_resolution_clock::now();
         using Internal = std::tuple< std::pair< MainPack, IDMap >, std::pair< Packss, IDMap > ... >;
         using External = std::tuple< std::pair< MainPack, const IDMap >, std::pair< Packss, const IDMap > ... >;
         Internal data;
@@ -109,9 +114,14 @@ struct Exec {
         (..., populate(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker, ids));
         populateMain(std::get< 0 >(data), tracker, ids);
         External &edata = reinterpret_cast< External & >(data);
+        const auto funcStart = std::chrono::high_resolution_clock::now();
         std::apply(f, edata);
+        const auto funcStop = std::chrono::high_resolution_clock::now();
         writeBack(std::get< 0 >(data), tracker);
         (..., writeBack(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker));
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = (stop - start) - (funcStop - funcStart);
+        k_entity_timer->add(duration);
     }
 };
 

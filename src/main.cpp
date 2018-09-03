@@ -38,6 +38,9 @@ const size_t SCREEN_HEIGHT = 1024;
 static const size_t STEPS_PER_SECOND = 60;
 
 static void mainLoop(Core &core) {
+    AccumulateTimer entityUse;
+    Entity::k_entity_timer = &entityUse;
+
     core.tracker.create< PhysBody, Colour, SwarmTag, HitData >(core.options["c"].as< size_t >());
 
     std::mt19937_64 rng(0x88888888);
@@ -149,7 +152,6 @@ static void mainLoop(Core &core) {
 
     AccumulateTimer visualsUse;
     AccumulateTimer physicsUse;
-    AccumulateTimer entityUse;
     AccumulateTimer inputUse;
     AccumulateTimer logicUse;
     AccumulateTimer actual;
