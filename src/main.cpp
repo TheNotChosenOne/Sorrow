@@ -70,10 +70,20 @@ static void mainLoop(Core &core) {
         for (size_t i = 0; i < tags.size(); ++i) {
             pbs[i].body = randomBall();
             colours[i].colour = Point3(0xFF, 0, 0);
-            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 16;
-            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 16;
+            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 32;
+            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 32;
             tags[i].tag = gridX * 8 + gridY;
             ++tagCount[tags[i].tag];
+        }
+    });
+    Entity::ExecSimple< Colour, const SwarmTag >::run(core.tracker,
+    [&](auto &colours, const auto &tags) {
+        for (size_t i = 0; i < tags.size(); ++i) {
+            const double perc = (tags[i].tag) / 6.0;
+            double col[3] = { 0.0, 0.0, 0.0 };
+            const size_t index = clamp(size_t(0), size_t(2), static_cast< size_t >(perc));
+            col[index] = clamp(0.0, 255.0, 0xFF * (perc - index));
+            colours[i].colour = Point3(col[0], col[1], col[2]);
         }
     });
     size_t ave = 0;
@@ -93,9 +103,10 @@ static void mainLoop(Core &core) {
     });
 
     const Colour playerCol { { 0xFF, 0xFF, 0xFF } };
-    core.tracker.createWith< PhysBody, Colour, HitData, Controller >(
+    const auto playerID = core.tracker.createWith< PhysBody, Colour, HitData, Controller >(
         { randomBall() }, playerCol,  {}, { KeyboardController }
     );
+    std::cout << "Player: " << playerID << "\n\n";
 
     Entity::ExecSimple< PhysBody, const HitData >::run(core.tracker,
     [&](auto &pbs, const auto &) {

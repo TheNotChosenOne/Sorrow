@@ -21,7 +21,6 @@ typedef uint64_t EntityID;
 class Tracker {
     public:
         typedef std::vector< EntityID > EntityVec;
-        typedef std::set< EntityID > EntitySet;
         typedef std::unique_ptr< BaseData > SourcePtr;
 
     private:
@@ -61,6 +60,8 @@ class Tracker {
 
             return id;
         }
+
+        void killEntity(const EntityID id);
 
         void addSource(SourcePtr &&ptr);
 };

@@ -20,6 +20,22 @@ void Tracker::addSource(SourcePtr &&ptr) {
     sources[ptr->type()] = std::move(ptr);
 }
 
+void Tracker::killEntity(const EntityID id) {
+    for (auto &pair : entities) {
+        auto &ids = pair.second;
+        for (size_t i = 0; i < ids.size(); ++i) {
+            if (id != ids[i]) { continue; }
+            const Signature &sig = pair.first;
+            for (const TypeID tid : sig) {
+                auto &source = sources.at(tid);
+                source->remove(id);
+            }
+            ids.erase(ids.begin() + i);
+            return;
+        }
+    }
+}
+
 EntityID Tracker::createSigned(const Signature &sig, size_t count) {
     if (0 == count) { return 0; }
     for (const TypeID tid : sig) { rassert(sources.count(tid), tid, sig); }
