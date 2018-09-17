@@ -51,18 +51,12 @@ void update(Core &core, std::vector< PhysBody > &, std::vector< PhysBody > &, st
 void initPhysics(Core &core) {
     physListener = std::make_unique< PhysListener >();
     core.b2world->SetContactListener(physListener.get());
-    Entity::Exec< Entity::Packs< PhysBody >, Entity::Packs< PhysBody, HitData > >::run(core.tracker,
-    [&](auto &basics, auto &complexes) {
-        auto &pbs = basics.first.template get< PhysBody >();
+    Entity::Exec< Entity::Packs< PhysBody > >::run(core.tracker,
+    [&](auto &pack) {
+        auto &pbs = pack.first.template get< PhysBody >();
         for (size_t i = 0; i < pbs.size(); ++i) {
             b2Body *body = pbs[i].body;
-            const auto id = basics.second[i];
-            body->GetFixtureList()->SetUserData(reinterpret_cast< void * >(id));
-        }
-        auto &cpb = basics.first.template get< PhysBody >();
-        for (size_t i = 0; i < cpb.size(); ++i) {
-            b2Body *body = cpb[i].body;
-            const auto id = complexes.second[i];
+            const auto id = pack.second[i];
             body->GetFixtureList()->SetUserData(reinterpret_cast< void * >(id));
         }
     });

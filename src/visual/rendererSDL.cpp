@@ -219,7 +219,7 @@ RendererSDL::RendererSDL(size_t width, size_t height)
 
     GL_ERROR
     SDL_GL_SetSwapInterval(0); GL_ERROR
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); GL_ERROR
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f); GL_ERROR
     glClearDepth(0.0); GL_ERROR;
     glEnable(GL_BLEND); GL_ERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GL_ERROR

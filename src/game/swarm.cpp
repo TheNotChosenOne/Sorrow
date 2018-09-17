@@ -1,4 +1,5 @@
 #include "swarm.h"
+#include "controller.h"
 #include "core/core.h"
 #include "physics/physics.h"
 #include "entities/tracker.h"
@@ -10,7 +11,8 @@
 
 namespace {
 
-void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTag > &tags) {
+void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTag > &tags,
+        const Entity::IDMap &, std::vector< Entity::EntityID > &) {
     const size_t drones = tags.size();
 
     struct SwarmInfo {
@@ -59,7 +61,7 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
     }
 }
 
-void follow(Core &core, std::vector< PhysBody > &pbs) {
+void follow(Core &core, std::vector< PhysBody > &pbs, std::vector< Entity::EntityID > &) {
     const double mousey = core.options["mouse"].as< double >();
     Point at = core.input.mousePos();
     at = Point(at.x() * core.renderer.getWidth(), at.y() * core.renderer.getHeight());
@@ -73,12 +75,27 @@ void follow(Core &core, std::vector< PhysBody > &pbs) {
 }
 
 void updateSwarms(Core &core) {
-    Entity::ExecSimple< PhysBody, const SwarmTag >::run(core.tracker,
-    [&](auto &pbs, auto &tags) {
-        update(core, pbs, tags);
+    std::vector< Entity::EntityID > kill;
+    Entity::Exec< Entity::Packs< PhysBody, const SwarmTag, const HitData > >::run(core.tracker,
+    [&](auto &pack) {
+        update(core, pack.first.template get< PhysBody >(),
+                     pack.first.template get< const SwarmTag >(), pack.second, kill);
     });
     Entity::ExecSimple< PhysBody, const MouseFollow >::run(core.tracker,
     [&](auto &pbs, auto &) {
-        follow(core, pbs);
+        follow(core, pbs, kill);
     });
+    uint64_t killID = 0;
+    Entity::Exec< Entity::Packs< HitData, const Controller > >::run(core.tracker,
+    [&](auto &pack) {
+        const auto hits = pack.first.template get< HitData >();
+        for (size_t i = 0; i < hits.size(); ++i) {
+            if (!hits[i].id.empty()) {
+                killID = pack.second[i];
+            }
+        }
+    });
+    if (0 != killID) {
+        core.tracker.killEntity(killID);
+    }
 }
