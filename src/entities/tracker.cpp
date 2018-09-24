@@ -20,15 +20,17 @@ void Tracker::addSource(SourcePtr &&ptr) {
     sources[ptr->type()] = std::move(ptr);
 }
 
-void Tracker::killEntity(const EntityID id) {
+void Tracker::killEntity(Core &core, const EntityID id) {
     for (auto &pair : entities) {
         auto &ids = pair.second;
         for (size_t i = 0; i < ids.size(); ++i) {
             if (id != ids[i]) { continue; }
             const Signature &sig = pair.first;
             for (const TypeID tid : sig) {
-                auto &source = sources.at(tid);
-                source->remove(id);
+                sources.at(tid)->deleteComponent(core, id);
+            }
+            for (const TypeID tid : sig) {
+                sources.at(tid)->remove(id);
             }
             ids.erase(ids.begin() + i);
             return;
@@ -36,7 +38,28 @@ void Tracker::killEntity(const EntityID id) {
     }
 }
 
-EntityID Tracker::createSigned(const Signature &sig, size_t count) {
+void Tracker::killAll(Core &core) {
+    std::vector< EntityID > all;
+    for (auto &pair : entities) {
+        for (auto &eid : pair.second) {
+            all.push_back(eid);
+        }
+    }
+    for (const auto eid : all) {
+        killEntity(core, eid);
+    }
+}
+
+bool Tracker::alive(const EntityID &eid) const {
+    for (const auto &pair : entities) {
+        if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+EntityID Tracker::createSigned(Core &core, const Signature &sig, size_t count) {
     if (0 == count) { return 0; }
     for (const TypeID tid : sig) { rassert(sources.count(tid), tid, sig); }
 
@@ -49,6 +72,9 @@ EntityID Tracker::createSigned(const Signature &sig, size_t count) {
         auto &v = *sources.at(tid);
         v.reserve(count);
         for (size_t i = 0; i < count; ++i) { v.add(id + i); }
+    }
+    for (const auto tid : sig) {
+        sources[tid]->initComponent(core, id);
     }
     return id;
 }

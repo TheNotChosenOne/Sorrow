@@ -90,12 +90,15 @@ void updateSwarms(Core &core) {
     [&](auto &pack) {
         const auto hits = pack.first.template get< HitData >();
         for (size_t i = 0; i < hits.size(); ++i) {
-            if (!hits[i].id.empty()) {
-                killID = pack.second[i];
+            for (const auto &eid : hits[i].id) {
+                if (core.tracker.hasComponent< SwarmTag >(eid)) {
+                    killID = pack.second[i];
+                    break;
+                }
             }
         }
     });
     if (0 != killID) {
-        core.tracker.killEntity(killID);
+        core.tracker.killEntity(core, killID);
     }
 }

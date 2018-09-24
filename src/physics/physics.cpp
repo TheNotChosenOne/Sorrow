@@ -48,18 +48,20 @@ void update(Core &core, std::vector< PhysBody > &, std::vector< PhysBody > &, st
     
 }
 
+template<>
+void Entity::initComponent< PhysBody >(Core &, const uint64_t id, PhysBody &body) {
+    rassert(body.body);
+    body.body->GetFixtureList()->SetUserData(reinterpret_cast< void * >(id));
+}
+
+template<>
+void Entity::deleteComponent< PhysBody >(Core &core, const uint64_t, PhysBody &body) {
+    core.b2world->DestroyBody(body.body);
+}
+
 void initPhysics(Core &core) {
     physListener = std::make_unique< PhysListener >();
     core.b2world->SetContactListener(physListener.get());
-    Entity::Exec< Entity::Packs< PhysBody > >::run(core.tracker,
-    [&](auto &pack) {
-        auto &pbs = pack.first.template get< PhysBody >();
-        for (size_t i = 0; i < pbs.size(); ++i) {
-            b2Body *body = pbs[i].body;
-            const auto id = pack.second[i];
-            body->GetFixtureList()->SetUserData(reinterpret_cast< void * >(id));
-        }
-    });
 }
 
 void updatePhysics(Core &core) {

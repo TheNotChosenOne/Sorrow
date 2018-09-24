@@ -37,84 +37,94 @@ const size_t SCREEN_HEIGHT = 1024;
 
 static const size_t STEPS_PER_SECOND = 60;
 
-static void mainLoop(Core &core) {
-    AccumulateTimer entityUse;
-    Entity::k_entity_timer = &entityUse;
+namespace {
 
-    core.tracker.create< PhysBody, Colour, SwarmTag, HitData >(core.options["c"].as< size_t >());
+std::mt19937_64 rng(0x88888888);
+std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-    std::mt19937_64 rng(0x88888888);
-    std::uniform_real_distribution< double > distro(0.0, 1.0);
+double rnd(const double x) {
+    return x * 2.0 * (distro(rng) - 0.5);
+}
 
-    b2CircleShape circle;
+b2Body *randomBall(b2World *world, const double scale) {
+    const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
+
     b2BodyDef def;
     def.type = b2_dynamicBody;
+    def.position.Set(p.x() / scale, p.y() / scale);
+
+    b2CircleShape circle;
+    circle.m_radius = 1.0f;
+
     b2FixtureDef fixture;
-    fixture.density = 25.0f;
+    fixture.density = 15.0f;
     fixture.friction = 0.7f;
     fixture.shape = &circle;
-    const auto rnd = [&](const double x){ return x * 2.0 * (distro(rng) - 0.5); };
-    const auto randomBall = [&]() -> b2Body * {
-        const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
-        def.position.Set(p.x() / core.scale, p.y() / core.scale);
-        b2Body *body = core.b2world->CreateBody(&def);
-        circle.m_radius = 1.0f;
-        body->SetLinearVelocity(100.0 * distro(rng) * b2Vec2(rnd(1), rnd(1)));
-        body->CreateFixture(&fixture);
-        return body;
-    };
 
-    std::map< size_t, size_t > tagCount;
-    Entity::ExecSimple< PhysBody, Colour, SwarmTag >::run(core.tracker,
-    [&](auto &pbs, auto &colours, auto &tags) {
-        for (size_t i = 0; i < tags.size(); ++i) {
-            pbs[i].body = randomBall();
-            colours[i].colour = Point3(0xFF, 0, 0);
-            int64_t gridX = static_cast< int64_t >(pbs[i].body->GetPosition().x) / 32;
-            int64_t gridY = static_cast< int64_t >(pbs[i].body->GetPosition().y) / 32;
-            tags[i].tag = gridX * 8 + gridY;
-            ++tagCount[tags[i].tag];
-        }
-    });
-    Entity::ExecSimple< Colour, const SwarmTag >::run(core.tracker,
-    [&](auto &colours, const auto &tags) {
-        for (size_t i = 0; i < tags.size(); ++i) {
-            const double perc = (tags[i].tag) / 6.0;
-            double col[3] = { 0.0, 0.0, 0.0 };
-            const size_t index = clamp(size_t(0), size_t(2), static_cast< size_t >(perc));
-            col[index] = clamp(0.0, 255.0, 0xFF * (perc - index));
-            colours[i].colour = Point3(col[0], col[1], col[2]);
-        }
-    });
-    size_t ave = 0;
-    for (auto &p : tagCount) {
-        ave += p.second;
+    b2Body *body = world->CreateBody(&def);
+    body->SetLinearVelocity(100.0 * distro(rng) * b2Vec2(rnd(1), rnd(1)));
+    body->CreateFixture(&fixture);
+    return body;
+}
+
+b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
+    b2BodyDef def;
+    def.type = b2_staticBody;
+
+    b2PolygonShape box;
+
+    b2FixtureDef fixture;
+    fixture.density = 15.0f;
+    fixture.friction = 0.7f;
+    fixture.shape = &box;
+
+    if (w < 0.0) {
+        w = -w;
+        x -= w;
     }
-    ave = 0;
-    core.tracker.create< PhysBody, Colour, SwarmTag, HitData, MouseFollow >(ave / tagCount.size());
-    Entity::ExecSimple< PhysBody, Colour, SwarmTag, const MouseFollow >::run(core.tracker,
-    [&](auto &pbs, auto &colours, auto &tags, auto &) {
-        //rassert(tags.size() > 0);
-        for (size_t i = 0; i < tags.size(); ++i) {
-            pbs[i].body = randomBall();
-            colours[i].colour = Point3(0, 0, 0xFF);
-            tags[i].tag = 0;
-        }
-    });
+    if (h < 0.0) {
+        h = -h;
+        y -= h;
+    }
+    w /= 2.0;
+    h /= 2.0;
+    x += w;
+    y += h;
 
-    const Colour playerCol { { 0xFF, 0xFF, 0xFF } };
-    const auto playerID = core.tracker.createWith< PhysBody, Colour, HitData, Controller >(
-        { randomBall() }, playerCol,  {}, { KeyboardController }
-    );
-    std::cout << "Player: " << playerID << "\n\n";
+    box.SetAsBox(w, h);
+    def.position.Set(x, y);
 
-    Entity::ExecSimple< PhysBody, const HitData >::run(core.tracker,
-    [&](auto &pbs, const auto &) {
-        for (size_t i = 0; i < pbs.size(); ++i) {
-            pbs[i];
-        }
-    });
+    b2Body *body = world->CreateBody(&def);
+    body->CreateFixture(&fixture);
+    return body;
+}
 
+void createSwarms(Core &core) {
+    static const size_t groupRoot = 2;
+    const size_t bugs = core.options["c"].as< size_t >();
+    for (size_t i = 0; i < bugs; ++i) {
+        b2Body *body = randomBall(core.b2world.get(), core.scale);
+
+        const double x = core.scale * body->GetPosition().x; // 256
+        const double y = core.scale * body->GetPosition().y; // 768
+        double easyX = (x - core.renderer.getWidth() / 2.0) + 256.0;
+        double easyY = (y - core.renderer.getHeight() / 2.0) + 256.0;
+        easyX /= core.renderer.getWidth() / 2.0;
+        easyY /= core.renderer.getHeight() / 2.0;
+        easyX /= 1.0 / groupRoot;
+        easyY /= 1.0 / groupRoot;
+        const int64_t gridX = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyX));
+        const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyY));
+        const uint16_t tag = gridX * groupRoot + gridY;
+
+        const Point3 colours[] = { { 0, 0, 0 }, { 0xFF, 0, 0 }, { 0, 0xFF, 0 }, { 0, 0, 0xFF } };
+        const auto colour = colours[tag];
+
+        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag });
+    }
+}
+
+void createWalls(Core &core) {
     const double wallRad = 10.0;
 
     const double width = core.renderer.getWidth() / core.scale;
@@ -122,42 +132,35 @@ static void mainLoop(Core &core) {
     const double hw = width / 2.0;
     const double hh = height / 2.0;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
-    b2PolygonShape box;
-    def.type = b2_staticBody;
-    fixture.shape = &box;
-    const auto makeWall = [&](double x, double y, double w, double h) -> b2Body * {
-        if (w < 0.0) {
-            w = -w;
-            x -= w;
-        }
-        if (h < 0.0) {
-            h = -h;
-            y -= h;
-        }
-        w /= 2.0;
-        h /= 2.0;
-        x += w;
-        y += h;
-        box.SetAsBox(w, h);
-        def.position.Set(x, y);
-        b2Body *body = core.b2world->CreateBody(&def);
-        body->CreateFixture(&fixture);
-        return body;
-    };
 
-    core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(0.0, -wallRad, -wallRad, height + 2.0 * wallRad) }, wallCol);
-    core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(width, -wallRad, wallRad, height + 2.0 * wallRad) }, wallCol);
-    core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(-wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
-    core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(-wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), 0.0, -wallRad, -wallRad, height + 2.0 * wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), width, -wallRad, wallRad, height + 2.0 * wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
+    core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
     for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
-        core.tracker.createWith< PhysBody, Colour >(
-            { makeWall(hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
+        core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
             wallCol);
     }
+}
+
+Entity::EntityID makePlayer(Core &core) {
+    const Colour playerCol { { 0xFF, 0xFF, 0xFF } };
+    const auto playerID = core.tracker.createWith< PhysBody, Colour, HitData, Controller >(core,
+        { randomBall(core.b2world.get(), core.scale) }, playerCol, {}, { KeyboardController }
+    );
+    return playerID;
+}
+
+}
+
+static void mainLoop(Core &core) {
+    AccumulateTimer entityUse;
+    Entity::k_entity_timer = &entityUse;
 
     initPhysics(core);
 
@@ -188,6 +191,14 @@ static void mainLoop(Core &core) {
     std::chrono::duration< double > busyTime(0);
     auto start = std::chrono::high_resolution_clock::now();
     while (!core.input.shouldQuit()) {
+
+    core.tracker.killAll(core);
+    createSwarms(core);
+    createWalls(core);
+    const auto playerID = makePlayer(core);
+
+    while (!core.input.shouldQuit()) {
+        if (!core.tracker.alive(playerID)) { break; }
         const auto now = std::chrono::high_resolution_clock::now();
         const auto duration = std::chrono::duration< double >(now - start);
         start = now;
@@ -257,7 +268,7 @@ static void mainLoop(Core &core) {
         }
 
         if (killer.tick(duration)) {
-            break;
+            return;
         }
 
         busyTime = std::chrono::high_resolution_clock::now() - busyStart;
@@ -266,6 +277,7 @@ static void mainLoop(Core &core) {
         minSleep = std::min(minSleep, infoTick.estimate());
         minSleep = std::min(minSleep, killer.estimate());
         std::this_thread::sleep_for(std::chrono::duration< double >(minSleep));
+    }
     }
 }
 
@@ -315,13 +327,13 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
                    "Show script performance monitoring information every x seconds")
         ("runfor", po::value< double >()->default_value(infty< double >()),
                    "Run only for x seconds")
-        ("c", po::value< size_t >()->default_value(256), "Dynamic object count")
+        ("c", po::value< size_t >()->default_value(64), "Dynamic object count")
         // Boid values
-        ("avoid", po::value< double >()->default_value(   2.0), "Boid avoidance factor")
-        ("align", po::value< double >()->default_value( 200.0), "Boid aligning factor")
-        ("group", po::value< double >()->default_value( 100.0), "Boid grouping factor")
-        ("bubble", po::value< double >()->default_value( 15.0), "Boid personal space")
-        ("mouse", po::value< double >()->default_value(5000.0), "Boid mouse magnetism")
+        ("avoid", po::value< double >()->default_value(   10.0), "Boid avoidance factor")
+        ("align", po::value< double >()->default_value(10000.0), "Boid aligning factor")
+        ("group", po::value< double >()->default_value(10000.0), "Boid grouping factor")
+        ("bubble", po::value< double >()->default_value(  15.0), "Boid personal space")
+        ("mouse", po::value< double >()->default_value( 5000.0), "Boid mouse magnetism")
 
         ("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
         ("walls", po::value< size_t >()->default_value(32), "Number of walls")

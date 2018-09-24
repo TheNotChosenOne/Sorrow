@@ -8,6 +8,8 @@
 
 #include "signature.h"
 
+class Core;
+
 namespace Entity {
 
 class BaseData {
@@ -16,12 +18,20 @@ class BaseData {
         virtual void add(const uint64_t id) = 0;
         virtual void reserve(const size_t more) = 0;
         virtual void remove(const uint64_t id) = 0;
+        virtual void initComponent(Core &core, const uint64_t id) = 0;
+        virtual void deleteComponent(Core &core, const uint64_t id) = 0;
         virtual TypeID type() const = 0;
 };
 std::ostream &operator<<(std::ostream &os, const BaseData &bd);
 
 #define DeclareDataType(T) \
     typedef Entity::Data< T > T ## Data; \
+
+template< typename T >
+void initComponent(Core &, uint64_t, T &) { }
+
+template< typename T >
+void deleteComponent(Core &, uint64_t, T &) { }
 
 template< typename T >
 class Data: public BaseData {
@@ -53,6 +63,14 @@ class Data: public BaseData {
             }
             lowToid.erase(back);
             idToLow.erase(id);
+        }
+        void initComponent(Core &core, const uint64_t id) override {
+            T &t = data[idToLow[id]];
+            Entity::initComponent< T >(core, id, t);
+        }
+        void deleteComponent(Core &core, const uint64_t id) override {
+            T &t = data[idToLow[id]];
+            Entity::deleteComponent< T >(core, id, t);
         }
 };
 

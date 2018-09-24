@@ -11,6 +11,10 @@ struct PhysBody {
     b2Body *body;
 };
 DeclareDataType(PhysBody);
+template<>
+void Entity::initComponent< PhysBody >(Core &core, uint64_t id, PhysBody &body);
+template<>
+void Entity::deleteComponent< PhysBody >(Core &core, uint64_t id, PhysBody &body);
 
 struct HitData {
     std::vector< Entity::EntityID > id;

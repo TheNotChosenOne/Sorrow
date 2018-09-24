@@ -14,6 +14,8 @@
 #include "utility/templates.h"
 #include "entities/pack.h"
 
+class Core;
+
 namespace Entity {
 
 typedef uint64_t EntityID;
@@ -23,21 +25,11 @@ class Tracker {
         typedef std::vector< EntityID > EntityVec;
         typedef std::unique_ptr< BaseData > SourcePtr;
 
-    private:
-        EntityID nextID = 1;
-
-    public:
         std::map< TypeID, SourcePtr > sources;
         std::map< Signature, EntityVec > entities;
 
-        EntityID createSigned(const Signature &sig, size_t count=1);
-        template< typename ...Args >
-        EntityID create(size_t count=1) {
-            const OrderedSignature osig = getOrderedSignature< Args... >();
-            const Signature sig(osig.begin(), osig.end());
-            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
-            return createSigned(sig, count);
-        }
+    private:
+        EntityID nextID = 1;
 
         template< typename T >
         void addComponentForID(const EntityID id, const T &t) {
@@ -47,8 +39,33 @@ class Tracker {
             data.data.push_back(t);
         }
 
+    public:
+        bool alive(const EntityID &eid) const;
+        
+        template< typename T >
+        bool hasComponent(const EntityID &eid) {
+            const auto typeID = DataTypeID< T >();
+            for (const auto &pair : entities) {
+                if (pair.first.count(typeID)) {
+                    if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        EntityID createSigned(Core &core, const Signature &sig, size_t count=1);
         template< typename ...Args >
-        EntityID createWith(const Args &... args) {
+        EntityID create(Core &core, size_t count=1) {
+            const OrderedSignature osig = getOrderedSignature< Args... >();
+            const Signature sig(osig.begin(), osig.end());
+            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
+            return createSigned(core, sig, count);
+        }
+
+        template< typename ...Args >
+        EntityID createWith(Core &core, const Args &... args) {
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
             rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
@@ -57,11 +74,17 @@ class Tracker {
             entities[sig].push_back(id);
 
             (addComponentForID(id, args), ...);
+            for (const auto tid : sig) {
+                sources[tid]->initComponent(core, id);
+            }
+
 
             return id;
         }
 
-        void killEntity(const EntityID id);
+        void killEntity(Core &core, const EntityID id);
+
+        void killAll(Core &core);
 
         void addSource(SourcePtr &&ptr);
 };
