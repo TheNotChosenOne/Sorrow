@@ -26,6 +26,7 @@
 #include "visual/visuals.h"
 #include "game/swarm.h"
 #include "game/controller.h"
+#include "game/grid.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -67,6 +68,7 @@ b2Body *randomBall(b2World *world, const double scale) {
     return body;
 }
 
+// x, y is a corner, w, h are dimensions, can be negative to work with corner
 b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
     b2BodyDef def;
     def.type = b2_staticBody;
@@ -124,13 +126,38 @@ void createSwarms(Core &core) {
     }
 }
 
-void createWalls(Core &core) {
-    const double wallRad = 10.0;
+void gridWalls(Core &core) {
+    const size_t size = 64;
+    Grid grid(size / core.scale, Point(0, 0), SCREEN_WIDTH / size, SCREEN_HEIGHT / size);
+    for (size_t y = 0; y < grid.getHeight(); ++y) {
+        for (size_t x = 0; x < grid.getWidth(); ++x) {
+            if (distro(rng) < 0.3) {
+                const auto corner = grid.gridOrigin(y, x);
+                auto wall = makeWall(core.b2world.get(), corner.x(), corner.y(), grid.getSize(), grid.getSize());
+                core.tracker.createWith< PhysBody, Colour >(core, { wall }, { { 0xFF, 0, 0xFF } });
+            }
+        }
+    }
+}
 
+void randomWalls(Core &core) {
     const double width = core.renderer.getWidth() / core.scale;
     const double height = core.renderer.getHeight() / core.scale;
     const double hw = width / 2.0;
     const double hh = height / 2.0;
+    const Colour wallCol { { 0xFF, 0, 0xFF } };
+
+    for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
+        core.tracker.createWith< PhysBody, Colour >(core,
+            { makeWall(core.b2world.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
+            wallCol);
+    }
+}
+
+void createWalls(Core &core) {
+    const double wallRad = 10.0;
+    const double width = core.renderer.getWidth() / core.scale;
+    const double height = core.renderer.getHeight() / core.scale;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
 
     core.tracker.createWith< PhysBody, Colour >(core,
@@ -141,11 +168,6 @@ void createWalls(Core &core) {
             { makeWall(core.b2world.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
     core.tracker.createWith< PhysBody, Colour >(core,
             { makeWall(core.b2world.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
-    for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
-        core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
-            wallCol);
-    }
 }
 
 Entity::EntityID makePlayer(Core &core) {
@@ -195,6 +217,7 @@ static void mainLoop(Core &core) {
     core.tracker.killAll(core);
     createSwarms(core);
     createWalls(core);
+    gridWalls(core);
     const auto playerID = makePlayer(core);
 
     while (!core.input.shouldQuit()) {
