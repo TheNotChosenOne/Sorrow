@@ -85,20 +85,4 @@ void updateSwarms(Core &core) {
     [&](auto &pbs, auto &) {
         follow(core, pbs, kill);
     });
-    uint64_t killID = 0;
-    Entity::Exec< Entity::Packs< HitData, const Controller > >::run(core.tracker,
-    [&](auto &pack) {
-        const auto hits = pack.first.template get< HitData >();
-        for (size_t i = 0; i < hits.size(); ++i) {
-            for (const auto &eid : hits[i].id) {
-                if (core.tracker.hasComponent< SwarmTag >(eid)) {
-                    killID = pack.second[i];
-                    break;
-                }
-            }
-        }
-    });
-    if (0 != killID) {
-        core.tracker.killEntity(core, killID);
-    }
 }

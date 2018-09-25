@@ -27,6 +27,7 @@
 #include "game/swarm.h"
 #include "game/controller.h"
 #include "game/grid.h"
+#include "game/npc.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -47,25 +48,9 @@ double rnd(const double x) {
     return x * 2.0 * (distro(rng) - 0.5);
 }
 
-b2Body *randomBall(b2World *world, const double scale) {
+b2Body *randomBall(Core &core) {
     const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
-
-    b2BodyDef def;
-    def.type = b2_dynamicBody;
-    def.position.Set(p.x() / scale, p.y() / scale);
-
-    b2CircleShape circle;
-    circle.m_radius = 1.0f;
-
-    b2FixtureDef fixture;
-    fixture.density = 15.0f;
-    fixture.friction = 0.7f;
-    fixture.shape = &circle;
-
-    b2Body *body = world->CreateBody(&def);
-    body->SetLinearVelocity(100.0 * distro(rng) * b2Vec2(rnd(1), rnd(1)));
-    body->CreateFixture(&fixture);
-    return body;
+    return makeBall(core, Point(p.x() / core.scale, p.y() / core.scale), 1.0);
 }
 
 // x, y is a corner, w, h are dimensions, can be negative to work with corner
@@ -105,7 +90,7 @@ void createSwarms(Core &core) {
     static const size_t groupRoot = 2;
     const size_t bugs = core.options["c"].as< size_t >();
     for (size_t i = 0; i < bugs; ++i) {
-        b2Body *body = randomBall(core.b2world.get(), core.scale);
+        b2Body *body = randomBall(core);
 
         const double x = core.scale * body->GetPosition().x; // 256
         const double y = core.scale * body->GetPosition().y; // 768
@@ -119,19 +104,20 @@ void createSwarms(Core &core) {
         const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyY));
         const uint16_t tag = gridX * groupRoot + gridY;
 
-        const Point3 colours[] = { { 0, 0, 0 }, { 0xFF, 0, 0 }, { 0, 0xFF, 0 }, { 0, 0, 0xFF } };
+        const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xFF, 0 }, { 0, 0, 0xFF } };
         const auto colour = colours[tag];
 
-        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag });
+        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag }, fullHealth(10.0), Team{tag}, Damage{ 1.0 });
     }
 }
 
 void gridWalls(Core &core) {
     const size_t size = 64;
+    const double prob = core.options["walls"].as< double >();
     Grid grid(size / core.scale, Point(0, 0), SCREEN_WIDTH / size, SCREEN_HEIGHT / size);
     for (size_t y = 0; y < grid.getHeight(); ++y) {
         for (size_t x = 0; x < grid.getWidth(); ++x) {
-            if (distro(rng) < 0.3) {
+            if (distro(rng) < prob) {
                 const auto corner = grid.gridOrigin(y, x);
                 auto wall = makeWall(core.b2world.get(), corner.x(), corner.y(), grid.getSize(), grid.getSize());
                 core.tracker.createWith< PhysBody, Colour >(core, { wall }, { { 0xFF, 0, 0xFF } });
@@ -171,10 +157,12 @@ void createWalls(Core &core) {
 }
 
 Entity::EntityID makePlayer(Core &core) {
-    const Colour playerCol { { 0xFF, 0xFF, 0xFF } };
-    const auto playerID = core.tracker.createWith< PhysBody, Colour, HitData, Controller >(core,
-        { randomBall(core.b2world.get(), core.scale) }, playerCol, {}, { KeyboardController }
+    const Colour playerCol { { 0xAA, 0xAA, 0xAA } };
+    const auto playerID = core.tracker.createWith(core,
+        PhysBody{ randomBall(core) }, playerCol, HitData{}, Controller{ KeyboardController }, Team{ 0 }, fullHealth( std::numeric_limits< double >::infinity())
     );
+    rassert(core.tracker.optComponent< Team >(playerID));
+    std::cout << "Player ID: " << playerID << '\n';
     return playerID;
 }
 
@@ -245,7 +233,9 @@ static void mainLoop(Core &core) {
             const auto time = physicsUse.add([&](){
                 applyControllers(core);
                 updatePhysics(core);
+                processDamage(core);
                 updateSwarms(core);
+                processLifetimes(core, 1.0 / pps);
             });
             physics.tick(time);
         }
@@ -327,6 +317,10 @@ static void run(boost::program_options::variables_map &options) {
     tracker.addSource(std::make_unique< SwarmTagData >());
     tracker.addSource(std::make_unique< MouseFollowData >());
     tracker.addSource(std::make_unique< HitDataData >());
+    tracker.addSource(std::make_unique< DamageData >());
+    tracker.addSource(std::make_unique< HealthData >());
+    tracker.addSource(std::make_unique< TeamData >());
+    tracker.addSource(std::make_unique< LifetimeData >());
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
@@ -359,7 +353,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("mouse", po::value< double >()->default_value( 5000.0), "Boid mouse magnetism")
 
         ("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
-        ("walls", po::value< size_t >()->default_value(32), "Number of walls")
+        ("walls", po::value< double >()->default_value(0.3), "Percentage of tiles that should be walls")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);

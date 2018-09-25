@@ -4,10 +4,12 @@
 #include "entities/exec.h"
 #include "core/core.h"
 #include "input/input.h"
+#include "game/npc.h"
+#include "visual/visuals.h"
 
 #include <SDL2/SDL.h>
 
-void KeyboardController(Core &core, PhysBody &pb) {
+void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     b2Body *body = pb.body;
     const auto centre = body->GetPosition();
     const double mass = body->GetMass();
@@ -25,13 +27,28 @@ void KeyboardController(Core &core, PhysBody &pb) {
     if (core.input.isHeld(SDLK_d)) {
         body->ApplyForce(b2Vec2(hSpeed, 0.0), centre, true);
     }
+    if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
+        const auto moused = core.input.mouseToWorld(core);
+        const auto dir = normalized(moused - PCast(centre));
+        b2Body *body = makeBall(core, PCast(centre) + dir, 0.5);
+        body->SetLinearVelocity(VCast(dir * 128.0));
+
+        const auto optTeam = core.tracker.optComponent< Team >(eid);
+        if (optTeam) {
+            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, Team{ optTeam->get().team });
+        } else {
+            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 });
+        }
+    }
 }
 
 void applyControllers(Core &core) {
-    Entity::ExecSimple< PhysBody, const Controller >::run(core.tracker,
-    [&](auto &pbs, const auto &ctrllrs) {
+    Entity::Exec< Entity::Packs< PhysBody, const Controller > >::run(core.tracker,
+    [&](auto &data) {
+        auto &controllers = data.first.template get< const Controller >();
+        auto &pbs = data.first.template get< PhysBody >();
         for (size_t i = 0; i < pbs.size(); ++i) {
-            ctrllrs[i].controller(core, pbs[i]);
+            controllers[i].controller(core, pbs[i], data.second[i]);
         }
     });
 }

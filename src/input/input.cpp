@@ -4,6 +4,8 @@
 #include <functional>
 #include <structmember.h>
 
+#include "core/core.h"
+
 Input::Input() {
 }
 
@@ -42,5 +44,9 @@ bool Input::mouseReleased(size_t) const {
 }
 
 Point Input::mousePos() const {
+    return Point(0.0, 0.0);
+}
+
+Point Input::mouseToWorld(Core &) const {
     return Point(0.0, 0.0);
 }

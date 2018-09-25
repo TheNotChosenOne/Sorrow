@@ -9,6 +9,8 @@
 // Pressed: True only if the button was just pressed
 // Released: True only if the button just went from pressed to unpressed
 
+class Core;
+
 class Input {
     public:
         Input();
@@ -23,4 +25,5 @@ class Input {
         virtual bool mousePressed(size_t button) const;
         virtual bool mouseReleased(size_t button) const;
         virtual Point mousePos() const;
+        virtual Point mouseToWorld(Core &core) const;
 };

@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 #include <functional>
 
 #include "utility/utility.h"
@@ -53,6 +54,15 @@ class Tracker {
                 }
             }
             return false;
+        }
+
+        template< typename T >
+        std::optional< std::reference_wrapper< T > > optComponent(const EntityID &eid) {
+            const auto typeID = DataTypeID< T >();
+            auto &source = static_cast< Data< T > & >(*sources.at(typeID));
+            auto loc = source.idToLow.find(eid);
+            if (source.idToLow.end() == loc) { return std::nullopt; }
+            return std::optional< std::reference_wrapper< T > >{source.data[loc->second]};
         }
 
         EntityID createSigned(Core &core, const Signature &sig, size_t count=1);

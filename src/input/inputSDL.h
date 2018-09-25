@@ -31,4 +31,5 @@ class InputSDL: public Input {
         bool mousePressed(size_t button) const override;
         bool mouseReleased(size_t button) const override;
         Point mousePos() const override;
+        Point mouseToWorld(Core &core) const override;
 };

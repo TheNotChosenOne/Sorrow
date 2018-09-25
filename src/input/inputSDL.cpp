@@ -2,6 +2,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "core/core.h"
+
 InputSDL::InputSDL(size_t width, size_t height)
     : quit(false)
     , width(width)
@@ -86,4 +88,8 @@ bool InputSDL::mouseReleased(size_t button) const {
 
 Point InputSDL::mousePos() const {
     return Point( mouse[0] / width, (height - mouse[1] - 1) / height );
+}
+
+Point InputSDL::mouseToWorld(Core &core) const {
+    return Point(mouse[0] / core.scale, (height - mouse[1] - 1) / core.scale);
 }
