@@ -28,6 +28,7 @@
 #include "game/controller.h"
 #include "game/grid.h"
 #include "game/npc.h"
+#include "game/gol.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -104,7 +105,7 @@ void createSwarms(Core &core) {
         const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyY));
         const uint16_t tag = gridX * groupRoot + gridY;
 
-        const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xFF, 0 }, { 0, 0, 0xFF } };
+        const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xAA, 0 }, { 0, 0, 0xFF } };
         const auto colour = colours[tag];
 
         core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag }, fullHealth(10.0), Team{tag}, Damage{ 1.0 });
@@ -166,6 +167,12 @@ Entity::EntityID makePlayer(Core &core) {
     return playerID;
 }
 
+uint64_t createPlant(Core &core, double size) {
+    b2Body* body = makeBall(core, Point(0.0, 0.0), size / 8.0);
+    body->SetGravityScale(0.0f);
+    return core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0, 0xFF, 0 } });
+}
+
 }
 
 static void mainLoop(Core &core) {
@@ -207,6 +214,8 @@ static void mainLoop(Core &core) {
     createWalls(core);
     gridWalls(core);
     const auto playerID = makePlayer(core);
+
+    GOL gol(core, Grid(20 / core.scale, Point(0, 0), SCREEN_WIDTH / core.scale, SCREEN_HEIGHT / core.scale), createPlant);
 
     while (!core.input.shouldQuit()) {
         if (!core.tracker.alive(playerID)) { break; }

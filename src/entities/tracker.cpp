@@ -59,6 +59,16 @@ bool Tracker::alive(const EntityID &eid) const {
     return false;
 }
 
+Signature Tracker::getSignature(const EntityID &eid) const {
+    for (const auto &pair : entities) {
+        if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
+            return pair.first;
+        }
+    }
+    rassert(false, "Failed to find signature for:", eid);
+    return Signature();
+}
+
 EntityID Tracker::createSigned(Core &core, const Signature &sig, size_t count) {
     if (0 == count) { return 0; }
     for (const TypeID tid : sig) { rassert(sources.count(tid), tid, sig); }

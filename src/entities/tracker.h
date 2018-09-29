@@ -40,8 +40,17 @@ class Tracker {
             data.data.push_back(t);
         }
 
+        template< typename T >
+        void removeComponentForID(Core &core, const EntityID id) {
+            auto &source = *sources.at(DataTypeID< T >());
+            source.deleteComponent(core, id);
+            source.remove(id);
+        }
+
     public:
         bool alive(const EntityID &eid) const;
+
+        Signature getSignature(const EntityID &eid) const;
         
         template< typename T >
         bool hasComponent(const EntityID &eid) {
@@ -63,6 +72,46 @@ class Tracker {
             auto loc = source.idToLow.find(eid);
             if (source.idToLow.end() == loc) { return std::nullopt; }
             return std::optional< std::reference_wrapper< T > >{source.data[loc->second]};
+        }
+
+        template< typename T >
+        T &getComponent(const EntityID &eid) {
+            const auto typeID = DataTypeID< T >();
+            auto &source = static_cast< Data< T > & >(*sources.at(typeID));
+            return source.data[source.idToLow.at(eid)];
+        }
+
+        template< typename T >
+        const T &getComponent(const EntityID &eid) const {
+            const auto typeID = DataTypeID< T >();
+            const auto &source = static_cast< Data< T > & >(*sources.at(typeID));
+            return source.data[source.idToLow.at(eid)];
+        }
+
+        template< typename T >
+        void addComponent(Core &core, const EntityID &eid, T &&component) {
+            Signature sig = getSignature(eid);
+            auto &group = entities.at(sig);
+            const auto pos = std::find(group.begin(), group.end(), eid);
+            group.erase(pos);
+            const auto res = sig.insert(DataTypeID< T >());
+            rassert(res.second);
+            entities[sig].push_back(eid);
+            addComponentForID(eid, component);
+            auto &source = *sources.at(DataTypeID< T >());
+            source.initComponent(core, eid);
+        }
+
+        template< typename T >
+        void removeComponent(Core &core, const EntityID &eid) {
+            Signature sig = getSignature(eid);
+            auto &group = entities.at(sig);
+            const auto pos = std::find(group.begin(), group.end(), eid);
+            group.erase(pos);
+            const auto res = sig.erase(DataTypeID< T >());
+            rassert(1 == res);
+            entities[sig].push_back(eid);
+            removeComponentForID< T >(core, eid);
         }
 
         EntityID createSigned(Core &core, const Signature &sig, size_t count=1);

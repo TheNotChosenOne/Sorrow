@@ -1,6 +1,30 @@
 #include "grid.h"
 
 #include "utility/utility.h"
+#include "core/core.h"
+#include "entities/tracker.h"
+
+namespace {
+
+void setBinding(Core &core, uint64_t eid, Grid *grid, size_t row, size_t col) {
+    auto optGB = core.tracker.optComponent< GridBind >(eid);
+    if (optGB) {
+        optGB->get().grid = grid;
+        optGB->get().row = row;
+        optGB->get().col = col;
+    } else {
+        core.tracker.addComponent(core, eid, GridBind{ grid, row, col });
+    }
+}
+
+void removeBinding(Core &core, uint64_t id) {
+    if (0 == id) { return; }
+    if (core.tracker.hasComponent< GridBind >(id)) {
+        core.tracker.removeComponent< GridBind >(core, id);
+    }
+}
+
+}
 
 Grid::Grid(double size, Point origin, size_t height, size_t width) {
     this->size = size;
@@ -10,6 +34,17 @@ Grid::Grid(double size, Point origin, size_t height, size_t width) {
     grid.resize(height);
     for (auto &row : grid) {
         row.resize(width, 0);
+    }
+}
+
+Grid::Grid(double size, Point origin, double height, double width) {
+    this->size = size;
+    this->origin = origin;
+    this->height = static_cast< size_t >(height / size);
+    this->width  = static_cast< size_t >(width / size);
+    grid.resize(this->height);
+    for (auto &row : grid) {
+        row.resize(this->width, 0);
     }
 }
 
@@ -46,17 +81,17 @@ uint64_t Grid::get(Point point) const {
     return get(coord.first, coord.second);
 }
 
-uint64_t Grid::set(size_t row, size_t col, uint64_t ent) {
+uint64_t Grid::set(Core &core, size_t row, size_t col, uint64_t ent) {
     const uint64_t old = grid[row][col];
+    removeBinding(core, old);
     grid[row][col] = ent;
+    setBinding(core, ent, this, row, col);
     return old;
 }
 
-uint64_t Grid::set(Point point, uint64_t ent) {
+uint64_t Grid::set(Core &core, Point point, uint64_t ent) {
     const auto coord = getCoord(point);
-    const uint64_t old = grid[coord.first][coord.second];
-    grid[coord.first][coord.second] = ent;
-    return old;
+    return set(core, coord.first, coord.second, ent);
 }
 
 Point Grid::gridOrigin(size_t row, size_t col) const {
@@ -66,4 +101,12 @@ Point Grid::gridOrigin(size_t row, size_t col) const {
 Point Grid::gridOrigin(Point point) const {
     const auto coord = getCoord(point);
     return origin + Vec(coord.first * size, coord.second * size);
+}
+
+template<>
+void Entity::deleteComponent(Core &, uint64_t id, GridBind &gb) {
+    if (gb.grid) {
+        rassert(id == gb.grid->grid[gb.row][gb.col], id, gb.grid->grid[gb.row][gb.col]);
+        gb.grid->grid[gb.row][gb.col] = 0;
+    }
 }
