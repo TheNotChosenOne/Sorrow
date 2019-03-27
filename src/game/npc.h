@@ -2,6 +2,7 @@
 
 #include "core/geometry.h"
 #include "entities/data.h"
+#include "entities/tracker.h"
 
 class Core;
 
@@ -29,5 +30,21 @@ struct Lifetime {
 };
 DeclareDataType(Lifetime);
 
+struct Turret {
+    double cooldown_length;
+    double cooldown;
+    double range;
+    double dmg;
+    double lifetime;
+};
+DeclareDataType(Turret);
+
+struct Seeker {
+    Entity::EntityID target;
+};
+DeclareDataType(Seeker);
+
 void processDamage(Core &core);
+void processSeeker(Core &core);
 void processLifetimes(Core &core, double seconds);
+void processTurrets(Core &core, double seconds);

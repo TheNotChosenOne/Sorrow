@@ -49,6 +49,11 @@ double rnd(const double x) {
     return x * 2.0 * (distro(rng) - 0.5);
 }
 
+double rnd_range(const double l, const double h) {
+    return distro(rng) * (h - l) + l;
+}
+
+
 b2Body *randomBall(Core &core) {
     const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
     return makeBall(core, Point(p.x() / core.scale, p.y() / core.scale), 1.0);
@@ -108,7 +113,10 @@ void createSwarms(Core &core) {
         const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xAA, 0 }, { 0, 0, 0xFF } };
         const auto colour = colours[tag];
 
-        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag }, fullHealth(10.0), Team{tag}, Damage{ 1.0 });
+        const auto pusher = 10000.0 * (body->GetPosition() - (b2Vec2(512.0 / core.scale, 512.0 / core.scale)));
+        body->ApplyForceToCenter(pusher, true);
+
+        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag }, fullHealth(10.0), Team{tag}, Damage{ 0.2 }, Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.3, 1.0 }, MouseFollow{} );
     }
 }
 
@@ -141,20 +149,49 @@ void randomWalls(Core &core) {
     }
 }
 
+void makeBox(Core &core, const double left, const double rite, const double top, const double bot, const double size, const Colour wallCol) {
+    const double height = std::abs(top  - bot)  + 2 * size;
+    const double width  = std::abs(rite - left) + 2 * size;
+    // left
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+            left, top, -size, height
+    ) }, wallCol);
+    // right
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+            rite, top, size, height
+    ) }, wallCol);
+    // top
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+            left, top, width, -size
+    ) }, wallCol);
+    // bot
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+            left, bot, width, size
+    ) }, wallCol);
+}
+
 void createWalls(Core &core) {
     const double wallRad = 10.0;
     const double width = core.renderer.getWidth() / core.scale;
     const double height = core.renderer.getHeight() / core.scale;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
 
+    const double border = 75.0;
+
+    makeBox(core, -border, width + border, -border, height + border, wallRad, wallCol);
+    /*
+    // top
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), 0.0, -wallRad, -wallRad, height + 2.0 * wallRad) }, wallCol);
+            { makeWall(core.b2world.get(), -border, -(wallRad + border), -wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
+    // right
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), width, -wallRad, wallRad, height + 2.0 * wallRad) }, wallCol);
+            { makeWall(core.b2world.get(), width + border, -wallRad, wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
+    // top
     core.tracker.createWith< PhysBody, Colour >(core,
             { makeWall(core.b2world.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
     core.tracker.createWith< PhysBody, Colour >(core,
             { makeWall(core.b2world.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
+            */
 }
 
 Entity::EntityID makePlayer(Core &core) {
@@ -215,7 +252,7 @@ static void mainLoop(Core &core) {
     gridWalls(core);
     const auto playerID = makePlayer(core);
 
-    GOL gol(core, Grid(20 / core.scale, Point(0, 0), SCREEN_WIDTH / core.scale, SCREEN_HEIGHT / core.scale), createPlant);
+    //GOL gol(core, Grid(20 / core.scale, Point(0, 0), SCREEN_WIDTH / core.scale, SCREEN_HEIGHT / core.scale), createPlant);
 
     while (!core.input.shouldQuit()) {
         if (!core.tracker.alive(playerID)) { break; }
@@ -243,8 +280,10 @@ static void mainLoop(Core &core) {
                 applyControllers(core);
                 updatePhysics(core);
                 processDamage(core);
+                processSeeker(core);
+                processTurrets(core, timescale / pps);
                 updateSwarms(core);
-                processLifetimes(core, 1.0 / pps);
+                processLifetimes(core, timescale / pps);
             });
             physics.tick(time);
         }
@@ -328,12 +367,14 @@ static void run(boost::program_options::variables_map &options) {
     tracker.addSource(std::make_unique< HitDataData >());
     tracker.addSource(std::make_unique< DamageData >());
     tracker.addSource(std::make_unique< HealthData >());
+    tracker.addSource(std::make_unique< TurretData >());
+    tracker.addSource(std::make_unique< SeekerData >());
     tracker.addSource(std::make_unique< TeamData >());
     tracker.addSource(std::make_unique< LifetimeData >());
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, std::move(world), options, 10.0 };
+    Core core{ *input, tracker, *renderer, std::move(world), options, 1.0 };
 
     mainLoop(core);
 }
@@ -353,16 +394,17 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
                    "Show script performance monitoring information every x seconds")
         ("runfor", po::value< double >()->default_value(infty< double >()),
                    "Run only for x seconds")
-        ("c", po::value< size_t >()->default_value(64), "Dynamic object count")
+        ("c", po::value< size_t >()->default_value(1024), "Dynamic object count")
         // Boid values
-        ("avoid", po::value< double >()->default_value(   10.0), "Boid avoidance factor")
-        ("align", po::value< double >()->default_value(10000.0), "Boid aligning factor")
-        ("group", po::value< double >()->default_value(10000.0), "Boid grouping factor")
-        ("bubble", po::value< double >()->default_value(  15.0), "Boid personal space")
-        ("mouse", po::value< double >()->default_value( 5000.0), "Boid mouse magnetism")
+        ("avoid",  po::value< double >()->default_value(40.0), "Boid avoidance factor")
+        ("align",  po::value< double >()->default_value(10.0), "Boid aligning factor")
+        ("group",  po::value< double >()->default_value(10.0), "Boid grouping factor")
+        ("bubble", po::value< double >()->default_value( 2.0), "Boid personal space")
+        ("mouse",  po::value< double >()->default_value( 0.0), "Boid mouse magnetism")
 
-        ("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
-        ("walls", po::value< double >()->default_value(0.3), "Percentage of tiles that should be walls")
+        //("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
+        ("gravity", po::value< double >()->default_value(0.0), "Strength of gravity")
+        ("walls", po::value< double >()->default_value(0.0), "Percentage of tiles that should be walls")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);
     po::notify(options);

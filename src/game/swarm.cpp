@@ -35,6 +35,9 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
         pair.second.heading = normalized(pair.second.heading);
     }
 
+    const Vec centre = Vec((core.renderer.getWidth() / core.scale) / 2.0,
+                           (core.renderer.getHeight() / core.scale) / 2.0);
+    const double tether_length = (core.renderer.getWidth() / core.scale + core.renderer.getHeight() / core.scale) / 6.0;
     const double favoid = core.options["avoid"].as< double >();
     const double falign = core.options["align"].as< double >();
     const double fgroup = core.options["group"].as< double >();
@@ -54,9 +57,16 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
             }
         }
 
+        const Vec centre_diff = centre - iAt;
+        const double centre_dist = centre_diff.squared_length();
+        double centre_pull = centre_dist / tether_length;
+        if (centre_dist < tether_length * tether_length) { centre_pull = 0.0; }
+        //centre_pull *= centre_pull;
+        //centre_pull *= centre_pull;
         Vec add = normalized(diff) * fgroup;
         add += normalized(info.heading) * falign;
         add += normalized(avoid) * favoid;
+        add += normalized(centre_diff) * centre_pull * 10.0;
         pbs[i].body->ApplyForce(VCast(add), VCast(iAt), false);
     }
 }

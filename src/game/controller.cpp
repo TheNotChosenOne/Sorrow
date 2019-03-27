@@ -16,9 +16,11 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     const double hSpeed = 100.0 * mass;
     const double vSpeed = 250.0 * mass;
     if (core.input.isHeld(SDLK_w)) {
-        body->ApplyForce(b2Vec2(0.0, vSpeed), centre, true);
+        //body->ApplyForce(b2Vec2(0.0, vSpeed), centre, true);
+        body->ApplyForce(b2Vec2(0.0, hSpeed), centre, true);
     }
-    if (core.input.isPressed(SDLK_s)) {
+    if (core.input.isHeld(SDLK_s)) {
+        body->ApplyForce(b2Vec2(0.0, -hSpeed), centre, true);
         // Nobody cares
     }
     if (core.input.isHeld(SDLK_a)) {
