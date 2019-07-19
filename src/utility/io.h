@@ -36,7 +36,7 @@ std::ostream &dumpContainer(std::ostream &os, const C< T > &s) {
     for (const auto &v : s) {
         os << v << ' ';
     }
-    return (os << '}');
+    return (os << ']');
 }
 
 template< typename T >
