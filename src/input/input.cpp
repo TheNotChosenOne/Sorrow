@@ -1,8 +1,6 @@
 #include "input.h"
 
-#include <Python.h>
 #include <functional>
-#include <structmember.h>
 
 #include "core/core.h"
 

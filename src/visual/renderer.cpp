@@ -1,8 +1,5 @@
 #include "renderer.h"
 
-#include <Python.h>
-#include <structmember.h>
-
 Renderer::Renderer(size_t width, size_t height): width(width), height(height) {
 }
 
