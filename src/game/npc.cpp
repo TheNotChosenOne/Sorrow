@@ -6,6 +6,8 @@
 #include "physics/physics.h"
 #include "entities/exec.h"
 
+#include <random>
+
 Health fullHealth(double hp) {
     return Health{ hp, hp };
 }
@@ -166,6 +168,9 @@ void TurretSystem::init(Core &core) {
 }
 
 void TurretSystem::execute(Core &core, double seconds) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
     Entity::Exec<
         Entity::Packs< const PhysBody, const Team >,
         Entity::Packs< const PhysBody, const Team, Turret >
@@ -215,12 +220,28 @@ void TurretSystem::execute(Core &core, double seconds) {
                 return true;
             };
             bool shot = false;
-            for (size_t j = 0; j < tbodies.size(); ++j) {
-                if  (i != j && check_target(tbodies[j], tteams[j], noturrets.second[j])) { shot = true; break; }
+            if (!tbodies.empty()) {
+                const size_t start = std::uniform_int_distribution< size_t >(0, tbodies.size() - 1)(gen);
+                for (size_t j = start; j < tbodies.size(); ++j) {
+                    if  (i != j && check_target(tbodies[j], tteams[j], noturrets.second[j])) { shot = true; break; }
+                }
+                if (!shot) {
+                    for (size_t j = 0; j < start; ++j) {
+                        if  (i != j && check_target(tbodies[j], tteams[j], noturrets.second[j])) { shot = true; break; }
+                    }
+                }
             }
-            if (!shot) {
-                for (size_t j = 0; j < nbodies.size(); ++j) {
-                    if  (check_target(nbodies[j], nteams[j], turreters.second[j])) { break; }
+            if (!nbodies.empty()) {
+                const size_t start = std::uniform_int_distribution< size_t >(0, nbodies.size() - 1)(gen);
+                if (!shot) {
+                    for (size_t j = start; j < nbodies.size(); ++j) {
+                        if  (check_target(nbodies[j], nteams[j], turreters.second[j])) { break; }
+                    }
+                }
+                if (!shot) {
+                    for (size_t j = 0; j < start; ++j) {
+                        if  (check_target(nbodies[j], nteams[j], turreters.second[j])) { break; }
+                    }
                 }
             }
         }
