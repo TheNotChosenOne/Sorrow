@@ -101,4 +101,7 @@ OrderedSignature getOrderedSignature() {
 
 bool typesSubset(const Signature &super, const Signature &sub);
 
+std::string signatureString(const Signature &sig);
+std::string signatureString(const OrderedSignature &sig);
+
 }

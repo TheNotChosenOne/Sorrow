@@ -1,6 +1,9 @@
 #include "signature.h"
 
 #include "utility/io.h"
+#include "core/core.h"
+
+#include <sstream>
 
 std::ostream &operator<<(std::ostream &os, const Entity::TypeID &tid) {
     return (os << tid.name());
@@ -22,6 +25,18 @@ bool typesSubset(const Signature &super, const Signature &sub) {
         if (!super.count(s)) { return false; }
     }
     return true;
+}
+
+std::string signatureString(const Signature &sig) {
+    std::stringstream ss;
+    ss << sig;
+    return ss.str();
+}
+
+std::string signatureString(const OrderedSignature &sig) {
+    std::stringstream ss;
+    ss << sig;
+    return ss.str();
 }
 
 }

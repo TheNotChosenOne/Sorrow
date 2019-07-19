@@ -84,7 +84,18 @@ void follow(Core &core, std::vector< PhysBody > &pbs, std::vector< Entity::Entit
 
 }
 
-void updateSwarms(Core &core) {
+SwarmSystem::SwarmSystem()
+    : BaseSystem("Swarm", Entity::getSignature< SwarmTag, MouseFollow, PhysBody, HitData >()) {
+}
+
+SwarmSystem::~SwarmSystem() { }
+
+void SwarmSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< SwarmTagData >());
+    core.tracker.addSource(std::make_unique< MouseFollowData >());
+}
+
+void SwarmSystem::execute(Core &core, double) {
     std::vector< Entity::EntityID > kill;
     Entity::Exec< Entity::Packs< PhysBody, const SwarmTag, const HitData > >::run(core.tracker,
     [&](auto &pack) {

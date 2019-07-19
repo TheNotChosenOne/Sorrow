@@ -59,12 +59,21 @@ void Entity::deleteComponent< PhysBody >(Core &core, const uint64_t, PhysBody &b
     core.b2world->DestroyBody(body.body);
 }
 
-void initPhysics(Core &core) {
+PhysicsSystem::PhysicsSystem()
+    : BaseSystem("Physics", Entity::getSignature< PhysBody, HitData >()) {
+}
+
+PhysicsSystem::~PhysicsSystem() { }
+
+void PhysicsSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< PhysBodyData >());
+    core.tracker.addSource(std::make_unique< HitDataData >());
+
     physListener = std::make_unique< PhysListener >();
     core.b2world->SetContactListener(physListener.get());
 }
 
-void updatePhysics(Core &core) {
+void PhysicsSystem::execute(Core &core, double) {
     Entity::Exec< Entity::Packs< PhysBody >, Entity::Packs< PhysBody, HitData > >::run(core.tracker,
     [&](auto &basics, auto &complexes) {
         update(core, basics.first.template get< PhysBody >(), complexes.first.template get< PhysBody >(),

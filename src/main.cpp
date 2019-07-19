@@ -22,6 +22,7 @@
 
 #include "entities/tracker.h"
 #include "entities/exec.h"
+#include "entities/systems.h"
 #include "physics/physics.h"
 #include "visual/visuals.h"
 #include "game/swarm.h"
@@ -116,7 +117,18 @@ void createSwarms(Core &core) {
         const auto pusher = 10000.0 * (body->GetPosition() - (b2Vec2(512.0 / core.scale, 512.0 / core.scale)));
         body->ApplyForceToCenter(pusher, true);
 
-        core.tracker.createWith(core, PhysBody{ body }, Colour{ colour }, HitData{}, SwarmTag{ tag }, fullHealth(10.0), Team{tag}, Damage{ 0.2 }, Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.3, 1.0 }, MouseFollow{} );
+        core.tracker.createWith(core,
+            PhysBody{ body },
+            Colour{ colour },
+            HitData{},
+            SwarmTag{ tag },
+            fullHealth(10.0),
+            Team{tag},
+            Damage{ 0.2 },
+            Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 3.0 },
+            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.5 },
+            MouseFollow{}
+        );
     }
 }
 
@@ -216,23 +228,20 @@ static void mainLoop(Core &core) {
     AccumulateTimer entityUse;
     Entity::k_entity_timer = &entityUse;
 
-    initPhysics(core);
-
     AccumulateTimer visualsUse;
-    AccumulateTimer physicsUse;
     AccumulateTimer inputUse;
     AccumulateTimer logicUse;
     AccumulateTimer actual;
     AccumulateTimer spare;
 
     DurationTimer visuals;
-    DurationTimer physics;
+    DurationTimer logic;
 
     const bool sprint = core.options.count("sprint");
-    const double pps = core.options["pps"].as< double >();
+    const double lps = core.options["lps"].as< double >();
     const double fps = core.options["fps"].as< double >();
 
-    ActionTimer physTick((sprint && core.options["pps"].defaulted()) ? 0 : 1.0 / pps);
+    ActionTimer logiTick((sprint && core.options["lps"].defaulted()) ? 0 : 1.0 / lps);
     ActionTimer drawTick((sprint && core.options["fps"].defaulted()) ? 0 : 1.0 / fps);
     ActionTimer infoTick(1.0);
     ActionTimer killer(core.options["runfor"].as< double >());
@@ -263,29 +272,23 @@ static void mainLoop(Core &core) {
         actual.add(duration);
 
         const auto busyStart = std::chrono::high_resolution_clock::now();
-        if (physTick.tick(duration)) {
+        if (logiTick.tick(duration)) {
             ++logicCount;
             // Update input
             inputUse.add([&](){ core.input.update(); });
 
             if (core.input.isReleased(SDLK_q)) {
                 timescale *= 0.7;
-                physTick.setTimeScale(timescale);
+                logiTick.setTimeScale(timescale);
             }
             if (core.input.isReleased(SDLK_e)) {
                 timescale /= 0.7;
-                physTick.setTimeScale(timescale);
+                logiTick.setTimeScale(timescale);
             }
-            const auto time = physicsUse.add([&](){
-                applyControllers(core);
-                updatePhysics(core);
-                processDamage(core);
-                processSeeker(core);
-                processTurrets(core, timescale / pps);
-                updateSwarms(core);
-                processLifetimes(core, timescale / pps);
+            const auto time = logicUse.add([&](){
+                core.systems.execute(core, timescale / lps);
             });
-            physics.tick(time);
+            logic.tick(time);
         }
 
         if (drawTick.tick(duration)) {
@@ -302,25 +305,24 @@ static void mainLoop(Core &core) {
         if (infoTick.tick(duration)) {
             size_t count = 0;
 
-            const double phys = physicsUse.empty();
             const double vis = visualsUse.empty();
             const double act = actual.empty();
             const double sp = spare.empty();
             const double busy = act - sp;
             if (core.options.count("verbose") || STEPS_PER_SECOND - 3 > logicCount) {
-                std::cout << "PPS: " << std::setw(6) << logicCount;
-                std::cout << " / " << std::setw(14) << physics.perSecond() << '\n';
+                std::cout << "LPS: " << std::setw(6) << logicCount;
+                std::cout << " / " << std::setw(14) << logic.perSecond() << '\n';
                 std::cout << "FPS: " << std::setw(6) << renderCount;
                 std::cout << " / " << std::setw(14) << visuals.perSecond() << '\n';
-                std::cout << " Phys: " << phys << "  Vis: " << vis;
-                std::cout << " Logic: " << logicUse.empty();
-                std::cout << " EM: " << entityUse.empty();
-                std::cout << " IO: " << inputUse.empty() << '\n';
                 std::cout << "Spare: " << sp << " Busy: " << busy;
                 std::cout << ' ' << std::setw(10) << 100 * (busy / act) << "%";
-                std::cout << " (" << act << ")\n";
-                std::cout << " Timescale: " << timescale;
-                std::cout << " Escaped: " << count << '\n';
+                std::cout << " (" << act << ")";
+                std::cout << " Timescale: " << timescale << '\n';
+                std::cout << "Vis: " << vis;
+                std::cout << " EM: " << entityUse.empty();
+                std::cout << " IO: " << inputUse.empty() << '\n';
+                std::cout << "Systems: " << logicUse.empty() << '\n';
+                core.systems.dumpTimes();
                 std::cout << '\n';
             }
 
@@ -334,7 +336,7 @@ static void mainLoop(Core &core) {
 
         busyTime = std::chrono::high_resolution_clock::now() - busyStart;
 
-        double minSleep = std::min(physTick.estimate(), drawTick.estimate());
+        double minSleep = std::min(logiTick.estimate(), drawTick.estimate());
         minSleep = std::min(minSleep, infoTick.estimate());
         minSleep = std::min(minSleep, killer.estimate());
         std::this_thread::sleep_for(std::chrono::duration< double >(minSleep));
@@ -359,22 +361,22 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Entity::Tracker tracker;
-    tracker.addSource(std::make_unique< ControllerData >());
-    tracker.addSource(std::make_unique< PhysBodyData >());
     tracker.addSource(std::make_unique< ColourData >());
-    tracker.addSource(std::make_unique< SwarmTagData >());
-    tracker.addSource(std::make_unique< MouseFollowData >());
-    tracker.addSource(std::make_unique< HitDataData >());
-    tracker.addSource(std::make_unique< DamageData >());
-    tracker.addSource(std::make_unique< HealthData >());
-    tracker.addSource(std::make_unique< TurretData >());
-    tracker.addSource(std::make_unique< SeekerData >());
-    tracker.addSource(std::make_unique< TeamData >());
-    tracker.addSource(std::make_unique< LifetimeData >());
+
+    std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >();
+    systems->addSystem(std::make_unique< ControllerSystem >());
+    systems->addSystem(std::make_unique< PhysicsSystem >());
+    systems->addSystem(std::make_unique< DamageSystem >());
+    systems->addSystem(std::make_unique< SeekerSystem >());
+    systems->addSystem(std::make_unique< TurretSystem >());
+    systems->addSystem(std::make_unique< SwarmSystem >());
+    systems->addSystem(std::make_unique< LifetimeSystem >());
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, std::move(world), options, 1.0 };
+    Core core{ *input, tracker, *renderer, *systems, std::move(world), options, 10.0 };
+
+    core.systems.init(core);
 
     mainLoop(core);
 }
@@ -387,7 +389,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
          po::value< bool >()->default_value(RUNNING_ON_VALGRIND),
          "disable rendering and input")
         ("fps", po::value< double >()->default_value(STEPS_PER_SECOND), "Frames  / second")
-        ("pps", po::value< double >()->default_value(STEPS_PER_SECOND), "Physics / second")
+        ("lps", po::value< double >()->default_value(STEPS_PER_SECOND), "Logic / second")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),

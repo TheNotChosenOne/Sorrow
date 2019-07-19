@@ -3,6 +3,7 @@
 #include "core/geometry.h"
 #include "entities/data.h"
 #include "entities/tracker.h"
+#include "entities/systems.h"
 
 class Core;
 
@@ -39,12 +40,48 @@ struct Turret {
 };
 DeclareDataType(Turret);
 
+struct Turret2 {
+    double cooldown_length;
+    double cooldown;
+    double range;
+    double dmg;
+    double lifetime;
+};
+DeclareDataType(Turret2);
+
 struct Seeker {
     Entity::EntityID target;
 };
 DeclareDataType(Seeker);
 
-void processDamage(Core &core);
-void processSeeker(Core &core);
-void processLifetimes(Core &core, double seconds);
-void processTurrets(Core &core, double seconds);
+class DamageSystem: public Entity::BaseSystem {
+    public:
+    DamageSystem();
+    ~DamageSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};
+
+class SeekerSystem: public Entity::BaseSystem {
+    public:
+    SeekerSystem();
+    ~SeekerSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};
+
+class LifetimeSystem: public Entity::BaseSystem {
+    public:
+    LifetimeSystem();
+    ~LifetimeSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};
+
+class TurretSystem: public Entity::BaseSystem {
+    public:
+    TurretSystem();
+    ~TurretSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};

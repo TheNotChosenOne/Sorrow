@@ -2,6 +2,7 @@
 
 #include "entities/data.h"
 #include "entities/tracker.h"
+#include "entities/systems.h"
 #include "geometry.h"
 
 #include <vector>
@@ -21,6 +22,10 @@ struct HitData {
 };
 DeclareDataType(HitData);
 
-class Core;
-void initPhysics(Core &core);
-void updatePhysics(Core &core);
+class PhysicsSystem: public Entity::BaseSystem {
+    public:
+    PhysicsSystem();
+    ~PhysicsSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};

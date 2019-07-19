@@ -2,6 +2,7 @@
 
 #include "entities/data.h"
 #include "entities/tracker.h"
+#include "entities/systems.h"
 
 #include <functional>
 
@@ -15,4 +16,10 @@ DeclareDataType(Controller);
 
 void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID);
 
-void applyControllers(Core &core);
+class ControllerSystem: public Entity::BaseSystem {
+    public:
+    ControllerSystem();
+    ~ControllerSystem();
+    void execute(Core &core, double seconds);
+    void init(Core &core);
+};

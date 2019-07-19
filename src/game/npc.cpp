@@ -29,7 +29,19 @@ b2Body *makeBall(Core &core, Point centre, double rad) {
     return body;
 }
 
-void processDamage(Core &core) {
+DamageSystem::DamageSystem()
+    : BaseSystem("Damage", Entity::getSignature< HitData, Health, Team, Damage >()) {
+}
+
+DamageSystem::~DamageSystem() { }
+
+void DamageSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< HealthData >());
+    core.tracker.addSource(std::make_unique< TeamData >());
+    core.tracker.addSource(std::make_unique< DamageData >());
+}
+
+void DamageSystem::execute(Core &core, double) {
     std::vector< Entity::EntityID > kill;
     Entity::Exec< Entity::Packs< HitData, Health >, Entity::Packs< HitData, Health, Team > >::run(core.tracker,
     [&](auto &noteam, auto &team) {
@@ -72,24 +84,17 @@ void processDamage(Core &core) {
     }
 }
 
-void processLifetimes(Core &core, double seconds) {
-    std::vector< Entity::EntityID > kill;
-    Entity::Exec< Entity::Packs< Lifetime > >::run(core.tracker,
-    [&](auto &data) {
-        auto &lifetimes = data.first.template get< Lifetime >();
-        for (size_t i = 0; i < lifetimes.size(); ++i) {
-            lifetimes[i].seconds -= seconds;
-            if (lifetimes[i].seconds <= 0.0) {
-                kill.push_back(data.second[i]);
-            }
-        }
-    });
-    for (const auto eid : kill) {
-        core.tracker.killEntity(core, eid);
-    }
+SeekerSystem::SeekerSystem()
+    : BaseSystem("Seeker", Entity::getSignature< PhysBody, const Seeker >()) {
 }
 
-void processSeeker(Core &core) {
+SeekerSystem::~SeekerSystem() { }
+
+void SeekerSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< SeekerData >());
+}
+
+void SeekerSystem::execute(Core &core, double) {
     Entity::ExecSimple< PhysBody, const Seeker >::run(core.tracker,
     [&](auto &bodies, const auto &seekers) {
         for (size_t i = 0; i < seekers.size(); ++i) {
@@ -122,7 +127,45 @@ void processSeeker(Core &core) {
     });
 }
 
-void processTurrets(Core &core, double seconds) {
+LifetimeSystem::LifetimeSystem()
+    : BaseSystem("Lifetime", Entity::getSignature< Lifetime >()) {
+}
+
+LifetimeSystem::~LifetimeSystem() { }
+
+void LifetimeSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< LifetimeData >());
+}
+
+void LifetimeSystem::execute(Core &core, double seconds) {
+    std::vector< Entity::EntityID > kill;
+    Entity::Exec< Entity::Packs< Lifetime > >::run(core.tracker,
+    [&](auto &data) {
+        auto &lifetimes = data.first.template get< Lifetime >();
+        for (size_t i = 0; i < lifetimes.size(); ++i) {
+            lifetimes[i].seconds -= seconds;
+            if (lifetimes[i].seconds <= 0.0) {
+                kill.push_back(data.second[i]);
+            }
+        }
+    });
+    for (const auto eid : kill) {
+        core.tracker.killEntity(core, eid);
+    }
+}
+
+TurretSystem::TurretSystem()
+    : BaseSystem("Turret", Entity::getSignature< const PhysBody, const Team, Turret, Turret2 >()) {
+}
+
+TurretSystem::~TurretSystem() { }
+
+void TurretSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< TurretData >());
+    core.tracker.addSource(std::make_unique< Turret2Data >());
+}
+
+void TurretSystem::execute(Core &core, double seconds) {
     Entity::Exec<
         Entity::Packs< const PhysBody, const Team >,
         Entity::Packs< const PhysBody, const Team, Turret >
@@ -149,7 +192,7 @@ void processTurrets(Core &core, double seconds) {
                 //std::cout << source_at << ' ' << vec_to << ' ' << VCast(target.body->GetPosition()) << std::endl;
                 //std::cout << target_team.team << ' ' << tteams[i].team << std::endl;
                 turrets[i].cooldown = turrets[i].cooldown_length;
-                const double bul_rad = 0.25;
+                const double bul_rad = 0.75;
                 const b2Body *bd = body.body;
                 const b2Fixture *fixes = bd->GetFixtureList();
                 const b2Shape *shape = fixes->GetShape();
@@ -165,7 +208,8 @@ void processTurrets(Core &core, double seconds) {
                     Team({ tteams[i].team }),
                     Damage{ turrets[i].dmg },
                     Lifetime{ turrets[i].lifetime },
-                    Seeker({ tid })
+                    Seeker({ tid }),
+                    fullHealth(0.1)
                 );
                 return true;
             };
@@ -177,6 +221,61 @@ void processTurrets(Core &core, double seconds) {
                 for (size_t j = 0; j < nbodies.size(); ++j) {
                     if  (check_target(nbodies[j], nteams[j], turreters.second[j])) { break; }
                 }
+            }
+        }
+    });
+
+    Entity::Exec<
+        Entity::Packs< const PhysBody, const Team >,
+        Entity::Packs< const PhysBody, const Team, Turret2 >
+    >::run(core.tracker,
+    [&](auto &noturrets, auto &turreters) {
+        auto &turrets = turreters.first.template get< Turret2 >();
+        auto &tteams = turreters.first.template get< const Team >();
+        auto &tbodies = turreters.first.template get< const PhysBody >();
+        auto &nteams = noturrets.first.template get< const Team >();
+        auto &nbodies = noturrets.first.template get< const PhysBody >();
+        for (size_t i = 0; i < turrets.size(); ++i) {
+            if (0.0 != turrets[i].cooldown) {
+                turrets[i].cooldown = std::max(0.0, turrets[i].cooldown - seconds);
+            }
+            if (0.0 != turrets[i].cooldown) { continue; }
+            const double range_square = turrets[i].range * turrets[i].range;
+            const auto body = tbodies[i];
+            const auto source_at = VCast(body.body->GetPosition());
+            const auto check_target = [&](const PhysBody &target, const Team target_team, const Entity::EntityID tid) -> bool {
+                if (target_team.team == tteams[i].team) { return false; }
+                const auto ocol = core.tracker.optComponent< Colour >(tid);
+                if (!ocol) { return false; }
+                const Point3 col = (*ocol).get().colour;
+                if (col != Point3(0xFF, 0, 0)) { return false; }
+                const auto centre = VCast(target.body->GetPosition());
+                const Vec vec_to = centre - source_at;
+                if (vec_to.squared_length() > range_square) { return false; }
+                //std::cout << source_at << ' ' << vec_to << ' ' << VCast(target.body->GetPosition()) << std::endl;
+                //std::cout << target_team.team << ' ' << tteams[i].team << std::endl;
+                turrets[i].cooldown = turrets[i].cooldown_length;
+                const double bul_rad = 0.10;
+                const b2Body *bd = body.body;
+                const b2Fixture *fixes = bd->GetFixtureList();
+                const b2Shape *shape = fixes->GetShape();
+                const b2CircleShape * circ = static_cast< const b2CircleShape * >(shape);
+                const auto offset = source_at + 1.5 * (bul_rad + circ->m_radius) * normalized(vec_to);
+                const auto pointy = Point( offset.x(), offset.y() );
+                auto bul_body = makeBall(core, pointy, bul_rad);
+                const auto go = 100.0 * VCast(normalized(vec_to));
+                bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
+                core.tracker.createWith(core,
+                    PhysBody{ bul_body },
+                    Colour{ { 0xFF, 0xFF, 102 } },
+                    Team({ tteams[i].team }),
+                    Damage{ turrets[i].dmg },
+                    Lifetime{ turrets[i].lifetime }
+                );
+                return true;
+            };
+            for (size_t j = 0; j < nbodies.size(); ++j) {
+                if  (check_target(nbodies[j], nteams[j], turreters.second[j])) { break; }
             }
         }
     });
