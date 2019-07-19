@@ -209,7 +209,8 @@ void TurretSystem::execute(Core &core, double seconds) {
                     Damage{ turrets[i].dmg },
                     Lifetime{ turrets[i].lifetime },
                     Seeker({ tid }),
-                    fullHealth(0.1)
+                    fullHealth(0.1),
+                    HitData{ }
                 );
                 return true;
             };

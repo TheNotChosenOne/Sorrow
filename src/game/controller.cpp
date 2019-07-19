@@ -38,9 +38,9 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
 
         const auto optTeam = core.tracker.optComponent< Team >(eid);
         if (optTeam) {
-            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, Team{ optTeam->get().team });
+            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, Team{ optTeam->get().team }, fullHealth(0.1), HitData{} );
         } else {
-            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 });
+            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, fullHealth(1.0), HitData{} );
         }
     }
 }
