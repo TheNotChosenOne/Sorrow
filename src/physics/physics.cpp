@@ -23,10 +23,11 @@ class PhysListener: public b2ContactListener {
 };
 std::unique_ptr< PhysListener > physListener;
 
-void update(Core &core, std::vector< PhysBody > &, std::vector< PhysBody > &, std::vector< HitData > &hits,
+void update(Core &core, double seconds, std::vector< PhysBody > &, std::vector< PhysBody > &, std::vector< HitData > &hits,
     const Entity::IDMap &, const Entity::IDMap &idmap) {
     k_collisions.clear();
-    core.b2world->Step(1.0 / 60.0, 8, 3);
+    //core.b2world->Step(1.0 / 60.0, 8, 3);
+    core.b2world->Step(seconds, 8, 3);
     for (auto &hit : hits) {
         hit.id.clear();
     }
@@ -73,10 +74,10 @@ void PhysicsSystem::init(Core &core) {
     core.b2world->SetContactListener(physListener.get());
 }
 
-void PhysicsSystem::execute(Core &core, double) {
+void PhysicsSystem::execute(Core &core, double seconds) {
     Entity::Exec< Entity::Packs< PhysBody >, Entity::Packs< PhysBody, HitData > >::run(core.tracker,
     [&](auto &basics, auto &complexes) {
-        update(core, basics.first.template get< PhysBody >(), complexes.first.template get< PhysBody >(),
+        update(core, seconds, basics.first.template get< PhysBody >(), complexes.first.template get< PhysBody >(),
                 complexes.first.template get< HitData >(), basics.second, complexes.second);
     });
 }
