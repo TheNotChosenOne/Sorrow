@@ -51,7 +51,12 @@ struct Exec {
         pair.second = decltype(pair.second)(ids.begin(), ids.end());
         using Muta = typename Packs< Types... >::Mutable;
         using FI = FindIndices< Types... >;
+        // This gets a non-const version of the data
+        // I hope non-consts have the same alignments as consts
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wstrict-aliasing"
         Muta &muta = reinterpret_cast< Muta & >(pair.first.data);
+        #pragma GCC diagnostic pop
         (..., getData(std::get< FI::template index< Types >() >(muta), pair.second, tracker));
     }
 
