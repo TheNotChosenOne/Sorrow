@@ -325,7 +325,9 @@ static void mainLoop(Core &core) {
             const double act = actual.empty();
             const double sp = spare.empty();
             const double busy = act - sp;
-            if (core.options.count("verbose") || lps - 3.0 > logicCount || fps - 3.0 > renderCount) {
+            if (core.options.count("verbose") ||
+                (lps * timescale) - 3.0 > logicCount ||
+                fps - 3.0 > renderCount) {
                 std::cout << "LPS: " << std::setw(6) << logicCount;
                 std::cout << " / " << std::setw(14) << logic.perSecond() << '\n';
                 std::cout << "FPS: " << std::setw(6) << renderCount;
