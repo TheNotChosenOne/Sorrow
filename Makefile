@@ -7,7 +7,7 @@ TMPDIR=.tmp
 PDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 CXX=g++
-CXXFLAGS=-Wall -Wextra --std=c++2a -lGL -lGLEW -lSDL2 -I$(PDIR)../ctti/include -lboost_program_options -march=native -ftree-vectorize -frename-registers -funroll-loops -lCGAL -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON -I$(PDIR)src -I/usr/include/Box2D -lBox2D
+CXXFLAGS=-Wall -Wextra --std=c++2a -lGL -lGLEW -lSDL2 -I$(PDIR)../ctti/include -lboost_program_options -march=native -ftree-vectorize -frename-registers -funroll-loops -lCGAL -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON -I$(PDIR)src -I/usr/include/Box2D -lBox2D -lpthread -DBOOST_ALLOW_DEPRECATED_HEADERS
 RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2
 DBGFLAGS=-Og -ggdb -g
 
