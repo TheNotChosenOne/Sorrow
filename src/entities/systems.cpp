@@ -115,6 +115,16 @@ namespace Entity {
             }
         }
 
+        if (0 == threads.size()) {
+            const size_t max = std::thread::hardware_concurrency();
+            size_t width = 0;
+            for (auto &stage : stages) {
+                width = std::max(width, stage.size());
+            }
+            const size_t actual = std::min(width, max);
+            threads.resize(actual);
+            std::cout << "Using " << actual << " threads\n";
+        }
         for (size_t i = 0; i < threads.size(); ++i) {
             threads[i] = std::thread([this](){ threadJob(); });
         }

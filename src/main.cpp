@@ -388,7 +388,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
          "disable rendering and input")
         ("fps", po::value< double >()->default_value(STEPS_PER_SECOND), "Frames  / second")
         ("lps", po::value< double >()->default_value(STEPS_PER_SECOND), "Logic / second")
-        ("j", po::value< size_t >()->default_value(std::thread::hardware_concurrency()), "Thread count")
+        ("j", po::value< size_t >()->default_value(0), "Thread count")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),
