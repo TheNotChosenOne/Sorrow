@@ -17,10 +17,22 @@ std::string sigToStr(const Signature &sig, const Tracker &track) {
 }
 
 void Tracker::addSource(SourcePtr &&ptr) {
+    std::unique_lock lock(tex);
     sources[ptr->type()] = std::move(ptr);
 }
 
+void Tracker::withReadLock(const std::function< void() > &func) {
+    std::shared_lock lock(tex);
+    func();
+}
+
+void Tracker::withWriteLock(const std::function< void() > &func) {
+    std::unique_lock lock(tex);
+    func();
+}
+
 void Tracker::killEntity(Core &core, const EntityID id) {
+    std::unique_lock lock(tex);
     for (auto &pair : entities) {
         auto &ids = pair.second;
         for (size_t i = 0; i < ids.size(); ++i) {
@@ -40,9 +52,12 @@ void Tracker::killEntity(Core &core, const EntityID id) {
 
 void Tracker::killAll(Core &core) {
     std::vector< EntityID > all;
-    for (auto &pair : entities) {
-        for (auto &eid : pair.second) {
-            all.push_back(eid);
+    {
+        std::shared_lock lock(tex);
+        for (auto &pair : entities) {
+            for (auto &eid : pair.second) {
+                all.push_back(eid);
+            }
         }
     }
     for (const auto eid : all) {
@@ -51,6 +66,7 @@ void Tracker::killAll(Core &core) {
 }
 
 bool Tracker::alive(const EntityID &eid) const {
+    std::shared_lock lock(tex);
     for (const auto &pair : entities) {
         if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
             return true;
@@ -60,6 +76,7 @@ bool Tracker::alive(const EntityID &eid) const {
 }
 
 Signature Tracker::getSignature(const EntityID &eid) const {
+    std::shared_lock lock(tex);
     for (const auto &pair : entities) {
         if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
             return pair.first;

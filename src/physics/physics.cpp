@@ -26,8 +26,10 @@ std::unique_ptr< PhysListener > physListener;
 void update(Core &core, double seconds, std::vector< PhysBody > &, std::vector< PhysBody > &, std::vector< HitData > &hits,
     const Entity::IDMap &, const Entity::IDMap &idmap) {
     k_collisions.clear();
-    //core.b2world->Step(1.0 / 60.0, 8, 3);
-    core.b2world->Step(seconds, 8, 3);
+    core.b2world.locked([&](){
+        //core.b2world->Step(1.0 / 60.0, 8, 3);
+        core.b2world.b2w->Step(seconds, 8, 3);
+    });
     for (auto &hit : hits) {
         hit.id.clear();
     }
@@ -57,7 +59,9 @@ void Entity::initComponent< PhysBody >(Core &, const uint64_t id, PhysBody &body
 
 template<>
 void Entity::deleteComponent< PhysBody >(Core &core, const uint64_t, PhysBody &body) {
-    core.b2world->DestroyBody(body.body);
+    core.b2world.locked([&](){
+        core.b2world.b2w->DestroyBody(body.body);
+    });
 }
 
 PhysicsSystem::PhysicsSystem()
@@ -71,7 +75,9 @@ void PhysicsSystem::init(Core &core) {
     core.tracker.addSource(std::make_unique< HitDataData >());
 
     physListener = std::make_unique< PhysListener >();
-    core.b2world->SetContactListener(physListener.get());
+    core.b2world.locked([&](){
+        core.b2world.b2w->SetContactListener(physListener.get());
+    });
 }
 
 void PhysicsSystem::execute(Core &core, double seconds) {

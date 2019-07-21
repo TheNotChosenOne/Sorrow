@@ -8,10 +8,12 @@
 #include <utility>
 #include <chrono>
 #include <vector>
+#include <mutex>
 
 namespace Entity {
 
 extern AccumulateTimer *k_entity_timer;
+void addEntityTime(std::chrono::duration< double > seconds);
 
 using IDMap = std::vector< EntityID >;
 
@@ -110,18 +112,22 @@ struct Exec {
         Internal data;
         using FI = FindIndices< MainPack, std::pair< Packss, IDMap > ... >;
         std::set< EntityID > ids;
-        getIndices(std::get< 0 >(data), tracker, ids);
-        (..., populate(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker, ids));
-        populateMain(std::get< 0 >(data), tracker, ids);
+        tracker.withReadLock([&]() {
+            getIndices(std::get< 0 >(data), tracker, ids);
+            (..., populate(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker, ids));
+            populateMain(std::get< 0 >(data), tracker, ids);
+        });
         External &edata = reinterpret_cast< External & >(data);
         const auto funcStart = std::chrono::high_resolution_clock::now();
         std::apply(f, edata);
         const auto funcStop = std::chrono::high_resolution_clock::now();
-        writeBack(std::get< 0 >(data), tracker);
-        (..., writeBack(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker));
+        tracker.withWriteLock([&](){
+            writeBack(std::get< 0 >(data), tracker);
+            (..., writeBack(std::get< FI::template index< std::pair< Packss, IDMap > >() >(data), tracker));
+        });
         const auto stop = std::chrono::high_resolution_clock::now();
         const auto duration = (stop - start) - (funcStop - funcStart);
-        k_entity_timer->add(duration);
+        addEntityTime(duration);
     }
 };
 

@@ -26,8 +26,11 @@ b2Body *makeBall(Core &core, Point centre, double rad) {
     fixture.shape = &circle;
 
 
-    b2Body *body = core.b2world->CreateBody(&def);
-    body->CreateFixture(&fixture);
+    b2Body *body;
+    core.b2world.locked([&](){
+        body = core.b2world.b2w->CreateBody(&def);
+        body->CreateFixture(&fixture);
+    });
     return body;
 }
 
@@ -168,6 +171,7 @@ void TurretSystem::init(Core &core) {
 }
 
 void TurretSystem::execute(Core &core, double seconds) {
+    return;
     std::random_device rd;
     std::mt19937 gen(rd());
 

@@ -5,11 +5,13 @@
 #include <set>
 #include <map>
 #include <array>
+#include <mutex>
 #include <string>
 #include <memory>
 #include <vector>
 #include <optional>
 #include <functional>
+#include <shared_mutex>
 
 #include "utility/utility.h"
 #include "utility/templates.h"
@@ -30,6 +32,7 @@ class Tracker {
         std::map< Signature, EntityVec > entities;
 
     private:
+        mutable std::shared_mutex tex;
         EntityID nextID = 1;
 
         template< typename T >
@@ -51,9 +54,14 @@ class Tracker {
         bool alive(const EntityID &eid) const;
 
         Signature getSignature(const EntityID &eid) const;
-        
+
+        void withReadLock(const std::function< void() > &func);
+
+        void withWriteLock(const std::function< void() > &func);
+
         template< typename T >
         bool hasComponent(const EntityID &eid) {
+            std::shared_lock lock(tex);
             const auto typeID = DataTypeID< T >();
             for (const auto &pair : entities) {
                 if (pair.first.count(typeID)) {
@@ -67,6 +75,7 @@ class Tracker {
 
         template< typename T >
         std::optional< std::reference_wrapper< T > > optComponent(const EntityID &eid) {
+            std::shared_lock lock(tex);
             const auto typeID = DataTypeID< T >();
             auto &source = static_cast< Data< T > & >(*sources.at(typeID));
             auto loc = source.idToLow.find(eid);
@@ -76,6 +85,7 @@ class Tracker {
 
         template< typename T >
         T &getComponent(const EntityID &eid) {
+            std::shared_lock lock(tex);
             const auto typeID = DataTypeID< T >();
             auto &source = static_cast< Data< T > & >(*sources.at(typeID));
             return source.data[source.idToLow.at(eid)];
@@ -83,6 +93,7 @@ class Tracker {
 
         template< typename T >
         const T &getComponent(const EntityID &eid) const {
+            std::shared_lock lock(tex);
             const auto typeID = DataTypeID< T >();
             const auto &source = static_cast< Data< T > & >(*sources.at(typeID));
             return source.data[source.idToLow.at(eid)];
@@ -90,7 +101,8 @@ class Tracker {
 
         template< typename T >
         void addComponent(Core &core, const EntityID &eid, T &&component) {
-            Signature sig = getSignature(eid);
+            Signature sig = getSignature(eid); // Has its own lock
+            std::unique_lock lock(tex);
             auto &group = entities.at(sig);
             const auto pos = std::find(group.begin(), group.end(), eid);
             group.erase(pos);
@@ -104,7 +116,8 @@ class Tracker {
 
         template< typename T >
         void removeComponent(Core &core, const EntityID &eid) {
-            Signature sig = getSignature(eid);
+            Signature sig = getSignature(eid); // Has its own lock
+            std::unique_lock lock(tex);
             auto &group = entities.at(sig);
             const auto pos = std::find(group.begin(), group.end(), eid);
             group.erase(pos);
@@ -117,6 +130,7 @@ class Tracker {
         EntityID createSigned(Core &core, const Signature &sig, size_t count=1);
         template< typename ...Args >
         EntityID create(Core &core, size_t count=1) {
+            std::unique_lock lock(tex);
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
             rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
@@ -125,6 +139,7 @@ class Tracker {
 
         template< typename ...Args >
         EntityID createWith(Core &core, const Args &... args) {
+            std::unique_lock lock(tex);
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
             rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());

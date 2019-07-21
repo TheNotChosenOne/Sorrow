@@ -140,7 +140,7 @@ void gridWalls(Core &core) {
         for (size_t x = 0; x < grid.getWidth(); ++x) {
             if (distro(rng) < prob) {
                 const auto corner = grid.gridOrigin(y, x);
-                auto wall = makeWall(core.b2world.get(), corner.x(), corner.y(), grid.getSize(), grid.getSize());
+                auto wall = makeWall(core.b2world.b2w.get(), corner.x(), corner.y(), grid.getSize(), grid.getSize());
                 core.tracker.createWith< PhysBody, Colour >(core, { wall }, { { 0xFF, 0, 0xFF } });
             }
         }
@@ -156,7 +156,7 @@ void randomWalls(Core &core) {
 
     for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
         core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
+            { makeWall(core.b2world.b2w.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
             wallCol);
     }
 }
@@ -165,19 +165,19 @@ void makeBox(Core &core, const double left, const double rite, const double top,
     const double height = std::abs(top  - bot)  + 2 * size;
     const double width  = std::abs(rite - left) + 2 * size;
     // left
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
             left, top, -size, height
     ) }, wallCol);
     // right
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
             rite, top, size, height
     ) }, wallCol);
     // top
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
             left, top, width, -size
     ) }, wallCol);
     // bot
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.get(),
+    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
             left, bot, width, size
     ) }, wallCol);
 }
@@ -194,15 +194,15 @@ void createWalls(Core &core) {
     /*
     // top
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), -border, -(wallRad + border), -wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
+            { makeWall(core.b2world.b2w.get(), -border, -(wallRad + border), -wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
     // right
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), width + border, -wallRad, wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
+            { makeWall(core.b2world.b2w.get(), width + border, -wallRad, wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
     // top
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
+            { makeWall(core.b2world.b2w.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
     core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
+            { makeWall(core.b2world.b2w.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
             */
 }
 
@@ -303,8 +303,6 @@ static void mainLoop(Core &core) {
         }
 
         if (infoTick.tick(duration)) {
-            size_t count = 0;
-
             const double vis = visualsUse.empty();
             const double act = actual.empty();
             const double sp = spare.empty();
@@ -363,7 +361,7 @@ static void run(boost::program_options::variables_map &options) {
     Entity::Tracker tracker;
     tracker.addSource(std::make_unique< ColourData >());
 
-    std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >();
+    std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >(options);
     systems->addSystem(std::make_unique< ControllerSystem >());
     systems->addSystem(std::make_unique< PhysicsSystem >());
     systems->addSystem(std::make_unique< DamageSystem >());
@@ -374,7 +372,7 @@ static void run(boost::program_options::variables_map &options) {
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, *systems, std::move(world), options, 10.0 };
+    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0 };
 
     core.systems.init(core);
 
@@ -390,6 +388,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
          "disable rendering and input")
         ("fps", po::value< double >()->default_value(STEPS_PER_SECOND), "Frames  / second")
         ("lps", po::value< double >()->default_value(STEPS_PER_SECOND), "Logic / second")
+        ("j", po::value< size_t >()->default_value(std::thread::hardware_concurrency()), "Thread count")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),
