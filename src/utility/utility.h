@@ -27,6 +27,11 @@ T clamp(const T low, const T high, const T val) {
     return std::min(high, std::max(low, val));
 }
 
+template< typename T >
+T lerp(const T from, const T to, const double amount) {
+    return from + (to - from) * amount;
+}
+
 #define RUN_ONCE(body) { static bool _run_once_first = true; \
     if (_run_once_first) { _run_once_first = false; body; } }
 

@@ -2,6 +2,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "visual/renderer.h"
 #include "core/core.h"
 
 InputSDL::InputSDL(size_t width, size_t height)
@@ -91,5 +92,10 @@ Point InputSDL::mousePos() const {
 }
 
 Point InputSDL::mouseToWorld(Core &core) const {
-    return Point(mouse[0] / core.scale, (height - mouse[1] - 1) / core.scale);
+    const Point flipped(mouse[0], height - mouse[1] - 1);
+    const Vec scaled(flipped[0] / core.renderer.getWidth(), flipped[1] / core.renderer.getHeight());
+    const Point root = core.camera - Vec(core.radius, core.radius);
+    const double size = 2.0 * core.radius;
+    const Point worldly = root + size * scaled;
+    return worldly;
 }

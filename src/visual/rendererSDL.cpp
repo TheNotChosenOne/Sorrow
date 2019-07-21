@@ -291,9 +291,9 @@ void RendererSDL::update() {
 
     const auto scaler = Kernel::Aff_transformation_2(
             2.0 / width, 0.0, 0.0, 0.0, 2.0 / height, 0.0);
-    const auto transl = Kernel::Aff_transformation_2(CGAL::TRANSLATION,
-            Kernel::Vector_2(-1.0, -1.0));
-    const auto toScreen = transl * scaler;
+    //const auto transl = Kernel::Aff_transformation_2(CGAL::TRANSLATION, Kernel::Vector_2(0.0, 0.0));
+    //const auto toScreen = transl * scaler;
+    const auto toScreen = scaler;
 
     GL_ERROR
 

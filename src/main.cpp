@@ -17,6 +17,7 @@
 
 #include "visual/renderer.h"
 #include "visual/rendererSDL.h"
+#include "visual/camera.h"
 #include "input/input.h"
 #include "input/inputSDL.h"
 
@@ -36,9 +37,7 @@
 
 #include "Box2D.h"
 
-const size_t SCREEN_WIDTH = 1024;
-const size_t SCREEN_HEIGHT = 1024;
-
+static const size_t WORLD_SIZE = 1000.0;
 static const size_t STEPS_PER_SECOND = 60;
 
 namespace {
@@ -56,8 +55,8 @@ double rnd_range(const double l, const double h) {
 
 
 b2Body *randomBall(Core &core) {
-    const Point p = Point(512, 512) + Vec(rnd(256), rnd(256));
-    return makeBall(core, Point(p.x() / core.scale, p.y() / core.scale), 1.0);
+    const Point p = Point(rnd(WORLD_SIZE / 4), rnd(WORLD_SIZE / 4));
+    return makeBall(core, Point(p.x(), p.y()), 1.0);
 }
 
 // x, y is a corner, w, h are dimensions, can be negative to work with corner
@@ -99,22 +98,20 @@ void createSwarms(Core &core) {
     for (size_t i = 0; i < bugs; ++i) {
         b2Body *body = randomBall(core);
 
-        const double x = core.scale * body->GetPosition().x; // 256
-        const double y = core.scale * body->GetPosition().y; // 768
-        double easyX = (x - core.renderer.getWidth() / 2.0) + 256.0;
-        double easyY = (y - core.renderer.getHeight() / 2.0) + 256.0;
-        easyX /= core.renderer.getWidth() / 2.0;
-        easyY /= core.renderer.getHeight() / 2.0;
-        easyX /= 1.0 / groupRoot;
-        easyY /= 1.0 / groupRoot;
-        const int64_t gridX = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyX));
-        const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(easyY));
+        const double x = body->GetPosition().x;
+        const double y = body->GetPosition().y;
+
+        const double gx = ((x + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
+        const double gy = ((y + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
+
+        const int64_t gridX = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gx));
+        const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gy));
         const uint16_t tag = gridX * groupRoot + gridY;
 
         const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xAA, 0 }, { 0, 0, 0xFF } };
         const auto colour = colours[tag];
 
-        const auto pusher = 10000.0 * (body->GetPosition() - (b2Vec2(512.0 / core.scale, 512.0 / core.scale)));
+        const auto pusher = 10000.0 * (body->GetPosition() - (b2Vec2(WORLD_SIZE / 2.0, WORLD_SIZE / 2.0)));
         body->ApplyForceToCenter(pusher, true);
 
         core.tracker.createWith(core,
@@ -135,7 +132,7 @@ void createSwarms(Core &core) {
 void gridWalls(Core &core) {
     const size_t size = 64;
     const double prob = core.options["walls"].as< double >();
-    Grid grid(size / core.scale, Point(0, 0), SCREEN_WIDTH / size, SCREEN_HEIGHT / size);
+    Grid grid(size, Point(0, 0), 1000 / size, 1000 / size);
     for (size_t y = 0; y < grid.getHeight(); ++y) {
         for (size_t x = 0; x < grid.getWidth(); ++x) {
             if (distro(rng) < prob) {
@@ -148,8 +145,8 @@ void gridWalls(Core &core) {
 }
 
 void randomWalls(Core &core) {
-    const double width = core.renderer.getWidth() / core.scale;
-    const double height = core.renderer.getHeight() / core.scale;
+    const double width = WORLD_SIZE;
+    const double height = WORLD_SIZE;
     const double hw = width / 2.0;
     const double hh = height / 2.0;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
@@ -166,11 +163,11 @@ void makeBox(Core &core, const double left, const double rite, const double top,
     const double width  = std::abs(rite - left) + 2 * size;
     // left
     core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            left, top, -size, height
+            left, top, -size, -height
     ) }, wallCol);
     // right
     core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            rite, top, size, height
+            rite, top, size, -height
     ) }, wallCol);
     // top
     core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
@@ -184,13 +181,12 @@ void makeBox(Core &core, const double left, const double rite, const double top,
 
 void createWalls(Core &core) {
     const double wallRad = 10.0;
-    const double width = core.renderer.getWidth() / core.scale;
-    const double height = core.renderer.getHeight() / core.scale;
+    const double rad = WORLD_SIZE / 2.0;
     const Colour wallCol { { 0xFF, 0, 0xFF } };
 
     const double border = 75.0;
 
-    makeBox(core, -border, width + border, -border, height + border, wallRad, wallCol);
+    makeBox(core, -(rad + border), rad + border, rad + border, -(rad + border), wallRad, wallCol);
     /*
     // top
     core.tracker.createWith< PhysBody, Colour >(core,
@@ -214,6 +210,25 @@ Entity::EntityID makePlayer(Core &core) {
     rassert(core.tracker.optComponent< Team >(playerID));
     std::cout << "Player ID: " << playerID << '\n';
     return playerID;
+}
+
+Entity::EntityID makeCamera(Core &core) {
+    b2BodyDef def;
+    def.type = b2_staticBody;
+    def.position.Set(0.0, 0.0);
+
+    b2CircleShape circle;
+    circle.m_radius = 0.0;
+    b2FixtureDef fixture;
+    fixture.shape = &circle;
+    fixture.filter.categoryBits = 0;
+    fixture.filter.maskBits = 0;
+
+    b2Body *body = core.b2world.b2w->CreateBody(&def);
+    body->CreateFixture(&fixture);
+    const auto cid = core.tracker.createWith(core, PhysBody{ body }, Camera{ 1.0 });
+    std::cout << "Camera ID: " << cid << '\n';
+    return cid;
 }
 
 uint64_t createPlant(Core &core, double size) {
@@ -260,8 +275,7 @@ static void mainLoop(Core &core) {
     createWalls(core);
     gridWalls(core);
     const auto playerID = makePlayer(core);
-
-    //GOL gol(core, Grid(20 / core.scale, Point(0, 0), SCREEN_WIDTH / core.scale, SCREEN_HEIGHT / core.scale), createPlant);
+    const auto cameraID = makeCamera(core);
 
     while (!core.input.shouldQuit()) {
         if (!core.tracker.alive(playerID)) { break; }
@@ -293,9 +307,13 @@ static void mainLoop(Core &core) {
 
         if (drawTick.tick(duration)) {
             ++renderCount;
-            // Update entity logic
             const auto time = visualsUse.add([&](){
-                draw(core.tracker, core.renderer, core.scale);
+                // Draw time kids!
+                const auto &cam = core.tracker.getComponent< Camera >(cameraID);
+                const auto &bod = core.tracker.getComponent< PhysBody >(cameraID);
+                core.radius = cam.radius;
+                core.camera = VPC< Point >(bod.body->GetPosition());
+                draw(core.tracker, core.renderer, core.camera, core.scale());
                 core.renderer.update();
                 core.renderer.clear();
             });
@@ -307,7 +325,7 @@ static void mainLoop(Core &core) {
             const double act = actual.empty();
             const double sp = spare.empty();
             const double busy = act - sp;
-            if (core.options.count("verbose") || STEPS_PER_SECOND - 3 > logicCount) {
+            if (core.options.count("verbose") || lps - 3.0 > logicCount || fps - 3.0 > renderCount) {
                 std::cout << "LPS: " << std::setw(6) << logicCount;
                 std::cout << " / " << std::setw(14) << logic.perSecond() << '\n';
                 std::cout << "FPS: " << std::setw(6) << renderCount;
@@ -346,11 +364,11 @@ static void run(boost::program_options::variables_map &options) {
     std::unique_ptr< Renderer > renderer;
     std::unique_ptr< Input > input;
     if (options["headless"].as< bool >()) {
-        renderer = std::make_unique< Renderer >(SCREEN_WIDTH, SCREEN_HEIGHT);
+        renderer = std::make_unique< Renderer >(options["width"].as< size_t >(), options["height"].as< size_t >());
         input = std::make_unique< Input >();
     } else {
-        renderer = std::make_unique< RendererSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
-        input = std::make_unique< InputSDL >(SCREEN_WIDTH, SCREEN_HEIGHT);
+        renderer = std::make_unique< RendererSDL >(options["width"].as< size_t >(), options["height"].as< size_t >());
+        input = std::make_unique< InputSDL >(options["width"].as< size_t >(), options["height"].as< size_t >());
     }
 
     renderer->clear();
@@ -369,10 +387,11 @@ static void run(boost::program_options::variables_map &options) {
     systems->addSystem(std::make_unique< TurretSystem >());
     systems->addSystem(std::make_unique< SwarmSystem >());
     systems->addSystem(std::make_unique< LifetimeSystem >());
+    systems->addSystem(std::make_unique< CameraSystem >());
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0 };
+    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0, Point(0.0, 0.0) };
 
     core.systems.init(core);
 
@@ -389,6 +408,8 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("fps", po::value< double >()->default_value(STEPS_PER_SECOND), "Frames  / second")
         ("lps", po::value< double >()->default_value(STEPS_PER_SECOND), "Logic / second")
         ("j", po::value< size_t >()->default_value(0), "Thread count")
+        ("width", po::value< size_t >()->default_value(1024), "Screen width")
+        ("height", po::value< size_t >()->default_value(1024), "Screen height")
         ("verbose", "print more runtime info")
         ("sprint", "run as fast as possible")
         ("pyperf", po::value< double >()->default_value(infty< double >()),

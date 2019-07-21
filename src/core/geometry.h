@@ -19,3 +19,13 @@ const Vec VCast(const b2Vec2 &v);
 const b2Vec2 PCast(const Point &v);
 const b2Vec2 PCast(const Point &v);
 const Point PCast(const b2Vec2 &v);
+
+template< typename T, typename V >
+T VPC(const V v) {
+    return T(v[0], v[1]);
+}
+
+template< typename T >
+T VPC(const b2Vec2 v) {
+    return T(v.x, v.y);
+}

@@ -8,6 +8,8 @@
 
 #include <Box2D.h>
 
+#include "geometry.h"
+
 class Input;
 namespace Entity { class Tracker; class SystemManager; }
 class Renderer;
@@ -26,5 +28,8 @@ struct Core {
     Entity::SystemManager &systems;
     ThreadedWorld b2world;
     boost::program_options::variables_map options;
-    double scale;
+    double radius;
+    Point camera;
+
+    double scale() const;
 };

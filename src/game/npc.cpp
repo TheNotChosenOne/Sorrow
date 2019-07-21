@@ -25,7 +25,6 @@ b2Body *makeBall(Core &core, Point centre, double rad) {
     fixture.friction = 0.7f;
     fixture.shape = &circle;
 
-
     b2Body *body;
     core.b2world.locked([&](){
         body = core.b2world.b2w->CreateBody(&def);

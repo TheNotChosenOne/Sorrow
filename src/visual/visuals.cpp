@@ -19,20 +19,22 @@ struct MinVis {
 }
 
 using DrawPack = Entity::Packs< const PhysBody, const Colour >;
-void draw(Entity::Tracker &tracker, Renderer &renderer, const double scale) {
+void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, const double scale) {
     Entity::Exec< DrawPack >::run(tracker, [&](auto &p) {
         const auto &pbs = p.first.template get< const PhysBody >();
         const auto &colours = p.first.template get< const Colour >();
         std::array< std::vector< MinVis >, 2 > arr;
         std::array< size_t, 2 > counts = { 0, 0 };
         for (auto &v : arr) { v.resize(pbs.size()); }
+
+        const auto shift = VPC< b2Vec2 >(position);
         for (size_t i = 0; i < pbs.size(); ++i) {
             b2Body *body = pbs[i].body;
             const b2Fixture *fixes = body->GetFixtureList();
             const b2Shape *shape = fixes->GetShape();
             const size_t index = b2Shape::Type::e_polygon == shape->GetType();
             MinVis &mv = arr[index][counts[index]++];
-            mv.p = PCast(scale * body->GetPosition());
+            mv.p = PCast(scale * (body->GetPosition() - shift));
             mv.r = scale * Vec(shape->m_radius, shape->m_radius);
             mv.c = colours[i].colour;
             if (1 == index) {
