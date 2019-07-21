@@ -104,29 +104,20 @@ void SeekerSystem::execute(Core &core, double) {
         for (size_t i = 0; i < seekers.size(); ++i) {
             Entity::EntityID tid = seekers[i].target;
             if (!core.tracker.alive(tid)) {
-                //std::cout << "No such target: " << tid << '\n';
                 continue;
             }
             const auto tbody = core.tracker.optComponent< PhysBody >(tid);
             if (!tbody) {
-                //std::cout << "Target has no body: " << tid << '\n';
                 continue;
             }
             const b2Body *target = tbody->get().body;
-            const auto target_at = VCast(target->GetPosition());
-            //const auto velo = VCast(target->GetLinearVelocity());
+            const auto target_at = VPC< Vec >(target->GetPosition());
 
             const auto m_body = bodies[i].body;
-            const auto vec_to = target_at - VCast(m_body->GetPosition());
-            //const double dist_targ = std::sqrt(vec_to.squared_length());
+            const auto vec_to = target_at - VPC< Vec >(m_body->GetPosition());
 
             const auto go = 1000.0 * normalized(vec_to);
-            m_body->ApplyForceToCenter(VCast(go), true);
-
-            //std::cout << "M: " << VCast(m_body->GetPosition()) << " T: " << target_at << " V: " << go << '\n';
-
-            //const auto target_at = tbody->get().body->GetPosition();
-                        //healths[i].hp = std::max(0.0, healths[i].hp - optDmg->get().dmg);
+            m_body->ApplyForceToCenter(VPC< b2Vec2 >(go), true);
         }
     });
 }
@@ -191,14 +182,12 @@ void TurretSystem::execute(Core &core, double seconds) {
             if (0.0 != turrets[i].cooldown) { continue; }
             const double range_square = turrets[i].range * turrets[i].range;
             const auto body = tbodies[i];
-            const auto source_at = VCast(body.body->GetPosition());
+            const auto source_at = VPC< Vec >(body.body->GetPosition());
             const auto check_target = [&](const PhysBody &target, const Team target_team, const Entity::EntityID tid) -> bool {
                 if (target_team.team == tteams[i].team) { return false; }
-                const auto centre = VCast(target.body->GetPosition());
+                const auto centre = VPC< Vec >(target.body->GetPosition());
                 const Vec vec_to = centre - source_at;
                 if (vec_to.squared_length() > range_square) { return false; }
-                //std::cout << source_at << ' ' << vec_to << ' ' << VCast(target.body->GetPosition()) << std::endl;
-                //std::cout << target_team.team << ' ' << tteams[i].team << std::endl;
                 turrets[i].cooldown = turrets[i].cooldown_length;
                 const double bul_rad = 0.75;
                 const b2Body *bd = body.body;
@@ -208,7 +197,7 @@ void TurretSystem::execute(Core &core, double seconds) {
                 const auto offset = source_at + 1.5 * (bul_rad + circ->m_radius) * normalized(vec_to);
                 const auto pointy = Point( offset.x(), offset.y() );
                 auto bul_body = makeBall(core, pointy, bul_rad);
-                const auto go = 100.0 * VCast(normalized(vec_to));
+                const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
                 bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
                 core.tracker.createWith(core,
                     PhysBody{ bul_body },
@@ -267,17 +256,17 @@ void TurretSystem::execute(Core &core, double seconds) {
             if (0.0 != turrets[i].cooldown) { continue; }
             const double range_square = turrets[i].range * turrets[i].range;
             const auto body = tbodies[i];
-            const auto source_at = VCast(body.body->GetPosition());
+            const auto source_at = VPC< Vec >(body.body->GetPosition());
             const auto check_target = [&](const PhysBody &target, const Team target_team, const Entity::EntityID tid) -> bool {
                 if (target_team.team == tteams[i].team) { return false; }
                 const auto ocol = core.tracker.optComponent< Colour >(tid);
                 if (!ocol) { return false; }
                 const Point3 col = (*ocol).get().colour;
                 if (col != Point3(0xFF, 0, 0)) { return false; }
-                const auto centre = VCast(target.body->GetPosition());
+                const auto centre = VPC< Vec >(target.body->GetPosition());
                 const Vec vec_to = centre - source_at;
                 if (vec_to.squared_length() > range_square) { return false; }
-                //std::cout << source_at << ' ' << vec_to << ' ' << VCast(target.body->GetPosition()) << std::endl;
+                //std::cout << source_at << ' ' << vec_to << ' ' << VPC< Vec >(target.body->GetPosition()) << std::endl;
                 //std::cout << target_team.team << ' ' << tteams[i].team << std::endl;
                 turrets[i].cooldown = turrets[i].cooldown_length;
                 const double bul_rad = 0.10;
@@ -288,7 +277,7 @@ void TurretSystem::execute(Core &core, double seconds) {
                 const auto offset = source_at + 1.5 * (bul_rad + circ->m_radius) * normalized(vec_to);
                 const auto pointy = Point( offset.x(), offset.y() );
                 auto bul_body = makeBall(core, pointy, bul_rad);
-                const auto go = 100.0 * VCast(normalized(vec_to));
+                const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
                 bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
                 core.tracker.createWith(core,
                     PhysBody{ bul_body },

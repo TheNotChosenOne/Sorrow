@@ -32,9 +32,9 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     }
     if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
         const auto moused = core.input.mouseToWorld(core);
-        const auto dir = normalized(moused - PCast(centre));
-        b2Body *body = makeBall(core, PCast(centre) + dir, 0.5);
-        body->SetLinearVelocity(VCast(dir * 128.0));
+        const auto dir = normalized(moused - VPC< Point >(centre));
+        b2Body *body = makeBall(core, VPC< Point >(centre) + dir, 0.5);
+        body->SetLinearVelocity(VPC< b2Vec2 >(dir * 128.0));
 
         const auto optTeam = core.tracker.optComponent< Team >(eid);
         if (optTeam) {

@@ -25,8 +25,8 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
     for (size_t i = 0; i < drones; ++i) {
         auto &info = swarms[tags[i].tag];
         ++info.count;
-        info.centre += VCast(pbs[i].body->GetPosition());
-        info.heading += normalized(VCast(pbs[i].body->GetLinearVelocity()));
+        info.centre += VPC< Vec >(pbs[i].body->GetPosition());
+        info.heading += normalized(VPC< Vec >(pbs[i].body->GetLinearVelocity()));
         info.indices.push_back(i);
     }
 
@@ -44,13 +44,13 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
     shy = 4.0 * shy * shy;
     for (size_t i = 0; i < drones; ++i) {
         const auto &info = swarms[tags[i].tag];
-        const Vec iAt = VCast(pbs[i].body->GetPosition());
+        const Vec iAt = VPC< Vec >(pbs[i].body->GetPosition());
         const Vec diff = info.centre - iAt;
 
         Vec avoid { 0.0, 0.0 };
         for (size_t j = 0; j < drones; ++j) {
             if (tags[j].tag != tags[i].tag || i == j) { continue; }
-            const Vec diff = VCast(pbs[j].body->GetPosition()) - iAt;
+            const Vec diff = VPC< Vec >(pbs[j].body->GetPosition()) - iAt;
             if (diff.squared_length() < shy && diff.squared_length() > 0.0) {
                 avoid -= normalized(diff) * (shy - diff.squared_length()) / shy;
             }
@@ -66,7 +66,7 @@ void update(Core &core, std::vector< PhysBody > &pbs, const std::vector< SwarmTa
         add += normalized(info.heading) * falign;
         add += normalized(avoid) * favoid;
         add += normalized(centre_diff) * centre_pull * 10.0;
-        pbs[i].body->ApplyForce(VCast(add), VCast(iAt), false);
+        pbs[i].body->ApplyForce(VPC< b2Vec2 >(add), VPC< b2Vec2 >(iAt), false);
     }
 }
 
@@ -75,9 +75,9 @@ void follow(Core &core, std::vector< PhysBody > &pbs, std::vector< Entity::Entit
     Point at = core.input.mousePos();
     at = Point(at.x() * core.renderer.getWidth(), at.y() * core.renderer.getHeight());
     for (size_t i = 0; i < pbs.size(); ++i) {
-        const Vec iAt = VCast(pbs[i].body->GetPosition());
+        const Vec iAt = VPC< Vec >(pbs[i].body->GetPosition());
         const Vec diff = normalized(at - iAt);
-        pbs[i].body->ApplyForce(VCast(diff * mousey),  VCast(iAt), true);
+        pbs[i].body->ApplyForce(VPC< b2Vec2 >(diff * mousey),  VPC< b2Vec2 >(iAt), true);
     }
 }
 

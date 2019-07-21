@@ -23,7 +23,7 @@ GOL::GOL(Core &core, Grid &&grid, const CreateFunc &cf): grid(grid), create(cf) 
                 rassert(optPhys, eid);
                 b2Body *body = optPhys->get().body;
                 const auto centre = grid.gridOrigin(row, col) + Vec(grid.getSize(), grid.getSize());
-                body->SetTransform(PCast(centre), 0);
+                body->SetTransform(VPC< b2Vec2 >(centre), 0);
             }
         }
     }

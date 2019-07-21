@@ -44,7 +44,7 @@ void CameraSystem::execute(Core &core, double) {
         radius = std::max(radius, 10.0);
 
         const double lerper = 0.2;
-        central = VCast(lerp(VPC< Vec >(core.camera), VCast(central), lerper));
+        central = VPC< b2Vec2 >(lerp(VPC< Vec >(core.camera), VPC< Vec >(central), lerper));
         radius = lerp(core.radius, radius, lerper);
 
         for (size_t i = 0; i < cameras.size(); ++i) {

@@ -34,12 +34,12 @@ void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, co
             const b2Shape *shape = fixes->GetShape();
             const size_t index = b2Shape::Type::e_polygon == shape->GetType();
             MinVis &mv = arr[index][counts[index]++];
-            mv.p = PCast(scale * (body->GetPosition() - shift));
+            mv.p = VPC< Point >(scale * (body->GetPosition() - shift));
             mv.r = scale * Vec(shape->m_radius, shape->m_radius);
             mv.c = colours[i].colour;
             if (1 == index) {
                 const b2PolygonShape *box = dynamic_cast< const b2PolygonShape * >(shape);
-                mv.r = scale * VCast(box->GetVertex(2));
+                mv.r = scale * VPC< Vec >(box->GetVertex(2));
             }
         }
         for (size_t i = 0; i < counts.size(); ++i) {
