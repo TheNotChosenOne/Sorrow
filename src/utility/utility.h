@@ -32,6 +32,9 @@ T lerp(const T from, const T to, const double amount) {
     return from + (to - from) * amount;
 }
 
+double rnd(const double x);
+double rnd_range(const double l, const double h);
+
 #define RUN_ONCE(body) { static bool _run_once_first = true; \
     if (_run_once_first) { _run_once_first = false; body; } }
 

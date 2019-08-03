@@ -33,6 +33,15 @@ b2Body *makeBall(Core &core, Point centre, double rad) {
     return body;
 }
 
+b2Body *randomBall(Core &core, Point centre, double rad) {
+    const Point p = Point(rnd(rad / 2.0), rnd(rad / 2.0));
+    return makeBall(core, Point(p.x() + centre.x(), p.y() + centre.y()), 1.0);
+}
+
+b2Body *randomBall(Core &core, double rad) {
+    return randomBall(core, Point(0.0, 0.0), rad);
+}
+
 DamageSystem::DamageSystem()
     : BaseSystem("Damage", Entity::getSignature< HitData, Health, Team, Damage >()) {
 }
@@ -150,7 +159,18 @@ void LifetimeSystem::execute(Core &core, double seconds) {
 }
 
 TurretSystem::TurretSystem()
-    : BaseSystem("Turret", Entity::getSignature< const PhysBody, const Team, Turret, Turret2 >()) {
+    : BaseSystem("Turret", Entity::getSignature<
+            Colour,
+            PhysBody,
+            Team,
+            Turret,
+            Turret2,
+            Damage,
+            Lifetime,
+            Seeker,
+            Health,
+            HitData
+        >()) {
 }
 
 TurretSystem::~TurretSystem() { }
@@ -161,7 +181,6 @@ void TurretSystem::init(Core &core) {
 }
 
 void TurretSystem::execute(Core &core, double seconds) {
-    return;
     std::random_device rd;
     std::mt19937 gen(rd());
 

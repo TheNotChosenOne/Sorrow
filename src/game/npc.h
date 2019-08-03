@@ -8,6 +8,8 @@
 class Core;
 
 b2Body *makeBall(Core &core, Point centre, double rad);
+b2Body *randomBall(Core &core, double rad);
+b2Body *randomBall(Core &core, Point centre, double rad);
 
 struct Damage {
     double dmg;

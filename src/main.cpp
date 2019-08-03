@@ -29,6 +29,7 @@
 #include "game/swarm.h"
 #include "game/controller.h"
 #include "game/grid.h"
+#include "game/game.h"
 #include "game/npc.h"
 #include "game/gol.h"
 
@@ -44,20 +45,6 @@ namespace {
 
 std::mt19937_64 rng(0x88888888);
 std::uniform_real_distribution< double > distro(0.0, 1.0);
-
-double rnd(const double x) {
-    return x * 2.0 * (distro(rng) - 0.5);
-}
-
-double rnd_range(const double l, const double h) {
-    return distro(rng) * (h - l) + l;
-}
-
-
-b2Body *randomBall(Core &core) {
-    const Point p = Point(rnd(WORLD_SIZE / 4), rnd(WORLD_SIZE / 4));
-    return makeBall(core, Point(p.x(), p.y()), 1.0);
-}
 
 // x, y is a corner, w, h are dimensions, can be negative to work with corner
 b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
@@ -90,43 +77,6 @@ b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
     b2Body *body = world->CreateBody(&def);
     body->CreateFixture(&fixture);
     return body;
-}
-
-void createSwarms(Core &core) {
-    static const size_t groupRoot = 2;
-    const size_t bugs = core.options["c"].as< size_t >();
-    for (size_t i = 0; i < bugs; ++i) {
-        b2Body *body = randomBall(core);
-
-        const double x = body->GetPosition().x;
-        const double y = body->GetPosition().y;
-
-        const double gx = ((x + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
-        const double gy = ((y + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
-
-        const int64_t gridX = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gx));
-        const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gy));
-        const uint16_t tag = gridX * groupRoot + gridY;
-
-        const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xAA, 0 }, { 0, 0, 0xFF } };
-        const auto colour = colours[tag];
-
-        const auto pusher = 10000.0 * (body->GetPosition() - (b2Vec2(WORLD_SIZE / 2.0, WORLD_SIZE / 2.0)));
-        body->ApplyForceToCenter(pusher, true);
-
-        core.tracker.createWith(core,
-            PhysBody{ body },
-            Colour{ colour },
-            HitData{},
-            SwarmTag{ tag },
-            fullHealth(10.0),
-            Team{tag},
-            Damage{ 0.2 },
-            Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 3.0 },
-            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.5 },
-            MouseFollow{}
-        );
-    }
 }
 
 void gridWalls(Core &core) {
@@ -205,7 +155,7 @@ void createWalls(Core &core) {
 Entity::EntityID makePlayer(Core &core) {
     const Colour playerCol { { 0xAA, 0xAA, 0xAA } };
     const auto playerID = core.tracker.createWith(core,
-        PhysBody{ randomBall(core) }, playerCol, HitData{}, Controller{ KeyboardController }, Team{ 0 }, fullHealth( std::numeric_limits< double >::infinity())
+        PhysBody{ randomBall(core, WORLD_SIZE / 2.0) }, playerCol, HitData{}, Controller{ KeyboardController }, Team{ 0 }, fullHealth( std::numeric_limits< double >::infinity())
     );
     rassert(core.tracker.optComponent< Team >(playerID));
     std::cout << "Player ID: " << playerID << '\n';
@@ -239,7 +189,7 @@ uint64_t createPlant(Core &core, double size) {
 
 }
 
-static void mainLoop(Core &core) {
+static void mainLoop(Core &core, Game &game) {
     AccumulateTimer entityUse;
     Entity::k_entity_timer = &entityUse;
 
@@ -270,15 +220,16 @@ static void mainLoop(Core &core) {
     auto start = std::chrono::high_resolution_clock::now();
     while (!core.input.shouldQuit()) {
 
-    core.tracker.killAll(core);
-    createSwarms(core);
-    createWalls(core);
-    gridWalls(core);
+    game.cleanup(core);
+    game.create(core);
+
+    //createWalls(core);
+    //gridWalls(core);
     const auto playerID = makePlayer(core);
     const auto cameraID = makeCamera(core);
 
     while (!core.input.shouldQuit()) {
-        if (!core.tracker.alive(playerID)) { break; }
+        if (game.update(core)) { break; }
         const auto now = std::chrono::high_resolution_clock::now();
         const auto duration = std::chrono::duration< double >(now - start);
         start = now;
@@ -379,25 +330,20 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Entity::Tracker tracker;
-    tracker.addSource(std::make_unique< ColourData >());
 
     std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >(options);
-    systems->addSystem(std::make_unique< ControllerSystem >());
-    systems->addSystem(std::make_unique< PhysicsSystem >());
-    systems->addSystem(std::make_unique< DamageSystem >());
-    systems->addSystem(std::make_unique< SeekerSystem >());
-    systems->addSystem(std::make_unique< TurretSystem >());
-    systems->addSystem(std::make_unique< SwarmSystem >());
-    systems->addSystem(std::make_unique< LifetimeSystem >());
-    systems->addSystem(std::make_unique< CameraSystem >());
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
     Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0, Point(0.0, 0.0) };
 
+    SwarmGame game = SwarmGame();
+    game.registration(core);
     core.systems.init(core);
 
-    mainLoop(core);
+    mainLoop(core, game);
+
+    game.cleanup(core);
 }
 
 bool getOptions(boost::program_options::variables_map &options, int argc, char **argv) {
