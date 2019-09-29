@@ -61,8 +61,8 @@ void SwarmGame::create(Core &core) {
             fullHealth(10.0),
             Team{ tag },
             Damage{ 0.2 },
-            Turret{ 2.0, rnd_range(0.0, 2.0), 60, 0.4, 3.0 },
-            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.5 },
+            Turret{ 2.0, rnd_range(0.0, 2.0), 60, 0.4, 3.0, 1, 0.1, true },
+            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.5, 0.1, 0.0, false },
             MouseFollow{}
         );
     }

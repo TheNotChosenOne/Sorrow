@@ -23,6 +23,7 @@ struct Health {
 DeclareDataType(Health);
 Health fullHealth(double hp);
 
+typedef uint16_t TeamNumber;
 struct Team {
     uint16_t team;
 };
@@ -39,6 +40,9 @@ struct Turret {
     double range;
     double dmg;
     double lifetime;
+    double bullet_radius;
+    double bullet_health;
+    bool bullet_seeking;
 };
 DeclareDataType(Turret);
 
@@ -48,6 +52,9 @@ struct Turret2 {
     double range;
     double dmg;
     double lifetime;
+    double bullet_radius;
+    double bullet_health;
+    bool bullet_seeking;
 };
 DeclareDataType(Turret2);
 
