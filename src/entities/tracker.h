@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include <optional>
+#include <iostream>
 #include <functional>
 #include <shared_mutex>
 
@@ -37,15 +38,14 @@ class Tracker {
 
         template< typename T >
         void addComponentForID(const EntityID id, const T &t) {
-            auto &source = *sources.at(DataTypeID< T >());
-            Data< T > &data = dynamic_cast< Data< T > & >(source);
+            Data< T > &data = getSource< T >();
             data.idToLow[id] = data.data.size();
             data.data.push_back(t);
         }
 
         template< typename T >
         void removeComponentForID(Core &core, const EntityID id) {
-            auto &source = *sources.at(DataTypeID< T >());
+            auto &source = getSource< T >();
             source.deleteComponent(core, id);
             source.remove(id);
         }
@@ -58,6 +58,20 @@ class Tracker {
         void withReadLock(const std::function< void() > &func);
 
         void withWriteLock(const std::function< void() > &func);
+
+        template< typename T >
+        SourcePtr &getSourcePtr() {
+            const auto loc = sources.find(DataTypeID< T >());
+            rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
+            return loc->second;
+        }
+
+        template< typename T >
+        Data< T > &getSource() {
+            const auto loc = sources.find(DataTypeID< T >());
+            rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
+            return static_cast< Data< T > & >(*loc->second);
+        }
 
         template< typename T >
         bool hasComponent(const EntityID &eid) {
@@ -76,27 +90,21 @@ class Tracker {
         template< typename T >
         std::optional< std::reference_wrapper< T > > optComponent(const EntityID &eid) {
             std::shared_lock lock(tex);
-            const auto typeID = DataTypeID< T >();
-            auto &source = static_cast< Data< T > & >(*sources.at(typeID));
-            auto loc = source.idToLow.find(eid);
-            if (source.idToLow.end() == loc) { return std::nullopt; }
-            return std::optional< std::reference_wrapper< T > >{source.data[loc->second]};
+            auto &source = getSource< T >();
+            if (!source.has(eid)) { return std::nullopt; }
+            return std::optional< std::reference_wrapper< T > >{source.forID(eid)};
         }
 
         template< typename T >
         T &getComponent(const EntityID &eid) {
             std::shared_lock lock(tex);
-            const auto typeID = DataTypeID< T >();
-            auto &source = static_cast< Data< T > & >(*sources.at(typeID));
-            return source.data[source.idToLow.at(eid)];
+            return getSource< T >().forID(eid);
         }
 
         template< typename T >
         const T &getComponent(const EntityID &eid) const {
             std::shared_lock lock(tex);
-            const auto typeID = DataTypeID< T >();
-            const auto &source = static_cast< Data< T > & >(*sources.at(typeID));
-            return source.data[source.idToLow.at(eid)];
+            return getSource< T >().forID(eid);
         }
 
         template< typename T >
@@ -159,6 +167,8 @@ class Tracker {
         void killEntity(Core &core, const EntityID id);
 
         void killAll(Core &core);
+
+        size_t count() const;
 
         void addSource(SourcePtr &&ptr);
 };

@@ -27,10 +27,11 @@ struct Exec {
     template< typename Type >
     static void getData(std::vector< Type > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
         v.reserve(ids.size());
-        const BaseData &baseSource = *tracker.sources.at(DataTypeID< Type >());
+
+        const BaseData &baseSource = tracker.getSource< Type >();
         const Data< Type > &source = static_cast< const Data< Type > & >(baseSource);
         for (const auto id : ids) {
-            v.push_back(source.data.at(source.idToLow.at(id))); // TODO: Hints ?
+            v.push_back(source.forID(id)); // TODO: Hints ?
         }
     }
 
@@ -89,10 +90,10 @@ struct Exec {
     template< typename Type >
     static typename std::enable_if< !std::is_const< Type >::value, void >::type
     setData(const std::vector< Type > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
-        BaseData &baseSource = *tracker.sources.at(DataTypeID< Type >());
+        BaseData &baseSource = tracker.getSource< Type >();
         Data< Type > &source = static_cast< Data< Type > & >(baseSource);
         for (size_t i = 0; i < v.size(); ++i) {
-            source.data.at(source.idToLow.at(ids[i])) = std::move(v[i]);
+            source.forID(ids[i]) = std::move(v[i]);
         }
     }
 

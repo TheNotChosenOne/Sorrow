@@ -65,6 +65,12 @@ void Tracker::killAll(Core &core) {
     }
 }
 
+size_t Tracker::count() const {
+    // TODO: This seems to be wrong?
+    std::shared_lock lock(tex);
+    return entities.size();
+}
+
 bool Tracker::alive(const EntityID &eid) const {
     std::shared_lock lock(tex);
     for (const auto &pair : entities) {
