@@ -18,7 +18,7 @@ GenerationSystem::GenerationSystem()
 GenerationSystem::~GenerationSystem() { }
 
 void GenerationSystem::init(Core &core) {
-    core.tracker.addSource(std::move(std::make_unique< GenerationData >()));
+    core.tracker.addSource(std::make_unique< GenerationData >());
 }
 
 void GenerationSystem::execute(Core &core, double seconds) {
@@ -46,14 +46,14 @@ Stresser::Stresser() { }
 Stresser::~Stresser() { }
 
 void Stresser::registration(Core &core) {
-    core.tracker.addSource(std::move(std::make_unique< ColourData >()));
-    core.tracker.addSource(std::move(std::make_unique< GenerationData >()));
-    core.systems.addSystem(std::move(std::make_unique< ControllerSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< PhysicsSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< GenerationSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< DamageSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< LifetimeSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< CameraSystem >()));
+    core.tracker.addSource(std::make_unique< ColourData >());
+    core.tracker.addSource(std::make_unique< GenerationData >());
+    core.systems.addSystem(std::make_unique< ControllerSystem >());
+    core.systems.addSystem(std::make_unique< PhysicsSystem >());
+    core.systems.addSystem(std::make_unique< GenerationSystem >());
+    core.systems.addSystem(std::make_unique< DamageSystem >());
+    core.systems.addSystem(std::make_unique< LifetimeSystem >());
+    core.systems.addSystem(std::make_unique< CameraSystem >());
 }
 
 void Stresser::unregister(Core &) { }

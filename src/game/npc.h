@@ -5,7 +5,7 @@
 #include "entities/tracker.h"
 #include "entities/systems.h"
 
-class Core;
+struct Core;
 
 b2Body *makeBall(Core &core, Point centre, double rad);
 b2Body *randomBall(Core &core, double rad);

@@ -47,7 +47,7 @@ struct Runtime {
 
     template< typename T >
     void set(size_t index, T &&t) {
-        get< T >(index) = std::move(t);
+        get< T >(index) = std::forward(t);
     }
 };
 

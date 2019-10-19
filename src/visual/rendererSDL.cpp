@@ -68,10 +68,6 @@ static void checkShaderLink(GLuint id) {
     }
 }
 
-static inline void setWhite(SDL_Renderer *renderer) {
-    SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-}
-
 static GLuint addGLProgram(const GLchar *vertSrc[], const GLchar *fragSrc[]) {
     GLuint vertShader = glCreateShader(GL_VERTEX_SHADER); GL_ERROR
     glShaderSource(vertShader, 1, vertSrc, nullptr); GL_ERROR
@@ -291,9 +287,6 @@ void RendererSDL::update() {
 
     const auto scaler = Kernel::Aff_transformation_2(
             2.0 / width, 0.0, 0.0, 0.0, 2.0 / height, 0.0);
-    //const auto transl = Kernel::Aff_transformation_2(CGAL::TRANSLATION, Kernel::Vector_2(0.0, 0.0));
-    //const auto toScreen = transl * scaler;
-    const auto toScreen = scaler;
 
     GL_ERROR
 
@@ -333,8 +326,8 @@ void RendererSDL::update() {
             const size_t until = std::min(commands[i].size(), start + MAX_INSTANCES);
             for (size_t j = start; j < until; ++j) {
                 const auto &dc = commands[i][j];
-                const Point p = toScreen.transform(dc.pos);
-                const Vec r = toScreen.transform(dc.rad);
+                const Point p = scaler.transform(dc.pos);
+                const Vec r = scaler.transform(dc.rad);
 
                 posData[3 * count + 0] = p[0];
                 posData[3 * count + 1] = p[1];
@@ -384,7 +377,7 @@ void RendererSDL::update() {
     glUseProgram(0);
     SDL_GL_SwapWindow(window);
     
-    GL_ERROR
+    GL_ERROR;
 }
 
 size_t RendererSDL::getWidth() const {

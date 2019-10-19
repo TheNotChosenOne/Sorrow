@@ -6,7 +6,7 @@
 
 #include <functional>
 
-class Core;
+struct Core;
 struct PhysBody;
 
 struct Controller {

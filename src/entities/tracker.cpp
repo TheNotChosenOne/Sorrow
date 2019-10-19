@@ -31,7 +31,7 @@ void Tracker::withWriteLock(const std::function< void() > &func) {
     func();
 }
 
-void Tracker::killEntity(Core &core, const EntityID id) {
+void Tracker::killEntity(Core &, const EntityID id) {
     std::unique_lock lock(tex);
     doomed.insert(id);
 }

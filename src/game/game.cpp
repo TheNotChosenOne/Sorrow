@@ -22,15 +22,15 @@ SwarmGame::SwarmGame() { }
 SwarmGame::~SwarmGame() { }
 
 void SwarmGame::registration(Core &core) {
-    core.tracker.addSource(std::move(std::make_unique< ColourData >()));
-    core.systems.addSystem(std::move(std::make_unique< ControllerSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< PhysicsSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< DamageSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< SeekerSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< TurretSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< SwarmSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< LifetimeSystem >()));
-    core.systems.addSystem(std::move(std::make_unique< CameraSystem >()));
+    core.tracker.addSource(std::make_unique< ColourData >());
+    core.systems.addSystem(std::make_unique< ControllerSystem >());
+    core.systems.addSystem(std::make_unique< PhysicsSystem >());
+    core.systems.addSystem(std::make_unique< DamageSystem >());
+    core.systems.addSystem(std::make_unique< SeekerSystem >());
+    core.systems.addSystem(std::make_unique< TurretSystem >());
+    core.systems.addSystem(std::make_unique< SwarmSystem >());
+    core.systems.addSystem(std::make_unique< LifetimeSystem >());
+    core.systems.addSystem(std::make_unique< CameraSystem >());
 }
 
 void SwarmGame::create(Core &core) {

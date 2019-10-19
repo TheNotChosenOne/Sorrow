@@ -9,7 +9,7 @@
 // Pressed: True only if the button was just pressed
 // Released: True only if the button just went from pressed to unpressed
 
-class Core;
+struct Core;
 
 class Input {
     public:

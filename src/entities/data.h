@@ -9,7 +9,7 @@
 #include "utility/utility.h"
 #include "signature.h"
 
-class Core;
+struct Core;
 
 namespace Entity {
 
@@ -45,7 +45,7 @@ class Data: public BaseData {
         std::vector< T > data;
         virtual ~Data() { }
 
-        bool has(const uint64_t id) const {
+        bool has(const uint64_t id) const override {
             return idToLow.find(id) != idToLow.end();
         }
 
@@ -70,9 +70,11 @@ class Data: public BaseData {
             lowToid[data.size()] = id;
             data.resize(data.size() + 1);
         }
-        void reserve(const size_t more) {
+
+        void reserve(const size_t more) override {
             data.reserve(data.size() + more);
         }
+
         void remove(const uint64_t id) override {
             const size_t back = data.size() - 1;
             const size_t backID = lowToid[back];

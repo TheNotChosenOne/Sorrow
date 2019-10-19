@@ -1,6 +1,6 @@
 #pragma once
 
-class Core;
+struct Core;
 
 class Game {
 public:

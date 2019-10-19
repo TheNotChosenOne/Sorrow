@@ -48,6 +48,7 @@ std::mt19937_64 rng(0x88888888);
 std::uniform_real_distribution< double > distro(0.0, 1.0);
 
 // x, y is a corner, w, h are dimensions, can be negative to work with corner
+/*
 b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
     b2BodyDef def;
     def.type = b2_staticBody;
@@ -79,79 +80,7 @@ b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
     body->CreateFixture(&fixture);
     return body;
 }
-
-void gridWalls(Core &core) {
-    const size_t size = 64;
-    const double prob = core.options["walls"].as< double >();
-    Grid grid(size, Point(0, 0), 1000 / size, 1000 / size);
-    for (size_t y = 0; y < grid.getHeight(); ++y) {
-        for (size_t x = 0; x < grid.getWidth(); ++x) {
-            if (distro(rng) < prob) {
-                const auto corner = grid.gridOrigin(y, x);
-                auto wall = makeWall(core.b2world.b2w.get(), corner.x(), corner.y(), grid.getSize(), grid.getSize());
-                core.tracker.createWith< PhysBody, Colour >(core, { wall }, { { 0xFF, 0, 0xFF } });
-            }
-        }
-    }
-}
-
-void randomWalls(Core &core) {
-    const double width = WORLD_SIZE;
-    const double height = WORLD_SIZE;
-    const double hw = width / 2.0;
-    const double hh = height / 2.0;
-    const Colour wallCol { { 0xFF, 0, 0xFF } };
-
-    for (size_t i = 0; i < core.options["walls"].as< size_t >(); ++i) {
-        core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.b2w.get(), hw + rnd(40), hh + rnd(40), 16.0 * distro(rng), 16.0 * distro(rng)) },
-            wallCol);
-    }
-}
-
-void makeBox(Core &core, const double left, const double rite, const double top, const double bot, const double size, const Colour wallCol) {
-    const double height = std::abs(top  - bot)  + 2 * size;
-    const double width  = std::abs(rite - left) + 2 * size;
-    // left
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            left, top, -size, -height
-    ) }, wallCol);
-    // right
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            rite, top, size, -height
-    ) }, wallCol);
-    // top
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            left, top, width, -size
-    ) }, wallCol);
-    // bot
-    core.tracker.createWith< PhysBody, Colour >(core, { makeWall( core.b2world.b2w.get(),
-            left, bot, width, size
-    ) }, wallCol);
-}
-
-void createWalls(Core &core) {
-    const double wallRad = 10.0;
-    const double rad = WORLD_SIZE / 2.0;
-    const Colour wallCol { { 0xFF, 0, 0xFF } };
-
-    const double border = 75.0;
-
-    makeBox(core, -(rad + border), rad + border, rad + border, -(rad + border), wallRad, wallCol);
-    /*
-    // top
-    core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.b2w.get(), -border, -(wallRad + border), -wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
-    // right
-    core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.b2w.get(), width + border, -wallRad, wallRad, height + 2.0 * (wallRad + border)) }, wallCol);
-    // top
-    core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.b2w.get(), -wallRad, 0.0, width + 2.0 * wallRad, -wallRad) }, wallCol);
-    core.tracker.createWith< PhysBody, Colour >(core,
-            { makeWall(core.b2world.b2w.get(), -wallRad, height, width + 2.0 * wallRad, wallRad) }, wallCol);
-            */
-}
+*/
 
 Entity::EntityID makePlayer(Core &core) {
     const Colour playerCol { { 0xAA, 0xAA, 0xAA } };
@@ -180,12 +109,6 @@ Entity::EntityID makeCamera(Core &core) {
     const auto cid = core.tracker.createWith(core, PhysBody{ body }, Camera{ 1.0 });
     std::cout << "Camera ID: " << cid << '\n';
     return cid;
-}
-
-uint64_t createPlant(Core &core, double size) {
-    b2Body* body = makeBall(core, Point(0.0, 0.0), size / 8.0);
-    body->SetGravityScale(0.0f);
-    return core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0, 0xFF, 0 } });
 }
 
 }
@@ -226,7 +149,7 @@ static void mainLoop(Core &core, Game &game) {
 
     //createWalls(core);
     //gridWalls(core);
-    const auto playerID = makePlayer(core);
+    makePlayer(core);
     const auto cameraID = makeCamera(core);
 
     while (!core.input.shouldQuit()) {

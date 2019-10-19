@@ -18,7 +18,7 @@
 #include "utility/templates.h"
 #include "entities/pack.h"
 
-class Core;
+struct Core;
 
 namespace Entity {
 

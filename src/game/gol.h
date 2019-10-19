@@ -5,7 +5,7 @@
 
 #include <functional>
 
-class Core;
+struct Core;
 
 struct PlantTag { };
 DeclareDataType(PlantTag);

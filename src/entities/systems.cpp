@@ -7,7 +7,7 @@
 #include <tuple>
 
 namespace Entity {
-    BaseSystem::BaseSystem(const std::string &name, const Signature sig): name(name), signature(sig) { }
+    BaseSystem::BaseSystem(const std::string &name, const Signature &sig): name(name), signature(sig) { }
 
     BaseSystem::~BaseSystem() { }
 
@@ -137,7 +137,10 @@ namespace Entity {
         stats.reserve(systems.size());
 
         double total = 0.0;
-        for (auto &[system, timer] : timers) {
+        //for (auto &[system, timer] : timers) {
+        for (auto &pair : timers) {
+            const auto &system = pair.first;
+            auto &timer = pair.second;
             std::string text = system->name + ": " + signatureString(system->signature);
             stats.emplace_back( timer.empty(), text );
             total += std::get< 0 >(stats[stats.size() - 1]);

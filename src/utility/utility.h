@@ -48,13 +48,18 @@ double rnd_range(const double l, const double h);
     _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
             # __VA_ARGS__, '\x00', ## __VA_ARGS__);
 template< typename... Args >
-void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line,
-             Args &&...args) {
+#ifdef __GfffffffNUC__
+void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line, Args &&...args) {
+#else
+void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line, Args &&...) {
+#endif
     if (pass) { return; }
     std::cerr << "At: " << file << " : " << func << " : " << line << '\n';
     std::cerr << "Assert failed: " << expr << std::endl;
     std::stringstream info;
+#ifdef __GfffffffNUC__
     ((info << args << ", "), ...);
+#endif
     const std::string infos = info.str();
     const auto split = infos.find('\x00');
     const std::string head = infos.substr(0, split - 2);
