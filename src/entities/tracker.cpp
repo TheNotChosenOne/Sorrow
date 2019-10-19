@@ -33,21 +33,26 @@ void Tracker::withWriteLock(const std::function< void() > &func) {
 
 void Tracker::killEntity(Core &core, const EntityID id) {
     std::unique_lock lock(tex);
+    doomed.insert(id);
+}
+
+void Tracker::finalizeKills(Core &core) {
     for (auto &pair : entities) {
         auto &ids = pair.second;
         for (size_t i = 0; i < ids.size(); ++i) {
-            if (id != ids[i]) { continue; }
+            if (doomed.end() == doomed.find(ids[i])) { continue; }
             const Signature &sig = pair.first;
             for (const TypeID tid : sig) {
-                sources.at(tid)->deleteComponent(core, id);
+                sources.at(tid)->deleteComponent(core, ids[i]);
             }
             for (const TypeID tid : sig) {
-                sources.at(tid)->remove(id);
+                sources.at(tid)->remove(ids[i]);
             }
             ids.erase(ids.begin() + i);
             return;
         }
     }
+    doomed.clear();
 }
 
 void Tracker::killAll(Core &core) {
@@ -73,6 +78,15 @@ size_t Tracker::count() const {
 
 bool Tracker::alive(const EntityID &eid) const {
     std::shared_lock lock(tex);
+    return aliveWithLock(eid);
+}
+
+bool Tracker::zombie(const EntityID &eid) const {
+    std::shared_lock lock(tex);
+    return doomed.end() != doomed.find(eid);
+}
+
+bool Tracker::aliveWithLock(const EntityID &eid) const {
     for (const auto &pair : entities) {
         if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
             return true;

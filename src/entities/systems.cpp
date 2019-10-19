@@ -73,6 +73,7 @@ namespace Entity {
             cv.notify_all();
             cv.wait(lock, [&]{ return stage.size() == processed; });
         }
+        core.tracker.finalizeKills(core);
     }
 
     void SystemManager::init(Core &core) {

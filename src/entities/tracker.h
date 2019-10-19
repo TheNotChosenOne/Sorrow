@@ -34,6 +34,7 @@ class Tracker {
 
     private:
         mutable std::shared_mutex tex;
+        std::set< EntityID > doomed;
         EntityID nextID = 1;
 
         template< typename T >
@@ -52,6 +53,8 @@ class Tracker {
 
     public:
         bool alive(const EntityID &eid) const;
+        bool aliveWithLock(const EntityID &eid) const;
+        bool zombie(const EntityID &eid) const;
 
         Signature getSignature(const EntityID &eid) const;
 
@@ -165,6 +168,7 @@ class Tracker {
         }
 
         void killEntity(Core &core, const EntityID id);
+        void finalizeKills(Core &core);
 
         void killAll(Core &core);
 

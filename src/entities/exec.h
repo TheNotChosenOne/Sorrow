@@ -93,6 +93,7 @@ struct Exec {
         BaseData &baseSource = tracker.getSource< Type >();
         Data< Type > &source = static_cast< Data< Type > & >(baseSource);
         for (size_t i = 0; i < v.size(); ++i) {
+            //rassert(tracker.aliveWithLock(ids[i]), "Entity is dead during writeback", ids[i], DataTypeName< Type >());
             source.forID(ids[i]) = std::move(v[i]);
         }
     }

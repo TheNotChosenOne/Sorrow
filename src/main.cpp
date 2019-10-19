@@ -32,6 +32,7 @@
 #include "game/game.h"
 #include "game/npc.h"
 #include "game/gol.h"
+#include "game/stress.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -338,6 +339,7 @@ static void run(boost::program_options::variables_map &options) {
     Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0, Point(0.0, 0.0) };
 
     SwarmGame game = SwarmGame();
+    //Stresser game;
     game.registration(core);
     core.systems.init(core);
 
