@@ -33,24 +33,6 @@ struct FindIndices {
     static constexpr size_t index() { return FindIndex< T, Types... >::value; }
 };
 
-template< template< typename ... > typename Tup, typename ...Types >
-struct Runtime {
-    Tup< Types... > &t;
-    Runtime(Tup< Types... > &tup): t(tup) { }
-
-    template< typename T >
-    T &get(size_t index) {
-        constexpr size_t ind = FindIndex< T, Types... >::value;
-        rassert(ind == index, "Index ", index, " should be ", ind);
-        return std::get< ind >(t);
-    }
-
-    template< typename T >
-    void set(size_t index, T &&t) {
-        get< T >(index) = std::forward(t);
-    }
-};
-
 template< typename Left, typename Right >
 struct TypeEquals {
     static void check() {
