@@ -1,42 +1,96 @@
+SHELL := /bin/bash
 EXEFILE=hall
 ZIPFILE=hall.zip
 DBGEXEFILE=halld
+EAZEXEFILE=halle
 
 SRCDIR=src
 TMPDIR=.tmp
 PDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+PCH_RLS=$(TMPDIR)/precompiledrls.h
+PCH_DBG=$(TMPDIR)/precompileddbg.h
+PCH_EAZ=$(TMPDIR)/precompiledeaz.h
 
 CXX=g++
-CXXFLAGS=-Wall -Wextra --std=c++2a -I$(PDIR)../ctti/include -march=native -ftree-vectorize -funroll-loops -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON -I$(PDIR)src -I/usr/include/Box2D -DBOOST_ALLOW_DEPRECATED_HEADERS
-RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2 -frename-registers
-DBGFLAGS=-Og -ggdb -g
+INCLUDES=-I$(PDIR).tmp/ -I$(PDIR)../ctti/include -I$(PDIR)src -I/usr/include/Box2D
+CXXFLAGS=-Wall -Wextra --std=c++2a -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON -DBOOST_ALLOW_DEPRECATED_HEADERS $(INCLUDES)
+ifneq ($(CXX),clang++)
+	CXXFLAGS += -frename-registers
+endif
+HARDFLAGS=-march=native -ftree-vectorize -funroll-loops
+EAZFLAGS=-O0 -g -ggdb -include $(PCH_EAZ)
+RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2 -include $(PCH_RLS)
+DBGFLAGS=-Og -ggdb -g -include $(PCH_DBG)
 LINKFLAGS=-lGL -lGLEW -lSDL2 -lboost_program_options -lCGAL -lBox2D -lpthread
 
 CPP_PAT ::= $(SRCDIR)/%.cpp
 OBJ_PAT ::= $(TMPDIR)/%.o
 DBG_PAT ::= $(TMPDIR)/%-dbg.o
+EAZ_PAT ::= $(TMPDIR)/%-eaz.o
 DEP_PAT ::= $(TMPDIR)/%.d
 
 CPPFILES ::= $(wildcard $(SRCDIR)/*.cpp $(SRCDIR)/*/*.cpp)
+SRCFILES ::= $(CPPFILES) $(wildcard $(SRCDIR)/*.h $(SRCDIR)/*/*.h)
 OBJFILES ::= $(CPPFILES:$(CPP_PAT)=$(OBJ_PAT))
 DBGFILES ::= $(CPPFILES:$(CPP_PAT)=$(DBG_PAT))
-DEPFILES ::= $(patsubst $(OBJ_PAT),$(DEP_PAT), $(OBJFILES) $(DBGFILES))
+EAZFILES ::= $(CPPFILES:$(CPP_PAT)=$(EAZ_PAT))
+DEPFILES ::= $(patsubst $(OBJ_PAT),$(DEP_PAT),$(OBJFILES))
+DEPFILES ::= $(patsubst $(DBG_PAT),$(DEP_PAT),$(DBGFILES))
+DEPFILES ::= $(patsubst $(EAZ_PAT),$(DEP_PAT),$(EAZFILES))
 
 .PHONY: all clean test
 
-$(EXEFILE) : $(OBJFILES)
-	$(CXX) $(CXXFLAGS) $(RLSFLAGS) $(LINKFLAGS) $^ -o $@
+$(EXEFILE) : $(PCH_RLS) $(OBJFILES)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) $(LINKFLAGS) $^ -o $@
 
-$(OBJFILES) : $(OBJ_PAT) : $(CPP_PAT)
-	$(CXX) $(CXXFLAGS) $(RLSFLAGS) -c -MMD $< -o $@
+$(OBJFILES) : $(OBJ_PAT) : $(CPP_PAT) $(PCH_RLS)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) -c -MMD $< -o $@
 
-$(DBGEXEFILE) : $(DBGFILES)
-	$(CXX) $(CXXFLAGS) $(DBGFLAGS) $(LINKFLAGS) $^ -o $@
+$(DBGEXEFILE) : $(PCH_DBG) $(DBGFILES)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) $(LINKFLAGS) $^ -o $@
 
-$(DBGFILES) : $(DBG_PAT) : $(CPP_PAT)
-	$(CXX) $(CXXFLAGS) $(DBGFLAGS) -c -MMD $< -o $@
+$(DBGFILES) : $(DBG_PAT) : $(CPP_PAT) $(PCH_DBG)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) -c -MMD $< -o $@
 
-$(foreach obj,$(OBJFILES) $(DBGFILES),$(eval $(obj) : | $(dir $(obj))))
+$(EAZEXEFILE) : $(PCH_EAZ) $(EAZFILES)
+	$(CXX) $(CXXFLAGS) $(EAZFLAGS) $(LINKFLAGS) $^ -o $@
+
+$(EAZFILES) : $(EAZ_PAT) : $(CPP_PAT) $(PCH_EAZ)
+	$(CXX) $(CXXFLAGS) $(EAZFLAGS) -c -MMD $< -o $@
+
+ROTTEN_RLS := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+CURRENT_RLS := $(shell cat $(PCH_RLS) 2>/dev/null)
+$(PCH_RLS) : $(SRCFILES)
+ifneq ($(ROTTEN_RLS),$(CURRENT_RLS))
+	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_RLS)
+endif
+
+$(PCH_RLS).gch : $(PCH_RLS)
+	$(CXX) $(CXXFLAGS) $(RLSFLAGS) -x c++-header -c $(PCH_RLS) -o $(PCH_RLS).gch
+
+ROTTEN_DBG := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+CURRENT_DBG := $(shell cat $(PCH_DBG) 2>/dev/null)
+$(PCH_DBG) : $(SRCFILES)
+ifneq ($(ROTTEN_DBG),$(CURRENT_DBG))
+	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_DBG)
+endif
+
+$(PCH_DBG).gch : $(PCH_DBG)
+	$(CXX) $(CXXFLAGS) $(DBGFLAGS) -x c++-header -c $(PCH_DBG) -o $(PCH_DBG).gch
+
+ROTTEN_EAZ := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+CURRENT_EAZ := $(shell cat $(PCH_EAZ) 2>/dev/null)
+$(PCH_EAZ) : $(SRCFILES)
+ifneq ($(ROTTEN_EAZ),$(CURRENT_EAZ))
+	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_EAZ)
+endif
+
+$(PCH_EAZ).gch : $(PCH_EAZ)
+	$(CXX) $(CXXFLAGS) $(EAZFLAGS) -x c++-header -c $(PCH_EAZ) -o $(PCH_EAZ).gch
+
+$(foreach obj,$(OBJFILES),$(eval $(obj) : | $(dir $(obj))))
+$(foreach obj,$(EAZFILES),$(eval $(obj) : | $(dir $(obj))))
+$(foreach obj,$(DBGFILES),$(eval $(obj) : | $(dir $(obj))))
 
 $(ZIPFILE) : $(CPPFILES) Makefile
 	zip $@ $^
@@ -48,10 +102,10 @@ $(TMPDIR)/%/ : | $(TMPDIR)/
 	mkdir $@
 
 # Phony Rules
-all : $(EXEFILE) $(DBGEXEFILE) $(ZIPFILE)
+all : $(EXEFILE) $(DBGEXEFILE) $(EAZFILES) $(ZIPFILE)
 
 clean :
-	rm -rf .tmp hall halld
+	rm -rf .tmp $(EXEFILE) $(DBGEXEFILE) $(EAZEXEFILE)
 
 test :
 	make -C $(TSTDIR)
