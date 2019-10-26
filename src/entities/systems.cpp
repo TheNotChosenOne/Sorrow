@@ -56,7 +56,7 @@ namespace Entity {
 
     void SystemManager::execute(Core &core, double seconds) {
         for (auto &stage : stages) {
-            {
+            overhead.add([&](){
                 std::lock_guard< std::mutex > lock(tex);
                 for (auto *system : stage) {
                     [this, &core, seconds](BaseSystem *system) {
@@ -68,12 +68,16 @@ namespace Entity {
                     }(system);
                 }
                 processed = 0;
-            }
+            });
+
             std::unique_lock< std::mutex > lock(tex);
             cv.notify_all();
             cv.wait(lock, [&]{ return stage.size() == processed; });
         }
-        core.tracker.finalizeKills(core);
+
+        reaping_time.add([&](){
+            core.tracker.finalizeKills(core);
+        });
     }
 
     void SystemManager::init(Core &core) {
@@ -137,11 +141,21 @@ namespace Entity {
         stats.reserve(systems.size());
 
         double total = 0.0;
-        for (auto &[system, timer] : timers) {
-            std::string text = system->name + ": " + signatureString(system->signature);
-            stats.emplace_back( timer.empty(), text );
-            total += std::get< 0 >(stats[stats.size() - 1]);
+        double stage_durations = 0.0;
+        for (const auto &stage : stages) {
+            double stage_duration = 0.0;
+            for (const auto *system : stage) {
+                auto &timer = timers[system];
+                std::string text = system->name + ": " + signatureString(system->signature);
+                stats.emplace_back( timer.empty(), text );
+                const double system_time = std::get< 0 >(stats[stats.size() - 1]);
+                total += system_time;
+                stage_duration = std::max(stage_duration, system_time);
+            }
+            stage_durations += stage_duration;
         }
+        stats.emplace_back(overhead.empty(), "System Manager");
+        stats.emplace_back(reaping_time.empty(), "Reaping");
 
         std::sort(stats.begin(), stats.end(), [](const Stat &l, const Stat &r) -> bool {
             return std::get< 0 >(l) > std::get< 0 >(r);
