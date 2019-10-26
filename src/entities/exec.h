@@ -1,8 +1,8 @@
 #pragma once
 
 #include "utility/typelist.h"
-#include "tracker.h"
-#include "pack.h"
+#include "entities/tracker.h"
+#include "entities/pack.h"
 #include "utility/timers.h"
 
 #include <utility>
@@ -140,12 +140,12 @@ struct Exec {
 
 template< typename ...Types >
 struct ExecSimple {
-    using Func = std::function< void(ConstLifted< std::vector, Types > &... ) >;
+    using Func = std::function< void(const IDMap &, ConstLifted< std::vector, Types > &...) >;
     static void run(Tracker &tracker, const Func &f) {
         using Pack = Packs< Types... >;
         using Executor = Exec< Pack >;
-        Executor::run(tracker, [&](std::pair< Pack, const IDMap > &packs) {
-            std::apply(f, packs.first.data);
+        Executor::run(tracker, [&](std::pair< Pack, const IDMap > &pack) {
+            std::apply(std::bind_front(f, pack.second), pack.first.data);
         });
     }
 };
