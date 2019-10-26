@@ -1,6 +1,6 @@
-#include "game.h"
+#include "game/game.h"
 
-#include "Box2D.h"
+#include <Box2D.h>
 #include <memory>
 
 #include "game/swarm.h"
@@ -9,6 +9,7 @@
 #include "visual/visuals.h"
 #include "visual/camera.h"
 #include "core/core.h"
+#include "core/geometry.h"
 #include "game/npc.h"
 
 static const size_t WORLD_SIZE = 1000.0;
@@ -29,14 +30,31 @@ void SwarmGame::registration(Core &core) {
     core.systems.addSystem(std::make_unique< SeekerSystem >());
     core.systems.addSystem(std::make_unique< TurretSystem >());
     core.systems.addSystem(std::make_unique< SwarmSystem >());
+    core.systems.addSystem(std::make_unique< HiveTrackerSystem >());
+    core.systems.addSystem(std::make_unique< HiveSpawnerSystem >());
     core.systems.addSystem(std::make_unique< LifetimeSystem >());
     core.systems.addSystem(std::make_unique< CameraSystem >());
 }
 
 void SwarmGame::create(Core &core) {
-    static const size_t groupRoot = 2;
     const size_t bugs = core.options["c"].as< size_t >();
     const Point3 colours[] = { { 0xFF, 0xFF, 0xFF }, { 0xFF, 0, 0 }, { 0, 0xAA, 0 }, { 0, 0, 0xFF } };
+
+    for (size_t i = 0; i < 4; ++i) {
+        core.tracker.createWith(core,
+            Hive{
+                uint8_t(i),
+                colours[i],
+                bugs,
+                0,
+                0.0,
+                10
+            }
+        );
+    }
+
+    /*
+    static const size_t groupRoot = 2;
     for (size_t i = 0; i < bugs; ++i) {
         b2Body *body = randomBall(core, 500.0);
         const double x = body->GetPosition().x;
@@ -61,11 +79,12 @@ void SwarmGame::create(Core &core) {
             fullHealth(10.0),
             Team{ tag },
             Damage{ 0.2 },
-            Turret{ 2.0, rnd_range(0.0, 2.0), 60, 0.4, 3.0, 1, 0.1, true },
-            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.5, 0.1, 0.0, false },
+            Turret{  2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 2.0, 0.25, 0.01, true },
+            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false },
             MouseFollow{}
         );
     }
+    */
 }
 
 void SwarmGame::unregister(Core &) {

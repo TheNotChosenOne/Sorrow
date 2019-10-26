@@ -1,4 +1,4 @@
-#include "gol.h"
+#include "game/gol.h"
 
 #include "entities/tracker.h"
 #include "physics/physics.h"

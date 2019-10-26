@@ -1,6 +1,6 @@
 #pragma once
 
-#include "grid.h"
+#include "game/grid.h"
 #include "entities/data.h"
 
 #include <functional>

@@ -1,4 +1,4 @@
-#include "controller.h"
+#include "game/controller.h"
 
 #include "physics/physics.h"
 #include "entities/exec.h"
@@ -52,6 +52,7 @@ ControllerSystem::~ControllerSystem() { }
 
 void ControllerSystem::init(Core &core) {
     core.tracker.addSource(std::make_unique< ControllerData >());
+    core.tracker.addSource(std::make_unique< TeamData >());
 }
 
 void ControllerSystem::execute(Core &core, double) {

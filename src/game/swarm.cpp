@@ -1,10 +1,12 @@
-#include "swarm.h"
-#include "controller.h"
+#include "game/swarm.h"
+#include "game/controller.h"
+#include "game/npc.h"
 #include "core/core.h"
 #include "physics/physics.h"
 #include "entities/tracker.h"
 #include "entities/exec.h"
 #include "input/input.h"
+#include "visual/visuals.h"
 #include "visual/renderer.h"
 
 #include <map>
@@ -102,7 +104,73 @@ void SwarmSystem::execute(Core &core, double) {
                      pack.first.template get< const SwarmTag >(), pack.second, kill);
     });
     Entity::ExecSimple< PhysBody, const MouseFollow >::run(core.tracker,
-    [&](auto &pbs, auto &) {
+    [&](const auto &, auto &pbs, auto &) {
         follow(core, pbs, kill);
+    });
+}
+
+HiveTrackerSystem::HiveTrackerSystem()
+    : BaseSystem("Hive Tracker", Entity::getSignature< Hive, const SwarmTag >()) {
+}
+
+HiveTrackerSystem::~HiveTrackerSystem() { }
+
+void HiveTrackerSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< HiveData >());
+}
+
+void HiveTrackerSystem::execute(Core &core, double) {
+    std::map< uint16_t, size_t > tag_counts;
+    Entity::ExecSimple< const SwarmTag >::run(core.tracker,
+    [&](const auto &, const auto &tags) {
+        for (const auto &tag : tags) {
+            ++tag_counts[tag.tag];
+        }
+    });
+
+    Entity::ExecSimple< Hive >::run(core.tracker,
+    [&](const auto &, auto &hives) {
+        for (auto &hive : hives) {
+            hive.actual = tag_counts[hive.tag];
+        }
+    });
+}
+
+Entity::EntityID makeSwarmer(Core &core, uint16_t tag, Point3 colour) {
+    b2Body *body = randomBall(core, 500.0);
+    return core.tracker.createWith(core,
+        PhysBody{ body },
+        Colour{ colour },
+        HitData{},
+        SwarmTag{ tag },
+        fullHealth(10.0),
+        Team{ tag },
+        Damage{ 0.2 },
+        Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 2.0, 0.25, 0.01, true },
+        Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false }
+    );
+}
+
+HiveSpawnerSystem::HiveSpawnerSystem()
+    : BaseSystem("Hive Spawner",
+        Entity::getSignature< Hive, SwarmTag, PhysBody, Colour, HitData, Health, Team, Damage, Turret, Turret2 >()) {
+}
+
+HiveSpawnerSystem::~HiveSpawnerSystem() { }
+
+void HiveSpawnerSystem::init(Core &core) {
+    core.tracker.addSource(std::make_unique< HiveData >());
+}
+
+void HiveSpawnerSystem::execute(Core &core, double seconds) {
+    Entity::ExecSimple< Hive >::run(core.tracker,
+    [&](const auto &, auto &hives) {
+        for (auto &hive : hives) {
+            hive.cooldown = std::max(0.0, hive.cooldown - seconds);
+            if (hive.cooldown > 0.0 || hive.actual >= hive.target) { continue; }
+
+            makeSwarmer(core, hive.tag, hive.colour);
+            hive.cooldown = hive.cooldown_length;
+        }
     });
 }

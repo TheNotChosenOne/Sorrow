@@ -1,4 +1,4 @@
-#include "grid.h"
+#include "game/grid.h"
 
 #include "utility/utility.h"
 #include "core/core.h"

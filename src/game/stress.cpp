@@ -10,7 +10,7 @@
 #include <random>
 #include <memory>
 
-#include "stress.h"
+#include "game/stress.h"
 
 GenerationSystem::GenerationSystem()
     : BaseSystem("Generation", Entity::getSignature< Generation, PhysBody, Colour, Lifetime >()) { }
@@ -24,7 +24,7 @@ void GenerationSystem::init(Core &core) {
 void GenerationSystem::execute(Core &core, double seconds) {
     std::vector< size_t > growing;
     Entity::ExecSimple< Generation >::run(core.tracker,
-    [&](auto &generations) {
+    [&](const auto &, auto &generations) {
         for (auto &gen : generations) {
             gen.age += seconds;
             if (gen.age > 1.0 && gen.generation < 10) {
