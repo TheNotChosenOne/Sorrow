@@ -33,11 +33,10 @@
 #include "game/npc.h"
 #include "game/gol.h"
 #include "game/stress.h"
+#include "game/lines.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
-
-#include "Box2D.h"
 
 static const size_t WORLD_SIZE = 1000.0;
 static const size_t STEPS_PER_SECOND = 60;
@@ -149,8 +148,9 @@ static void mainLoop(Core &core, Game &game) {
 
     //createWalls(core);
     //gridWalls(core);
-    makePlayer(core);
-    const auto cameraID = makeCamera(core);
+    //makePlayer(core);
+    //const auto cameraID = makeCamera(core);
+    const Entity::EntityID cameraID = 0;
 
     while (!core.input.shouldQuit()) {
         if (game.update(core)) { break; }
@@ -175,7 +175,7 @@ static void mainLoop(Core &core, Game &game) {
                 logiTick.setTimeScale(timescale);
             }
             const auto time = logicUse.add([&](){
-                core.systems.execute(core, timescale / lps);
+                core.systems.execute(core, 1.0 / lps);
             });
             logic.tick(time);
         }
@@ -184,10 +184,12 @@ static void mainLoop(Core &core, Game &game) {
             ++renderCount;
             const auto time = visualsUse.add([&](){
                 // Draw time kids!
-                const auto &cam = core.tracker.getComponent< Camera >(cameraID);
-                const auto &bod = core.tracker.getComponent< PhysBody >(cameraID);
-                core.radius = cam.radius;
-                core.camera = VPC< Point >(bod.body->GetPosition());
+                if (cameraID > 0) {
+                    const auto &cam = core.tracker.getComponent< Camera >(cameraID);
+                    const auto &bod = core.tracker.getComponent< PhysBody >(cameraID);
+                    core.radius = cam.radius;
+                    core.camera = VPC< Point >(bod.body->GetPosition());
+                }
                 draw(core.tracker, core.renderer, core.camera, core.scale());
                 core.renderer.update();
                 core.renderer.clear();
@@ -214,7 +216,8 @@ static void mainLoop(Core &core, Game &game) {
                 std::cout << "Vis: " << vis;
                 std::cout << " EM: " << entityUse.empty();
                 std::cout << " IO: " << inputUse.empty() << '\n';
-                std::cout << "Systems: " << logicUse.empty() << '\n';
+                std::cout << "Systems: " << logicUse.empty();
+                std::cout << " for " << core.tracker.count() << " entites\n";
                 core.systems.dumpTimes();
                 std::cout << '\n';
             }
@@ -259,10 +262,11 @@ static void run(boost::program_options::variables_map &options) {
 
     b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 10.0, Point(0.0, 0.0) };
+    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0) };
 
-    SwarmGame game = SwarmGame();
+    SwarmGame game;
     //Stresser game;
+    //Liner game;
     game.registration(core);
     core.systems.init(core);
 
