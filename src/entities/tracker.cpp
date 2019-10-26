@@ -1,4 +1,4 @@
-#include "tracker.h"
+#include "entities/tracker.h"
 #include "utility/utility.h"
 
 #include <sstream>
@@ -49,7 +49,6 @@ void Tracker::finalizeKills(Core &core) {
                 sources.at(tid)->remove(ids[i]);
             }
             ids.erase(ids.begin() + i);
-            return;
         }
     }
     doomed.clear();
@@ -71,9 +70,12 @@ void Tracker::killAll(Core &core) {
 }
 
 size_t Tracker::count() const {
-    // TODO: This seems to be wrong?
     std::shared_lock lock(tex);
-    return entities.size();
+    size_t total = 0;
+    for (const auto &group : entities) {
+        total += group.second.size();
+    }
+    return total;
 }
 
 bool Tracker::alive(const EntityID &eid) const {
