@@ -10,17 +10,23 @@ PDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 PCH_RLS=$(TMPDIR)/precompiledrls.h
 PCH_DBG=$(TMPDIR)/precompileddbg.h
 PCH_EAZ=$(TMPDIR)/precompiledeaz.h
+PCH_INCLUDE=-include
+PCH_SUFFIX=
 
 CXX=g++
 INCLUDES=-I$(PDIR).tmp/ -I$(PDIR)../ctti/include -I$(PDIR)src -I/usr/include/Box2D
 CXXFLAGS=-Wall -Wextra --std=c++2a -DCGAL_DISABLE_ROUNDING_MATH_CHECK=ON -DBOOST_ALLOW_DEPRECATED_HEADERS $(INCLUDES)
 ifneq ($(CXX),clang++)
 	CXXFLAGS += -frename-registers
+else
+	PCH_INCLUDE=-include-pch
+	PCH_SUFFIX=.pch
 endif
+
 HARDFLAGS=-march=native -ftree-vectorize -funroll-loops
-EAZFLAGS=-O0 -g -ggdb -include $(PCH_EAZ)
-RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2 -include $(PCH_RLS)
-DBGFLAGS=-Og -ggdb -g -include $(PCH_DBG)
+EAZFLAGS=-O0 -g -ggdb
+RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2
+DBGFLAGS=-Og -ggdb -g
 LINKFLAGS=-lGL -lGLEW -lSDL2 -lboost_program_options -lCGAL -lBox2D -lpthread
 
 CPP_PAT ::= $(SRCDIR)/%.cpp
@@ -38,55 +44,62 @@ DEPFILES ::= $(patsubst $(OBJ_PAT),$(DEP_PAT),$(OBJFILES))
 DEPFILES ::= $(patsubst $(DBG_PAT),$(DEP_PAT),$(DBGFILES))
 DEPFILES ::= $(patsubst $(EAZ_PAT),$(DEP_PAT),$(EAZFILES))
 
-.PHONY: all clean test
+.PHONY: all clean test fast dbg rls
 
-$(EXEFILE) : $(PCH_RLS) $(OBJFILES)
+rls: $(PCH_RLS) $(EXEFILE)
+
+$(EXEFILE) : $(OBJFILES)
 	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) $(LINKFLAGS) $^ -o $@
 
-$(OBJFILES) : $(OBJ_PAT) : $(CPP_PAT) $(PCH_RLS)
-	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) -c -MMD $< -o $@
+$(OBJFILES) : $(OBJ_PAT) : $(CPP_PAT) $(PCH_RLS).pch
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) $(PCH_INCLUDE) $(PCH_RLS)$(PCH_SUFFIX) -c -MMD $< -o $@
 
-$(DBGEXEFILE) : $(PCH_DBG) $(DBGFILES)
+dbg: $(PCH_DBG).pch $(DBGEXEFILE)
+
+$(DBGEXEFILE) : $(DBGFILES)
 	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) $(LINKFLAGS) $^ -o $@
 
-$(DBGFILES) : $(DBG_PAT) : $(CPP_PAT) $(PCH_DBG)
-	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) -c -MMD $< -o $@
+$(DBGFILES) : $(DBG_PAT) : $(CPP_PAT) $(PCH_DBG).pch
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) $(PCH_INCLUDE) $(PCH_DBG)$(PCH_SUFFIX) -c -MMD $< -o $@
 
-$(EAZEXEFILE) : $(PCH_EAZ) $(EAZFILES)
+fast : $(PCH_EAZ).pch $(EAZEXEFILE)
+
+$(EAZEXEFILE): $(EAZFILES)
 	$(CXX) $(CXXFLAGS) $(EAZFLAGS) $(LINKFLAGS) $^ -o $@
 
-$(EAZFILES) : $(EAZ_PAT) : $(CPP_PAT) $(PCH_EAZ)
-	$(CXX) $(CXXFLAGS) $(EAZFLAGS) -c -MMD $< -o $@
+$(EAZFILES) : $(EAZ_PAT) : $(CPP_PAT) $(PCH_EAZ).pch
+	$(CXX) $(CXXFLAGS) $(EAZFLAGS) $(PCH_INCLUDE) $(PCH_EAZ)$(PCH_SUFFIX) -c -MMD $< -o $@
 
-ROTTEN_RLS := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+HEADER_RGX="^\#include <"
+ROTTEN_RLS := $(shell grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq)
 CURRENT_RLS := $(shell cat $(PCH_RLS) 2>/dev/null)
-$(PCH_RLS) : $(SRCFILES)
+$(PCH_RLS) : $(SRCFILES) $(TMPDIR)/
 ifneq ($(ROTTEN_RLS),$(CURRENT_RLS))
-	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_RLS)
+	grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq >$(PCH_RLS)
 endif
 
-$(PCH_RLS).gch : $(PCH_RLS)
-	$(CXX) $(CXXFLAGS) $(RLSFLAGS) -x c++-header -c $(PCH_RLS) -o $(PCH_RLS).gch
+$(PCH_RLS).pch : $(PCH_RLS)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(RLSFLAGS) -x c++-header -c $(PCH_RLS) -o $(PCH_RLS).pch
 
-ROTTEN_DBG := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+ROTTEN_DBG := $(shell grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq)
 CURRENT_DBG := $(shell cat $(PCH_DBG) 2>/dev/null)
-$(PCH_DBG) : $(SRCFILES)
+$(PCH_DBG) : $(SRCFILES) $(TMPDIR)/
 ifneq ($(ROTTEN_DBG),$(CURRENT_DBG))
-	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_DBG)
+	grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq >$(PCH_DBG)
 endif
 
-$(PCH_DBG).gch : $(PCH_DBG)
-	$(CXX) $(CXXFLAGS) $(DBGFLAGS) -x c++-header -c $(PCH_DBG) -o $(PCH_DBG).gch
+$(PCH_DBG).pch : $(PCH_DBG)
+	$(CXX) $(CXXFLAGS) $(HARDFLAGS) $(DBGFLAGS) -x c++-header -c $(PCH_DBG) -o $(PCH_DBG).pch
 
-ROTTEN_EAZ := $(shell grep -h "include <" $(CPPFILES) | sort | uniq)
+ROTTEN_EAZ := $(shell grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq)
 CURRENT_EAZ := $(shell cat $(PCH_EAZ) 2>/dev/null)
-$(PCH_EAZ) : $(SRCFILES)
+$(PCH_EAZ) : $(SRCFILES) $(TMPDIR)/
 ifneq ($(ROTTEN_EAZ),$(CURRENT_EAZ))
-	grep -h "include <" $(CPPFILES) | sort | uniq >$(PCH_EAZ)
+	grep -h $(HEADER_RGX) $(CPPFILES) | sort | uniq >$(PCH_EAZ)
 endif
 
-$(PCH_EAZ).gch : $(PCH_EAZ)
-	$(CXX) $(CXXFLAGS) $(EAZFLAGS) -x c++-header -c $(PCH_EAZ) -o $(PCH_EAZ).gch
+$(PCH_EAZ).pch : $(PCH_EAZ)
+	$(CXX) $(CXXFLAGS) $(EAZFLAGS) -x c++-header -c $(PCH_EAZ) -o $(PCH_EAZ).pch
 
 $(foreach obj,$(OBJFILES),$(eval $(obj) : | $(dir $(obj))))
 $(foreach obj,$(EAZFILES),$(eval $(obj) : | $(dir $(obj))))
