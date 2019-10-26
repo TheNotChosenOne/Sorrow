@@ -1,4 +1,4 @@
-#include "npc.h"
+#include "game/npc.h"
 
 #include "core/core.h"
 #include "core/geometry.h"
@@ -107,25 +107,35 @@ void SeekerSystem::init(Core &core) {
     core.tracker.addSource(std::make_unique< SeekerData >());
 }
 
-void SeekerSystem::execute(Core &core, double) {
+void SeekerSystem::execute(Core &core, double time_delta) {
+    const double force = 10000.0;
+    const double tick_velo = force / time_delta;
+
     Entity::ExecSimple< PhysBody, const Seeker >::run(core.tracker,
-    [&](auto &bodies, const auto &seekers) {
+    [&](const auto &ids, auto &bodies, const auto &seekers) {
         for (size_t i = 0; i < seekers.size(); ++i) {
             Entity::EntityID tid = seekers[i].target;
             if (!core.tracker.alive(tid)) {
+                core.tracker.killEntity(core, ids[i]);
                 continue;
             }
             const auto tbody = core.tracker.optComponent< PhysBody >(tid);
             if (!tbody) {
                 continue;
             }
-            const b2Body *target = tbody->get().body;
-            const auto target_at = VPC< Vec >(target->GetPosition());
-
             const auto m_body = bodies[i].body;
-            const auto vec_to = target_at - VPC< Vec >(m_body->GetPosition());
+            const b2Body *target = tbody->get().body;
 
-            const auto go = 1000.0 * normalized(vec_to);
+            const auto target_at = VPC< Vec >(target->GetPosition());
+            const auto me_at = VPC< Vec >(m_body->GetPosition());
+            const double estimate_intercept_t = (target_at - me_at).squared_length() / tick_velo;
+
+            const auto target_velo = VPC< Vec >(target->GetLinearVelocity());
+            const auto target_predicted = target_at + target_velo * estimate_intercept_t * 2.0;
+
+            const auto vec_to = target_predicted - me_at;
+
+            const auto go = force * normalized(vec_to);
             m_body->ApplyForceToCenter(VPC< b2Vec2 >(go), true);
         }
     });
@@ -229,9 +239,15 @@ void runGunners(
             const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
             bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
 
+            auto bullet_colour = Colour{ { 0xFF, 0xFF, 0x99 } };
+            const auto turret_colour = core.tracker.optComponent< Colour >(armed.second[turret_index]);
+            if (turret_colour) {
+                bullet_colour = *turret_colour;
+            }
+
             const auto id = core.tracker.createWith(core,
                 PhysBody{ bul_body },
-                Colour{ { 0xFF, 0, 0 } },
+                bullet_colour,
                 Team({ team }),
                 Damage{ turret.dmg },
                 Lifetime{ turret.lifetime }
