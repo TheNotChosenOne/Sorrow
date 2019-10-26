@@ -12,7 +12,7 @@
 #include <map>
 #include <set>
 
-#include "io.h"
+#include "utility/io.h"
 
 template< typename T >
 constexpr T infty() {
@@ -48,7 +48,7 @@ double rnd_range(const double l, const double h);
     _rassert(static_cast< bool >(expr), #expr, __FILE__, __FUNCTION__, __LINE__, \
             # __VA_ARGS__, '\x00', ## __VA_ARGS__);
 template< typename... Args >
-#ifdef __GNUC__
+#if __clang__ != 1
 void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line, Args &&...args) {
 #else
 void _rassert(bool pass, const char *expr, const char *file, const char *func, size_t line, Args &&...) {
@@ -57,7 +57,7 @@ void _rassert(bool pass, const char *expr, const char *file, const char *func, s
     std::cerr << "At: " << file << " : " << func << " : " << line << '\n';
     std::cerr << "Assert failed: " << expr << std::endl;
     std::stringstream info;
-#ifdef __GNUC__
+#if __clang__ != 1
     ((info << args << ", "), ...);
 #endif
     const std::string infos = info.str();

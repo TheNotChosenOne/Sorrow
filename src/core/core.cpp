@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core/core.h"
 
 #include "input/input.h"
 #include "visual/renderer.h"

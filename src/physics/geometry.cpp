@@ -1,4 +1,4 @@
-#include "geometry.h"
+#include "physics/geometry.h"
 
 bool collide(const Rect &a, const Rect &b) {
     for (size_t i = 0;  i < 2; ++i) {

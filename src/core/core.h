@@ -8,7 +8,7 @@
 
 #include <Box2D.h>
 
-#include "geometry.h"
+#include "core/geometry.h"
 
 class Input;
 namespace Entity { class Tracker; class SystemManager; }

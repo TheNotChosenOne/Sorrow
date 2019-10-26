@@ -1,4 +1,4 @@
-#include "signature.h"
+#include "entities/signature.h"
 
 #include "utility/io.h"
 #include "core/core.h"
@@ -19,7 +19,7 @@ std::ostream &operator<<(std::ostream &os, const Entity::OrderedSignature &sig) 
 
 namespace Entity {
 
-bool typesSubset(const Signature &super, const Signature &sub) {
+bool typesSubset(const Entity::Signature &super, const Entity::Signature &sub) {
     if (sub.size() > super.size()) { return false; }
     for (const auto &s : sub) {
         if (!super.count(s)) { return false; }
@@ -27,13 +27,13 @@ bool typesSubset(const Signature &super, const Signature &sub) {
     return true;
 }
 
-std::string signatureString(const Signature &sig) {
+std::string signatureString(const Entity::Signature &sig) {
     std::stringstream ss;
     ss << sig;
     return ss.str();
 }
 
-std::string signatureString(const OrderedSignature &sig) {
+std::string signatureString(const Entity::OrderedSignature &sig) {
     std::stringstream ss;
     ss << sig;
     return ss.str();

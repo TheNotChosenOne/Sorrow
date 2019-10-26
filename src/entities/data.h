@@ -7,7 +7,7 @@
 #include <typeindex>
 
 #include "utility/utility.h"
-#include "signature.h"
+#include "entities/signature.h"
 
 struct Core;
 
