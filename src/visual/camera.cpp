@@ -1,4 +1,4 @@
-#include "camera.h"
+#include "visual/camera.h"
 
 #include "visual/renderer.h"
 #include "physics/physics.h"
@@ -41,7 +41,7 @@ void CameraSystem::execute(Core &core, double) {
         central.x /= 2.0;
         central.y /= 2.0;
         double radius = std::max(toprite.x - botleft.x, toprite.y - botleft.y) / 2.0;
-        radius = std::max(radius, 10.0);
+        radius = std::max(radius * 1.2, 10.0);
 
         const double lerper = 0.2;
         central = VPC< b2Vec2 >(lerp(VPC< Vec >(core.camera), VPC< Vec >(central), lerper));

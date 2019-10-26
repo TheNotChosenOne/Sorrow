@@ -1,8 +1,7 @@
-#include "rendererSDL.h"
+#include "visual/rendererSDL.h"
 
 #include <functional>
 #include <exception>
-#include <iostream>
 #include <sstream>
 #include <vector>
 #include <cmath>
@@ -177,18 +176,51 @@ static GLuint addRectProgram() {
     return addGLProgram(vertShaderSrc, fragShaderSrc);
 }
 
+static GLuint addLineProgram() {
+    static const GLchar *vertShaderSrc[] = {
+        "#version 450 core\n"
+        "layout (location = 0) in vec3 off;"
+        "layout (location = 1) in vec4 col;"
+        "layout (location = 2) in vec2 pos;"
+        "layout (location = 3) in vec2 rad;"
+        "out vec4 fcol;"
+        "void main() {"
+        "   fcol = col;"
+        "   gl_Position = vec4("
+        "       off[0] + pos[0] * rad[0],"
+        "       off[1] + pos[1] * rad[1],"
+        "       off[2], 1);"
+        "}"
+    };
+    static const GLchar *fragShaderSrc[] = {
+        "#version 450 core\n"
+        "in vec4 fcol;"
+        "out vec4 color;"
+        "void main() {"
+        "   color = fcol;"
+        "}"
+    };
+    return addGLProgram(vertShaderSrc, fragShaderSrc);
+}
+
 };
 
 void RendererSDL::drawPoint(Point pos, Point3 col, double alpha, double depth) {
-    commands[0].push_back({ col, pos, { 0, 0 }, alpha, depth });
+    commands[POINT].push_back({ col, pos, { 0, 0 }, alpha, depth });
 }
 
 void RendererSDL::drawBox(Point pos, Vec rad, Point3 col, double alpha, double depth) {
-    commands[2].push_back({ col, pos, rad, alpha, depth });
+    commands[BOX].push_back({ col, pos, rad, alpha, depth });
 }
 
 void RendererSDL::drawCircle(Point pos, Vec rad, Point3 col, double alpha, double depth) {
-    commands[1].push_back({ col, pos, rad, alpha, depth });
+    commands[CIRCLE].push_back({ col, pos, rad, alpha, depth });
+}
+
+void RendererSDL::drawLine(Point pos1, Point pos2, Point3 col, double alpha, double depth) {
+    const auto mid = Point((pos1[0] + pos2[0]) / 2.0, (pos1[1] + pos2[1]) / 2.0);
+    const auto rad = Vec(pos2[0] - pos1[0], pos2[1] - pos1[1]) / 2.0;
+    commands[LINE].push_back({ col, mid, VPC< Vec >(rad), alpha, depth });
 }
 
 RendererSDL::RendererSDL(size_t width, size_t height)
@@ -222,10 +254,11 @@ RendererSDL::RendererSDL(size_t width, size_t height)
     glEnable(GL_DEPTH_TEST); GL_ERROR
     glDepthFunc(GL_GEQUAL); GL_ERROR
 
-    programs[0] = addPointProgram();
-    programs[1] = addCircProgram();
-    programs[2] = addRectProgram();
-    hsdLoc = glGetUniformLocation(programs[1], "halfScreenDim"); GL_ERROR
+    programs[POINT] = addPointProgram();
+    programs[CIRCLE] = addCircProgram();
+    programs[BOX] = addRectProgram();
+    programs[LINE] = addLineProgram();
+    hsdLoc = glGetUniformLocation(programs[CIRCLE], "halfScreenDim"); GL_ERROR
 
     GLfloat verts[] = {
         -1.0f, -1.0f,
@@ -238,6 +271,14 @@ RendererSDL::RendererSDL(size_t width, size_t height)
     glGenBuffers(1, &vbo); GL_ERROR
     glBindBuffer(GL_ARRAY_BUFFER, vbo); GL_ERROR
     glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), verts, GL_STATIC_DRAW); GL_ERROR
+
+    GLfloat line_verts[] = {
+        -1.0f, -1.0f,
+         1.0f,  1.0f,
+    };
+    glGenBuffers(1, &line_vbo); GL_ERROR
+    glBindBuffer(GL_ARRAY_BUFFER, line_vbo); GL_ERROR
+    glBufferData(GL_ARRAY_BUFFER, 2 * 2 * sizeof(GLfloat), line_verts, GL_STATIC_DRAW); GL_ERROR
 
     glGenBuffers(1, &ibo); GL_ERROR
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo); GL_ERROR
@@ -290,9 +331,9 @@ void RendererSDL::update() {
 
     GL_ERROR
 
-    for (size_t i = 0; i < 3; ++i) {
-        glUseProgram(programs[i]);
-        if (1 == i) { glUniform2f(hsdLoc, width / 2.0, height / 2.0); }
+    for (size_t primitive = 0; primitive < programs.size(); ++primitive) {
+        glUseProgram(programs[primitive]);
+        if (CIRCLE == primitive) { glUniform2f(hsdLoc, width / 2.0, height / 2.0); }
 
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
@@ -302,9 +343,13 @@ void RendererSDL::update() {
         glBindBuffer(GL_ARRAY_BUFFER, colBuffer);
         glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
 
-        if (i > 0) {
-            glEnableVertexAttribArray(2);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        if (primitive > POINT) {
+                glEnableVertexAttribArray(2);
+            if (primitive == LINE) {
+                glBindBuffer(GL_ARRAY_BUFFER, line_vbo);
+            } else {
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            }
             glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
@@ -315,17 +360,17 @@ void RendererSDL::update() {
 
         glVertexAttribDivisor(0, 1);
         glVertexAttribDivisor(1, 1);
-        if (i > 0) {
+        if (primitive > POINT) {
             glVertexAttribDivisor(2, 0);
             glVertexAttribDivisor(3, 1);
         }
 
         size_t start = 0;
-        while (start < commands[i].size()) {
+        while (start < commands[primitive].size()) {
             size_t count = 0;
-            const size_t until = std::min(commands[i].size(), start + MAX_INSTANCES);
+            const size_t until = std::min(commands[primitive].size(), start + MAX_INSTANCES);
             for (size_t j = start; j < until; ++j) {
-                const auto &dc = commands[i][j];
+                const auto &dc = commands[primitive][j];
                 const Point p = scaler.transform(dc.pos);
                 const Vec r = scaler.transform(dc.rad);
 
@@ -353,20 +398,29 @@ void RendererSDL::update() {
             glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 4 * sizeof(GLubyte), nullptr, GL_STREAM_DRAW);
             glBufferSubData(GL_ARRAY_BUFFER, 0, count * 4 * sizeof(GLubyte), colData);
 
-            if (i > 0) {
+            if (primitive > POINT) {
                 glBindBuffer(GL_ARRAY_BUFFER, radBuffer);
                 glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * 2 * sizeof(GLfloat), nullptr, GL_STREAM_DRAW);
                 glBufferSubData(GL_ARRAY_BUFFER, 0, count * 2 * sizeof(GLfloat), radData);
             }
 
-            if (0 == i) {
+            switch (primitive) {
+            case POINT: {
                 glDrawArraysInstanced(GL_POINTS, 0, 1, count);
-            } else {
+                break;
+            }
+            case LINE: {
+                glDrawArraysInstanced(GL_LINES, 0, 2, count);
+                break;
+            }
+            default: {
                 glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, count);
+                break;
+            }
             }
         }
 
-        if (i > 0) {
+        if (primitive > POINT) {
             glDisableVertexAttribArray(3);
             glDisableVertexAttribArray(2);
         }

@@ -1,4 +1,4 @@
-#include "renderer.h"
+#include "visual/renderer.h"
 
 Renderer::Renderer(size_t width, size_t height): width(width), height(height) {
 }
@@ -27,4 +27,7 @@ void Renderer::drawBox(Point, Vec, Point3, double, double) {
 }
 
 void Renderer::drawCircle(Point, Vec, Point3, double, double) {
+}
+
+void Renderer::drawLine(Point, Point, Point3, double, double) {
 }

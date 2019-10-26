@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../entities/data.h"
-#include "../physics/geometry.h"
+#include "entities/data.h"
+#include "physics/geometry.h"
 
 struct Colour { Point3 colour; };
 DeclareDataType(Colour);

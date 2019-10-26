@@ -1,8 +1,9 @@
-#include "visuals.h"
+#include "visual/visuals.h"
 #include "entities/tracker.h"
 #include "entities/exec.h"
-#include "renderer.h"
+#include "visual/renderer.h"
 #include "physics/physics.h"
+#include "game/npc.h"
 
 #include <Box2D.h>
 
@@ -18,16 +19,14 @@ struct MinVis {
 
 }
 
-using DrawPack = Entity::Packs< const PhysBody, const Colour >;
 void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, const double scale) {
-    Entity::Exec< DrawPack >::run(tracker, [&](auto &p) {
-        const auto &pbs = p.first.template get< const PhysBody >();
-        const auto &colours = p.first.template get< const Colour >();
+    const auto shift = VPC< b2Vec2 >(position);
+    Entity::ExecSimple< const PhysBody, const Colour >::run(tracker,
+    [&](const auto &, const auto &pbs, const auto &colours) {
         std::array< std::vector< MinVis >, 2 > arr;
         std::array< size_t, 2 > counts = { 0, 0 };
         for (auto &v : arr) { v.resize(pbs.size()); }
 
-        const auto shift = VPC< b2Vec2 >(position);
         for (size_t i = 0; i < pbs.size(); ++i) {
             b2Body *body = pbs[i].body;
             const b2Fixture *fixes = body->GetFixtureList();
@@ -52,4 +51,18 @@ void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, co
             renderer.drawBox(mv.p, mv.r, mv.c);
         }
     });
+
+    /*
+    Entity::ExecSimple< const PhysBody, const Colour, const Seeker >::run(tracker,
+    [&](const auto &, const auto &bodies, const auto &colours, const auto &seekers) {
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            const auto tid = seekers[i].target;
+            const auto optBody = tracker.optComponent< PhysBody >(tid);
+            if (!optBody) { continue; }
+            const auto src = scale * (bodies[i].body->GetPosition() - shift);
+            const auto dst = scale * (optBody->get().body->GetPosition() - shift);
+            renderer.drawLine(VPC< Point >(src), VPC< Point >(dst), colours[i].colour);
+        }
+    });
+    */
 }
