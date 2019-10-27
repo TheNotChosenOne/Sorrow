@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <tuple>
+#include <coz.h>
 
 namespace Entity {
     BaseSystem::BaseSystem(const std::string &name, const Signature &sig): name(name), signature(sig) { }
@@ -23,7 +24,9 @@ namespace Entity {
                 func = work_queue.front();
                 work_queue.pop();
             }
+            COZ_BEGIN("SYSTEM");
             func();
+            COZ_END("SYSTEM");
             {
                 std::lock_guard< std::mutex > lock(tex);
                 processed += 1;
