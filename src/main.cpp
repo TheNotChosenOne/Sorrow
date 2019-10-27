@@ -112,7 +112,7 @@ Entity::EntityID makeCamera(Core &core) {
 
 }
 
-static void mainLoop(Core &core, Game &game) {
+static size_t mainLoop(Core &core, Game &game) {
     AccumulateTimer entityUse;
     Entity::k_entity_timer = &entityUse;
 
@@ -138,6 +138,7 @@ static void mainLoop(Core &core, Game &game) {
 
     size_t renderCount = 0;
     size_t logicCount = 0;
+    size_t logic_steps = 0;
 
     std::chrono::duration< double > busyTime(0);
     auto start = std::chrono::high_resolution_clock::now();
@@ -178,6 +179,7 @@ static void mainLoop(Core &core, Game &game) {
                 core.systems.execute(core, 1.0 / lps);
             });
             logic.tick(time);
+            ++logic_steps;
         }
 
         if (drawTick.tick(duration)) {
@@ -227,7 +229,7 @@ static void mainLoop(Core &core, Game &game) {
         }
 
         if (killer.tick(duration)) {
-            return;
+            return logic_steps;
         }
 
         busyTime = std::chrono::high_resolution_clock::now() - busyStart;
@@ -238,6 +240,7 @@ static void mainLoop(Core &core, Game &game) {
         std::this_thread::sleep_for(std::chrono::duration< double >(minSleep));
     }
     }
+    return logic_steps;
 }
 
 static void run(boost::program_options::variables_map &options) {
@@ -270,7 +273,8 @@ static void run(boost::program_options::variables_map &options) {
     game.registration(core);
     core.systems.init(core);
 
-    mainLoop(core, game);
+    const auto steps = mainLoop(core, game);
+    std::cout << "Ran " << steps << " logical steps." << std::endl;
 
     game.cleanup(core);
 }
