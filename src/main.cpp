@@ -12,6 +12,7 @@
 #include <chrono>
 #include <random>
 #include <ratio>
+#include <coz.h>
 
 #include <valgrind/valgrind.h>
 
@@ -163,6 +164,7 @@ static size_t mainLoop(Core &core, Game &game) {
 
         const auto busyStart = std::chrono::high_resolution_clock::now();
         if (logiTick.tick(duration)) {
+            COZ_BEGIN("LOGIC");
             ++logicCount;
             // Update input
             inputUse.add([&](){ core.input.update(); });
@@ -180,6 +182,7 @@ static size_t mainLoop(Core &core, Game &game) {
             });
             logic.tick(time);
             ++logic_steps;
+            COZ_END("LOGIC");
         }
 
         if (drawTick.tick(duration)) {
@@ -272,7 +275,9 @@ static void run(boost::program_options::variables_map &options) {
     //Liner game;
     game.registration(core);
     core.systems.init(core);
-
+    if (core.options.count("verbose")) {
+        std::cout << "Using " << core.tracker.sourceCount() << " sources" << std::endl;
+    }
     const auto steps = mainLoop(core, game);
     std::cout << "Ran " << steps << " logical steps." << std::endl;
 
