@@ -77,11 +77,11 @@ template< typename... >
 struct SetSignature;
 template< typename T, typename ...Rest >
 struct SetSignature< T, Rest... > {
-    static void set(Signature &sig) {
+    static inline void set(Signature &sig) {
         sig.insert(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
     }
-    static void set(OrderedSignature &sig) {
+    static inline void set(OrderedSignature &sig) {
         sig.push_back(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
     }
