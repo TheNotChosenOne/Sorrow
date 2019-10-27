@@ -13,6 +13,8 @@
 #include <iostream>
 #include <functional>
 #include <shared_mutex>
+#include <unordered_set>
+#include <unordered_map>
 
 #include "utility/utility.h"
 #include "utility/templates.h"
@@ -30,11 +32,11 @@ class Tracker {
         typedef std::unique_ptr< BaseData > SourcePtr;
 
         std::map< TypeID, SourcePtr > sources;
-        std::map< Signature, EntityVec > entities;
+        std::unordered_map< Signature, EntityVec > entities;
 
     private:
         mutable std::shared_mutex tex;
-        std::set< EntityID > doomed;
+        std::unordered_set< EntityID > doomed;
         EntityID nextID = 1;
 
         template< typename T >
@@ -62,6 +64,8 @@ class Tracker {
 
         void withWriteLock(const std::function< void() > &func);
 
+        size_t sourceCount() const;
+
         template< typename T >
         SourcePtr &getSourcePtr() {
             const auto loc = sources.find(DataTypeID< T >());
@@ -70,7 +74,7 @@ class Tracker {
         }
 
         template< typename T >
-        Data< T > &getSource() {
+        Data< T > &getSource() { // TODO: Speedup
             const auto loc = sources.find(DataTypeID< T >());
             rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
             return static_cast< Data< T > & >(*loc->second);
@@ -93,9 +97,7 @@ class Tracker {
         template< typename T >
         std::optional< std::reference_wrapper< T > > optComponent(const EntityID &eid) {
             std::shared_lock lock(tex);
-            auto &source = getSource< T >();
-            if (!source.has(eid)) { return std::nullopt; }
-            return std::optional< std::reference_wrapper< T > >{source.forID(eid)};
+            return getSource< T >().optForID(eid);
         }
 
         template< typename T >

@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <optional>
 #include <iostream>
 #include <typeindex>
 
@@ -49,7 +50,7 @@ class Data: public BaseData {
             return idToLow.find(id) != idToLow.end();
         }
 
-        T &forID(uint64_t id) {
+        T &forID(const uint64_t id) {
             const auto id_loc = idToLow.find(id);
             rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
             const size_t index = id_loc->second;
@@ -57,12 +58,32 @@ class Data: public BaseData {
             return data.at(index);
         }
 
-        const T &forID(uint64_t id) const {
+        const T &forID(const uint64_t id) const {
             const auto id_loc = idToLow.find(id);
             rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
             const size_t index = id_loc->second;
             rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
             return data.at(index);
+        }
+
+        std::optional< std::reference_wrapper< T > > optForID(const uint64_t id) {
+            const auto id_loc = idToLow.find(id);
+            if (idToLow.end() == id_loc) {
+                return std::nullopt;
+            }
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return std::optional< std::reference_wrapper< T > >{data.at(index)};
+        }
+
+        std::optional< std::reference_wrapper< const T > > optForID(const uint64_t id) const {
+            const auto id_loc = idToLow.find(id);
+            if (idToLow.end() == id_loc) {
+                return std::nullopt;
+            }
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return std::optional< std::reference_wrapper< const T > >{data.at(index)};
         }
 
         void add(const uint64_t id) override {
