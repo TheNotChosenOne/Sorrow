@@ -53,33 +53,38 @@ namespace Entity {
     }
 
     void SystemManager::addSystem(std::unique_ptr< BaseSystem > system) {
-        timers[system.get()] = AccumulateTimer();
+        system_timers[system.get()] = AccumulateTimer();
         systems.push_back(std::move(system));
     }
 
     void SystemManager::execute(Core &core, double seconds) {
-        for (auto &stage : stages) {
-            overhead.add([&](){
-                std::lock_guard< std::mutex > lock(tex);
-                for (auto *system : stage) {
-                    [this, &core, seconds](BaseSystem *system) {
-                        work_queue.push([this, &core, seconds, system]() {
-                            timers[system].add([&](){
-                                system->execute(core, seconds);
+        overhead.add([&](){
+            for (size_t i = 0; i < stages.size(); ++i) {
+                auto &stage = stages[i];
+                {
+                    std::lock_guard< std::mutex > lock(tex);
+                    for (auto *system : stage) {
+                        [this, &core, seconds](BaseSystem *system) {
+                            work_queue.push([this, &core, seconds, system]() {
+                                system_timers[system].add([&](){
+                                    system->execute(core, seconds);
+                                });
                             });
-                        });
-                    }(system);
+                        }(system);
+                    }
+                    processed = 0;
                 }
-                processed = 0;
+
+                std::unique_lock< std::mutex > lock(tex);
+                stage_timers[i].add([&](){
+                    cv.notify_all();
+                    cv.wait(lock, [&]{ return stage.size() == processed; });
+                });
+            }
+
+            reaping_time.add([&](){
+                core.tracker.finalizeKills(core);
             });
-
-            std::unique_lock< std::mutex > lock(tex);
-            cv.notify_all();
-            cv.wait(lock, [&]{ return stage.size() == processed; });
-        }
-
-        reaping_time.add([&](){
-            core.tracker.finalizeKills(core);
         });
     }
 
@@ -93,6 +98,7 @@ namespace Entity {
         while (!pile.empty()) {
             std::vector< BaseSystem* > notfit;
             stages.resize(stages.size() + 1);
+            stage_timers.resize(stages.size());
             std::set< TypeID > types;
 
             for (size_t i = 0; i < pile.size(); ++i) {
@@ -142,33 +148,62 @@ namespace Entity {
 
     void SystemManager::dumpTimes() {
         typedef std::tuple< double, std::string > Stat;
-        std::vector< Stat > stats;
-        stats.reserve(systems.size());
+        typedef std::vector< Stat > Stats;
+        typedef std::tuple< double, std::string, Stats > StatGroup;
+        std::vector< StatGroup > statgroups;
+        statgroups.reserve(systems.size() + 1);
 
-        double total = 0.0;
-        double stage_durations = 0.0;
-        for (const auto &stage : stages) {
-            double stage_duration = 0.0;
+        double stage_times = 0.0;
+        for (size_t i = 0; i < stages.size(); ++i) {
+            Stats stats;
+            const auto &stage = stages[i];
             for (const auto *system : stage) {
-                auto &timer = timers[system];
+                auto &timer = system_timers[system];
                 std::string text = system->name + ": " + signatureString(system->signature);
                 stats.emplace_back( timer.empty(), text );
-                const double system_time = std::get< 0 >(stats[stats.size() - 1]);
-                total += system_time;
-                stage_duration = std::max(stage_duration, system_time);
             }
-            stage_durations += stage_duration;
-        }
-        stats.emplace_back(overhead.empty(), "System Manager");
-        stats.emplace_back(reaping_time.empty(), "Reaping");
+            const double stage_time = stage_timers[i].empty();
+            stage_times += stage_time;
 
-        std::sort(stats.begin(), stats.end(), [](const Stat &l, const Stat &r) -> bool {
+            std::sort(stats.begin(), stats.end(), [](const Stat &l, const Stat &r) -> bool {
+                return std::get< 0 >(l) > std::get< 0 >(r);
+            });
+
+            statgroups.emplace_back(stage_time, "Stage " + std::to_string(i + 1), stats);
+        }
+
+        {
+            Stats stats;
+            const double reaping = reaping_time.empty();
+            stats.emplace_back(reaping, "Reaping");
+
+            double overhead_time = overhead.empty();
+            overhead_time -= reaping;
+            overhead_time -= stage_times;
+            stats.emplace_back(overhead_time, "System Manager");
+
+            double admin = 0.0;
+            for (const auto &stat : stats) {
+                admin += std::get< 0 >(stat);
+            }
+
+            std::sort(stats.begin(), stats.end(), [](const Stat &l, const Stat &r) -> bool {
+                return std::get< 0 >(l) > std::get< 0 >(r);
+            });
+            statgroups.emplace_back(admin, "Admininstration", stats);
+        }
+
+        std::sort(statgroups.begin(), statgroups.end(), [](const StatGroup &l, const StatGroup &r) -> bool {
             return std::get< 0 >(l) > std::get< 0 >(r);
         });
 
-        std::cout << '\t' << total << " in " << stages.size() << " stages\n";
-        for (const auto &stat : stats) {
-            std::cout << '\t' << std::get< 0 >(stat) << " " << std::get< 1 >(stat) << '\n';
+        for (const auto &group : statgroups) {
+            std::cout << "\t" << std::get< 1 >(group) << ": " << std::get< 0 >(group) << '\n';
+            for (const auto &stat : std::get< 2 >(group)) {
+                std::cout << "\t\t" << std::get< 0 >(stat) << " " << std::get< 1 >(stat) << '\n';
+            }
         }
+
+        std::cout.flush();
     }
 }  // namespace Entity

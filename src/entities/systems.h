@@ -38,7 +38,8 @@ public:
 class SystemManager {
     AccumulateTimer reaping_time;
     AccumulateTimer overhead;
-    std::map< const BaseSystem*, AccumulateTimer > timers;
+    std::map< const BaseSystem*, AccumulateTimer > system_timers;
+    std::vector< AccumulateTimer > stage_timers;
     std::vector< std::unique_ptr< BaseSystem > > systems;
     std::vector< std::vector< BaseSystem* > > stages;
 
