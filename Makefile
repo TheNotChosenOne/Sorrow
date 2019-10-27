@@ -27,7 +27,7 @@ HARDFLAGS=-march=native -ftree-vectorize -funroll-loops
 EAZFLAGS=-O0 -g -ggdb
 RLSFLAGS=-Ofast -g -funsafe-math-optimizations -flto -fno-signed-zeros -fno-trapping-math -ffast-math -msse2
 DBGFLAGS=-Og -ggdb -g
-LINKFLAGS=-lGL -lGLEW -lSDL2 -lboost_program_options -lCGAL -lBox2D -lpthread
+LINKFLAGS=-lGL -lGLEW -lSDL2 -lboost_program_options -lCGAL -lBox2D -lpthread -ldl
 
 CPP_PAT ::= $(SRCDIR)/%.cpp
 OBJ_PAT ::= $(TMPDIR)/%-rls.o
