@@ -97,6 +97,10 @@ bool Tracker::aliveWithLock(const EntityID &eid) const {
     return false;
 }
 
+size_t Tracker::sourceCount() const {
+    return sources.size();
+}
+
 Signature Tracker::getSignature(const EntityID &eid) const {
     std::shared_lock lock(tex);
     for (const auto &pair : entities) {
