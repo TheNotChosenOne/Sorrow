@@ -114,9 +114,11 @@ namespace Entity {
             }
 
             pile = std::move(notfit);
-            std::cout << "Stage " << stages.size() << ":\n";
-            for (auto sys : stages[stages.size() - 1]) {
-                std::cout << '\t' << sys->name << ": " << signatureString(sys->signature) << '\n';
+            if (core.options.count("verbose")) {
+                std::cout << "Stage " << stages.size() << ":\n";
+                for (auto sys : stages[stages.size() - 1]) {
+                    std::cout << '\t' << sys->name << ": " << signatureString(sys->signature) << '\n';
+                }
             }
         }
 
