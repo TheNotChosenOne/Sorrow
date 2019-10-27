@@ -20,11 +20,7 @@ std::ostream &operator<<(std::ostream &os, const Entity::OrderedSignature &sig) 
 namespace Entity {
 
 bool typesSubset(const Entity::Signature &super, const Entity::Signature &sub) {
-    if (sub.size() > super.size()) { return false; }
-    for (const auto &s : sub) {
-        if (!super.count(s)) { return false; }
-    }
-    return true;
+    return std::includes(super.begin(), super.end(), sub.begin(), sub.end(), ::operator<);
 }
 
 std::string signatureString(const Entity::Signature &sig) {
