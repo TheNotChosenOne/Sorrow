@@ -32,7 +32,6 @@
 #include "game/grid.h"
 #include "game/game.h"
 #include "game/npc.h"
-#include "game/gol.h"
 #include "game/stress.h"
 #include "game/lines.h"
 
