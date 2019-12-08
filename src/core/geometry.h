@@ -22,3 +22,11 @@ template< typename T >
 T VPC(const b2Vec2 v) {
     return T(v.x, v.y);
 }
+
+Vec normalized(const Vec v);
+b2Vec2 normalized(const b2Vec2 v);
+template< typename T >
+Vec normalized(const T v) {
+    Vec n(v.x(), v.y());
+    return normalized(n);
+}

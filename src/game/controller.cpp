@@ -1,6 +1,7 @@
 #include "game/controller.h"
 
 #include "physics/physics.h"
+#include "physics/geometry.h"
 #include "entities/exec.h"
 #include "core/core.h"
 #include "input/input.h"
@@ -33,7 +34,7 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
         const auto moused = core.input.mouseToWorld(core);
         const auto dir = normalized(moused - VPC< Point >(centre));
-        b2Body *body = makeBall(core, VPC< Point >(centre) + dir, 0.5);
+        b2Body *body = makeCircle(core, VPC< Point >(centre) + dir, 0.5);
         body->SetLinearVelocity(VPC< b2Vec2 >(dir * 128.0));
 
         const auto optTeam = core.tracker.optComponent< Team >(eid);

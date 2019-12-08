@@ -4,6 +4,7 @@
 #include "core/geometry.h"
 #include "visual/visuals.h"
 #include "physics/physics.h"
+#include "physics/geometry.h"
 #include "entities/exec.h"
 
 #include <random>
@@ -12,30 +13,9 @@ Health fullHealth(double hp) {
     return Health{ hp, hp };
 }
 
-b2Body *makeBall(Core &core, Point centre, double rad) {
-    b2BodyDef def;
-    def.type = b2_dynamicBody;
-    def.position.Set(centre.x(), centre.y());
-
-    b2CircleShape circle;
-    circle.m_radius = rad;
-
-    b2FixtureDef fixture;
-    fixture.density = 15.0f;
-    fixture.friction = 0.7f;
-    fixture.shape = &circle;
-
-    b2Body *body;
-    core.b2world.locked([&](){
-        body = core.b2world.b2w->CreateBody(&def);
-        body->CreateFixture(&fixture);
-    });
-    return body;
-}
-
 b2Body *randomBall(Core &core, Point centre, double rad) {
     const Point p = Point(rnd(rad / 2.0), rnd(rad / 2.0));
-    return makeBall(core, Point(p.x() + centre.x(), p.y() + centre.y()), 1.0);
+    return makeCircle(core, Point(p.x() + centre.x(), p.y() + centre.y()), 1.0);
 }
 
 b2Body *randomBall(Core &core, double rad) {
@@ -235,7 +215,7 @@ void runGunners(
 
             const auto offset = source_at + 1.5 * (turret.bullet_radius + circ->m_radius) * normalized(vec_to);
             const auto pointy = Point( offset.x(), offset.y() );
-            auto bul_body = makeBall(core, pointy, turret.bullet_radius);
+            auto bul_body = makeCircle(core, pointy, turret.bullet_radius);
             const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
             bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
 

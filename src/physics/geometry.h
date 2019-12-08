@@ -2,22 +2,12 @@
 
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Direction_2.h>
+#include <Box2D.h>
 
 #include "core/geometry.h"
 
-struct Rect {
-    Point cen;
-    Vec rad;
-};
+class Core;
 
-bool collide(const Circle &, const Circle &);
-bool collide(const Circle &, const Rect &);
-bool collide(const Rect &, const Circle &);
-bool collide(const Rect &, const Rect &);
+b2Body *makeCircle(Core &core, Point centre, double radius);
 
-template< typename T >
-Vec normalized(const T &t) {
-    Vec v { t.x(), t.y() };
-    if (0.0 == v.x() && 0.0 == v.y()) { return v; }
-    return v / std::sqrt(v.squared_length());
-}
+b2Body *makeRect(Core &core, Point centre, double width, double height);
