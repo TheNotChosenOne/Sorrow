@@ -1,4 +1,4 @@
-#include "game/controller.h"
+#include "input/controller.h"
 
 #include "physics/physics.h"
 #include "physics/geometry.h"

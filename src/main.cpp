@@ -28,7 +28,7 @@
 #include "physics/physics.h"
 #include "visual/visuals.h"
 #include "game/swarm.h"
-#include "game/controller.h"
+#include "input/controller.h"
 #include "game/grid.h"
 #include "game/game.h"
 #include "game/npc.h"

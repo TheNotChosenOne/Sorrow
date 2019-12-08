@@ -1,5 +1,5 @@
 #include "game/swarm.h"
-#include "game/controller.h"
+#include "input/controller.h"
 #include "game/npc.h"
 #include "core/core.h"
 #include "physics/physics.h"

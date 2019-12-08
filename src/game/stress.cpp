@@ -1,5 +1,5 @@
 #include "physics/physics.h"
-#include "game/controller.h"
+#include "input/controller.h"
 #include "visual/visuals.h"
 #include "visual/camera.h"
 #include "input/input.h"
