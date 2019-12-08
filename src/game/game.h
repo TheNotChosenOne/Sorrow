@@ -12,6 +12,7 @@ public:
     virtual void cleanup(Core &core) = 0;
     virtual void unregister(Core &core) = 0;
     virtual bool update(Core &core) = 0;
+    virtual double gravity() const;
 };
 
 class SwarmGame: public Game {

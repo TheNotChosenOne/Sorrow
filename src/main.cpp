@@ -34,6 +34,7 @@
 #include "game/npc.h"
 #include "game/stress.h"
 #include "game/lines.h"
+#include "game/hall.h"
 
 #include "utility/timers.h"
 #include "core/core.h"
@@ -265,14 +266,10 @@ static void run(boost::program_options::variables_map &options) {
 
     std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >(options);
 
-    b2Vec2 gravity(0.0f, -options["gravity"].as< double >());
-    std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0) };
-
     std::unique_ptr< Game > game;
-    const auto gameChoice = core.options["game"].as< std::string >();
+    const auto gameChoice = options["game"].as< std::string >();
     if ("hall" == gameChoice)  {
-        return;
+        game = std::make_unique< HallGame >();
     } else if ("lines" == gameChoice) {
         game = std::make_unique< Liner >();
     } else if ("swarm" == gameChoice) {
@@ -283,6 +280,11 @@ static void run(boost::program_options::variables_map &options) {
         std::cerr << "Not a known game: " << gameChoice << std::endl;
         return;
     }
+
+    b2Vec2 gravity(0.0f, game->gravity());
+    std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
+    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0) };
+
     game->registration(core);
     core.systems.init(core);
     if (core.options.count("verbose")) {
@@ -321,8 +323,6 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("bubble", po::value< double >()->default_value( 2.0), "Boid personal space")
         ("mouse",  po::value< double >()->default_value( 0.0), "Boid mouse magnetism")
 
-        //("gravity", po::value< double >()->default_value(98.0), "Strength of gravity")
-        ("gravity", po::value< double >()->default_value(0.0), "Strength of gravity")
         ("walls", po::value< double >()->default_value(0.0), "Percentage of tiles that should be walls")
         ("help", "Ask and ye shall receive");
     po::store(po::parse_command_line(argc, argv, desc), options);

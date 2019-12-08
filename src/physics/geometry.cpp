@@ -4,10 +4,13 @@
 
 namespace {
 
-b2Body *makeBody(Core &core, Point centre, b2Shape *shape) {
+b2Body *makeBody(Core &core, Point centre, b2Shape *shape, bool dynamic, bool rotates) {
     b2BodyDef definition;
-    definition.type = b2_dynamicBody;
+    definition.type = dynamic ? b2_dynamicBody : b2_staticBody;
     definition.position.Set(centre.x(), centre.y());
+    if (!rotates) {
+        definition.fixedRotation = true;
+    }
 
     b2FixtureDef fixture;
     fixture.density = 15.0f;
@@ -25,14 +28,14 @@ b2Body *makeBody(Core &core, Point centre, b2Shape *shape) {
 
 }
 
-b2Body *makeCircle(Core &core, Point centre, double radius) {
+b2Body *makeCircle(Core &core, Point centre, double radius, bool dynamic, bool rotates) {
     b2CircleShape circle;
     circle.m_radius = radius;
-    return makeBody(core, centre, &circle);
+    return makeBody(core, centre, &circle, dynamic, rotates);
 }
 
-b2Body *makeRect(Core &core, Point centre, double width, double height) {
+b2Body *makeRect(Core &core, Point centre, double width, double height, bool dynamic, bool rotates) {
     b2PolygonShape box;
     box.SetAsBox(width / 2.0, height / 2.0);
-    return makeBody(core, centre, &box);
+    return makeBody(core, centre, &box, dynamic, rotates);
 }

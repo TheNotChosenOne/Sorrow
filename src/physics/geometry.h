@@ -8,6 +8,6 @@
 
 class Core;
 
-b2Body *makeCircle(Core &core, Point centre, double radius);
+b2Body *makeCircle(Core &core, Point centre, double radius, bool dynamic = true, bool rotates = true);
 
-b2Body *makeRect(Core &core, Point centre, double width, double height);
+b2Body *makeRect(Core &core, Point centre, double width, double height, bool dynamic = true, bool rotates = true);

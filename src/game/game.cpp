@@ -18,6 +18,10 @@ Game::Game() { }
 
 Game::~Game() { }
 
+double Game::gravity() const {
+    return 0.0;
+}
+
 SwarmGame::SwarmGame() { }
 
 SwarmGame::~SwarmGame() { }
