@@ -269,24 +269,36 @@ static void run(boost::program_options::variables_map &options) {
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
     Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0) };
 
-    SwarmGame game;
-    //Stresser game;
-    //Liner game;
-    game.registration(core);
+    std::unique_ptr< Game > game;
+    const auto gameChoice = core.options["game"].as< std::string >();
+    if ("hall" == gameChoice)  {
+        return;
+    } else if ("lines" == gameChoice) {
+        game = std::make_unique< Liner >();
+    } else if ("swarm" == gameChoice) {
+        game = std::make_unique< SwarmGame >();
+    } else if ("stress" == gameChoice) {
+        game = std::make_unique< Stresser >();
+    } else {
+        std::cerr << "Not a known game: " << gameChoice << std::endl;
+        return;
+    }
+    game->registration(core);
     core.systems.init(core);
     if (core.options.count("verbose")) {
         std::cout << "Using " << core.tracker.sourceCount() << " sources" << std::endl;
     }
-    const auto steps = mainLoop(core, game);
+    const auto steps = mainLoop(core, *game);
     std::cout << "Ran " << steps << " logical steps." << std::endl;
 
-    game.cleanup(core);
+    game->cleanup(core);
 }
 
 bool getOptions(boost::program_options::variables_map &options, int argc, char **argv) {
     namespace po = boost::program_options;
     po::options_description desc("Options");
     desc.add_options()
+        ("game", po::value< std::string >()->default_value("hall"), "What game to use")
         ("headless",
          po::value< bool >()->default_value(RUNNING_ON_VALGRIND),
          "disable rendering and input")
