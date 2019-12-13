@@ -23,7 +23,7 @@ b2Body *randomBall(Core &core, double rad) {
 }
 
 DamageSystem::DamageSystem()
-    : BaseSystem("Damage", Entity::getSignature< HitData, Health, Team, Damage >()) {
+    : BaseSystem("Damage", Entity::getSignature< Health, const HitData, const Team, const Damage >()) {
 }
 
 DamageSystem::~DamageSystem() { }
@@ -36,14 +36,14 @@ void DamageSystem::init(Core &core) {
 
 void DamageSystem::execute(Core &core, double) {
     std::vector< Entity::EntityID > kill;
-    Entity::Exec< Entity::Packs< HitData, Health >, Entity::Packs< HitData, Health, Team > >::run(core.tracker,
+    Entity::Exec< Entity::Packs< const HitData, Health >, Entity::Packs< const HitData, Health, const Team > >::run(core.tracker,
     [&](auto &noteam, auto &team) {
         {
-            auto &hits = noteam.first.template get< HitData >();
+            const auto &hits = noteam.first.template get< const HitData >();
             auto &healths = noteam.first.template get< Health >();
             for (size_t i = 0; i < hits.size(); ++i) {
-                for (auto hit : hits[i].id) {
-                    const auto optDmg = core.tracker.optComponent< Damage >(hit);
+                for (const auto hit : hits[i].id) {
+                    const auto optDmg = core.tracker.optComponent< const Damage >(hit);
                     if (optDmg) {
                         healths[i].hp = std::max(0.0, healths[i].hp - optDmg->get().dmg);
                         if (0.0 == healths[i].hp) {
@@ -54,14 +54,14 @@ void DamageSystem::execute(Core &core, double) {
             }
         }
         {
-            auto &hits = team.first.template get< HitData >();
+            const auto &hits = team.first.template get< const HitData >();
             auto &healths = team.first.template get< Health >();
-            auto &teams = team.first.template get< Team >();
+            const auto &teams = team.first.template get< const Team >();
             for (size_t i = 0; i < hits.size(); ++i) {
-                for (auto hit : hits[i].id) {
-                    const auto optTeam = core.tracker.optComponent< Team >(hit);
+                for (const auto hit : hits[i].id) {
+                    const auto optTeam = core.tracker.optComponent< const Team >(hit);
                     if (optTeam && optTeam->get().team == teams[i].team) { continue; }
-                    const auto optDmg = core.tracker.optComponent< Damage >(hit);
+                    const auto optDmg = core.tracker.optComponent< const Damage >(hit);
                     if (optDmg) {
                         healths[i].hp = std::max(0.0, healths[i].hp - optDmg->get().dmg);
                         if (0.0 == healths[i].hp) {
@@ -150,16 +150,11 @@ void LifetimeSystem::execute(Core &core, double seconds) {
 
 TurretSystem::TurretSystem()
     : BaseSystem("Turret", Entity::getSignature<
-            Colour,
-            PhysBody,
-            Team,
+            const Colour,
+            const PhysBody,
+            const Team,
             Turret,
-            Turret2,
-            Damage,
-            Lifetime,
-            Seeker,
-            Health,
-            HitData
+            Turret2
         >()) {
 }
 
@@ -220,7 +215,7 @@ void runGunners(
             bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
 
             auto bullet_colour = Colour{ { 0xFF, 0xFF, 0x99 } };
-            const auto turret_colour = core.tracker.optComponent< Colour >(armed.second[turret_index]);
+            const auto turret_colour = core.tracker.optComponent< const Colour >(armed.second[turret_index]);
             if (turret_colour) {
                 bullet_colour = *turret_colour;
             }
