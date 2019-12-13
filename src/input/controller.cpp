@@ -37,7 +37,7 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
         b2Body *body = makeCircle(core, VPC< Point >(centre) + dir, 0.5);
         body->SetLinearVelocity(VPC< b2Vec2 >(dir * 128.0));
 
-        const auto optTeam = core.tracker.optComponent< Team >(eid);
+        const auto optTeam = core.tracker.optComponent< const Team >(eid);
         if (optTeam) {
             core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, Team{ optTeam->get().team }, fullHealth(0.1), HitData{} );
         } else {
@@ -46,7 +46,7 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     }
 }
 
-ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getSignature< PhysBody, const Controller, Team >()) {
+ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getSignature< PhysBody, const Controller, const Team >()) {
 }
 
 ControllerSystem::~ControllerSystem() { }
