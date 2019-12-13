@@ -46,12 +46,12 @@ class Tracker {
 
         template< typename T >
         void addComponentForID(const EntityID id, const T &t, bool graduated) {
-            (graduated ? getSource< T >() : getNurserySource< T >()).addThis(id, t);
+            (graduated ? getSource< std::remove_const_t< T > >() : getNurserySource< std::remove_const_t< T > >()).addThis(id, t);
         }
 
         template< typename T >
         void removeComponentForID(Core &core, const EntityID id) {
-            auto &source = getSource< T >();
+            auto &source = getSource< std::remove_const_t< T > >();
             source.deleteComponent(core, id);
             source.remove(id);
         }
@@ -71,28 +71,28 @@ class Tracker {
 
         template< typename T >
         SourcePtr &getSourcePtr() {
-            const auto loc = sources.find(DataTypeID< T >());
+            const auto loc = sources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
             return loc->second;
         }
 
         template< typename T >
         SourcePtr &getNurserySourcePtr() {
-            const auto loc = nurserySources.find(DataTypeID< T >());
+            const auto loc = nurserySources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != nurserySources.end(), "Data source is missing", DataTypeName< T >());
             return loc->second;
         }
 
         template< typename T >
         Data< T > &getSource() { // TODO: Speedup ?
-            const auto loc = sources.find(DataTypeID< T >());
+            const auto loc = sources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
             return static_cast< Data< T > & >(*loc->second);
         }
 
         template< typename T >
         Data< T > &getNurserySource() {
-            const auto loc = nurserySources.find(DataTypeID< T >());
+            const auto loc = nurserySources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != nurserySources.end(), "Data source is missing", DataTypeName< T >());
             return static_cast< Data< T > & >(*loc->second);
         }
@@ -101,7 +101,7 @@ class Tracker {
         bool hasComponent(const EntityID &eid) {
             // Note: Does not support nursery entities
             std::shared_lock lock(tex);
-            const auto typeID = DataTypeID< T >();
+            const auto typeID = DataTypeID< std::remove_const_t< T > >();
             for (const auto &pair : entities) {
                 if (pair.first.count(typeID)) {
                     if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
@@ -115,19 +115,19 @@ class Tracker {
         template< typename T >
         std::optional< std::reference_wrapper< T > > optComponent(const EntityID &eid) {
             std::shared_lock lock(tex);
-            return getSource< T >().optForID(eid);
+            return getSource< std::remove_const_t< T > >().optForID(eid);
         }
 
         template< typename T >
         T &getComponent(const EntityID &eid) {
             std::shared_lock lock(tex);
-            return getSource< T >().forID(eid);
+            return getSource< std::remove_const_t< T > >().forID(eid);
         }
 
         template< typename T >
         const T &getComponent(const EntityID &eid) const {
             std::shared_lock lock(tex);
-            return getSource< T >().forID(eid);
+            return getSource< std::remove_const_t< T > >().forID(eid);
         }
 
         template< typename T >

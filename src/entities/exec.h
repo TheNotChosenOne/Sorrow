@@ -89,7 +89,7 @@ struct Exec {
 
     template< typename Type >
     static typename std::enable_if< !std::is_const< Type >::value, void >::type
-    setData(const std::vector< Type > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
+    setData(const std::vector< std::remove_const_t< Type > > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
         BaseData &baseSource = tracker.getSource< Type >();
         Data< Type > &source = static_cast< Data< Type > & >(baseSource);
         for (size_t i = 0; i < v.size(); ++i) {
