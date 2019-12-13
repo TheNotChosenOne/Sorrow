@@ -23,6 +23,7 @@ class BaseData {
         virtual void remove(const uint64_t id) = 0;
         virtual void initComponent(Core &core, const uint64_t id) = 0;
         virtual void deleteComponent(Core &core, const uint64_t id) = 0;
+        virtual void graduateFrom(BaseData &other) = 0;
         virtual TypeID type() const = 0;
 };
 std::ostream &operator<<(std::ostream &os, const BaseData &bd);
@@ -45,6 +46,23 @@ class Data: public BaseData {
         std::map< size_t, uint64_t > lowToid; // Converts from data index to id
         std::vector< T > data;
         virtual ~Data() { }
+
+        void graduateFrom(BaseData &baseOther) override {
+            rassert(type() == baseOther.type(), "Cannot graduate from a different type!", type(), baseOther.type());
+            Data< T > &other = static_cast< Data< T > & >(baseOther);
+
+            data.reserve(data.size() + other.data.size());
+            for (size_t i = 0; i < other.data.size(); ++i) {
+                const uint64_t id = other.lowToid[i];
+                idToLow[id] = data.size();
+                lowToid[data.size()] = id;
+                data.emplace_back(other.data[i]);
+            }
+
+            other.idToLow.clear();
+            other.lowToid.clear();
+            other.data.clear();
+        }
 
         bool has(const uint64_t id) const override {
             return idToLow.find(id) != idToLow.end();
@@ -86,34 +104,41 @@ class Data: public BaseData {
             return std::optional< std::reference_wrapper< const T > >{data.at(index)};
         }
 
+        void reserve(const size_t more) override {
+            data.reserve(data.size() + more);
+        }
+
         void add(const uint64_t id) override {
             idToLow[id] = data.size();
             lowToid[data.size()] = id;
             data.resize(data.size() + 1);
         }
 
-        void reserve(const size_t more) override {
-            data.reserve(data.size() + more);
+        void addThis(const uint64_t id, const T &t) {
+            idToLow[id] = data.size();
+            lowToid[data.size()] = id;
+            data.emplace_back(t);
         }
 
         void remove(const uint64_t id) override {
             const size_t back = data.size() - 1;
             const size_t backID = lowToid[back];
             const size_t eraseAt = idToLow[id];
-            if (id == backID) {
-                data.resize(data.size() - 1);
-            } else {
+            if (id != backID) {
                 data[eraseAt] = std::move(data[back]);
                 idToLow[backID] = eraseAt;
                 lowToid[eraseAt] = backID;
             }
+            data.resize(data.size() - 1);
             lowToid.erase(back);
             idToLow.erase(id);
         }
+
         void initComponent(Core &core, const uint64_t id) override {
             T &t = data[idToLow[id]];
             Entity::initComponent< T >(core, id, t);
         }
+
         void deleteComponent(Core &core, const uint64_t id) override {
             T &t = data[idToLow[id]];
             Entity::deleteComponent< T >(core, id, t);

@@ -15,9 +15,9 @@ Liner::Liner() { }
 Liner::~Liner() { }
 
 void Liner::registration(Core &core) {
-    core.tracker.addSource(std::make_unique< ColourData >());
-    core.tracker.addSource(std::make_unique< MouseFollowData >());
-    core.tracker.addSource(std::make_unique< SeekerData >());
+    core.tracker.addSource< ColourData >();
+    core.tracker.addSource< MouseFollowData >();
+    core.tracker.addSource< SeekerData >();
     core.systems.addSystem(std::make_unique< ControllerSystem >());
     core.systems.addSystem(std::make_unique< PhysicsSystem >());
     core.systems.addSystem(std::make_unique< CameraSystem >());

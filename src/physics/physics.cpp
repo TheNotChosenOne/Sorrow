@@ -71,8 +71,8 @@ PhysicsSystem::PhysicsSystem()
 PhysicsSystem::~PhysicsSystem() { }
 
 void PhysicsSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< PhysBodyData >());
-    core.tracker.addSource(std::make_unique< HitDataData >());
+    core.tracker.addSource< PhysBodyData >();
+    core.tracker.addSource< HitDataData >();
 
     physListener = std::make_unique< PhysListener >();
     core.b2world.locked([&](){

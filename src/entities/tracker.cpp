@@ -16,11 +16,6 @@ std::string sigToStr(const Signature &sig, const Tracker &track) {
     return ss.str();
 }
 
-void Tracker::addSource(SourcePtr &&ptr) {
-    std::unique_lock lock(tex);
-    sources[ptr->type()] = std::move(ptr);
-}
-
 void Tracker::withReadLock(const std::function< void() > &func) {
     std::shared_lock lock(tex);
     func();
@@ -37,20 +32,24 @@ void Tracker::killEntity(Core &, const EntityID id) {
 }
 
 void Tracker::finalizeKills(Core &core) {
-    for (auto &pair : entities) {
-        auto &ids = pair.second;
-        for (size_t i = 0; i < ids.size(); ++i) {
-            if (doomed.end() == doomed.find(ids[i])) { continue; }
-            const Signature &sig = pair.first;
-            for (const TypeID tid : sig) {
-                sources.at(tid)->deleteComponent(core, ids[i]);
+    const auto killGroup = [&](Entities &ents, Sources &srcs) {
+        for (auto &pair : ents) {
+            auto &ids = pair.second;
+            for (size_t i = 0; i < ids.size(); ++i) {
+                if (doomed.end() == doomed.find(ids[i])) { continue; }
+                const Signature &sig = pair.first;
+                for (const TypeID tid : sig) {
+                    srcs.at(tid)->deleteComponent(core, ids[i]);
+                }
+                for (const TypeID tid : sig) {
+                    srcs.at(tid)->remove(ids[i]);
+                }
+                ids.erase(ids.begin() + i);
             }
-            for (const TypeID tid : sig) {
-                sources.at(tid)->remove(ids[i]);
-            }
-            ids.erase(ids.begin() + i);
         }
-    }
+    };
+    killGroup(entities, sources);
+    killGroup(nursery, nurserySources);
     doomed.clear();
 }
 
@@ -59,6 +58,11 @@ void Tracker::killAll(Core &core) {
     {
         std::shared_lock lock(tex);
         for (auto &pair : entities) {
+            for (auto &eid : pair.second) {
+                all.push_back(eid);
+            }
+        }
+        for (auto &pair : nursery) {
             for (auto &eid : pair.second) {
                 all.push_back(eid);
             }
@@ -73,6 +77,9 @@ size_t Tracker::count() const {
     std::shared_lock lock(tex);
     size_t total = 0;
     for (const auto &group : entities) {
+        total += group.second.size();
+    }
+    for (const auto &group : nursery) {
         total += group.second.size();
     }
     return total;
@@ -94,6 +101,11 @@ bool Tracker::aliveWithLock(const EntityID &eid) const {
             return true;
         }
     }
+    for (const auto &pair : nursery) {
+        if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
+            return true;
+        }
+    }
     return false;
 }
 
@@ -101,15 +113,20 @@ size_t Tracker::sourceCount() const {
     return sources.size();
 }
 
-Signature Tracker::getSignature(const EntityID &eid) const {
+std::pair< Signature, bool > Tracker::getSignature(const EntityID &eid) const {
     std::shared_lock lock(tex);
     for (const auto &pair : entities) {
         if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
-            return pair.first;
+            return std::make_pair(pair.first, true);
+        }
+    }
+    for (const auto &pair : nursery) {
+        if (pair.second.end() != std::find(pair.second.begin(), pair.second.end(), eid)) {
+            return std::make_pair(pair.first, false);
         }
     }
     rassert(false, "Failed to find signature for:", eid);
-    return Signature();
+    return std::make_pair(Signature(), false);
 }
 
 EntityID Tracker::createSigned(Core &core, const Signature &sig, size_t count) {
@@ -118,18 +135,32 @@ EntityID Tracker::createSigned(Core &core, const Signature &sig, size_t count) {
 
     const EntityID id = nextID;
     nextID += count;
-    auto &v = entities[sig];
+    auto &v = nursery[sig];
     v.reserve(v.size() + count);
     for (size_t i = 0; i < count; ++i) { v.push_back(id + i); }
     for (const TypeID tid : sig) {
-        auto &v = *sources.at(tid);
+        auto &v = *nurserySources.at(tid);
         v.reserve(count);
         for (size_t i = 0; i < count; ++i) { v.add(id + i); }
     }
     for (const auto tid : sig) {
-        sources[tid]->initComponent(core, id);
+        nurserySources[tid]->initComponent(core, id);
     }
     return id;
+}
+
+void Tracker::graduate() {
+    std::shared_lock lock(tex);
+    for (auto &[tid, srcPtr] : sources) {
+        srcPtr->graduateFrom(*nurserySources[tid]);
+    }
+
+    for (auto &[sig, list] : nursery) {
+        auto &graduated = entities[sig];
+        graduated.reserve(graduated.size() + list.size());
+        graduated.insert(graduated.end(), list.begin(), list.end());
+    }
+    nursery.clear();
 }
 
 }

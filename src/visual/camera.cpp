@@ -16,7 +16,7 @@ CameraSystem::CameraSystem()
 CameraSystem::~CameraSystem() { }
 
 void CameraSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< CameraData >());
+    core.tracker.addSource< CameraData >();
 }
 
 void CameraSystem::execute(Core &core, double) {

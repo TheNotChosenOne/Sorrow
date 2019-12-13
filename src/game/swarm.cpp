@@ -92,8 +92,8 @@ SwarmSystem::SwarmSystem()
 SwarmSystem::~SwarmSystem() { }
 
 void SwarmSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< SwarmTagData >());
-    core.tracker.addSource(std::make_unique< MouseFollowData >());
+    core.tracker.addSource< SwarmTagData >();
+    core.tracker.addSource< MouseFollowData >();
 }
 
 void SwarmSystem::execute(Core &core, double) {
@@ -116,7 +116,7 @@ HiveTrackerSystem::HiveTrackerSystem()
 HiveTrackerSystem::~HiveTrackerSystem() { }
 
 void HiveTrackerSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< HiveData >());
+    core.tracker.addSource< HiveData >();
 }
 
 void HiveTrackerSystem::execute(Core &core, double) {
@@ -159,7 +159,7 @@ HiveSpawnerSystem::HiveSpawnerSystem()
 HiveSpawnerSystem::~HiveSpawnerSystem() { }
 
 void HiveSpawnerSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< HiveData >());
+    core.tracker.addSource< HiveData >();
 }
 
 void HiveSpawnerSystem::execute(Core &core, double seconds) {

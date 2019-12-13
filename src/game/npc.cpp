@@ -29,9 +29,9 @@ DamageSystem::DamageSystem()
 DamageSystem::~DamageSystem() { }
 
 void DamageSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< HealthData >());
-    core.tracker.addSource(std::make_unique< TeamData >());
-    core.tracker.addSource(std::make_unique< DamageData >());
+    core.tracker.addSource< HealthData >();
+    core.tracker.addSource< TeamData >();
+    core.tracker.addSource< DamageData >();
 }
 
 void DamageSystem::execute(Core &core, double) {
@@ -84,7 +84,7 @@ SeekerSystem::SeekerSystem()
 SeekerSystem::~SeekerSystem() { }
 
 void SeekerSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< SeekerData >());
+    core.tracker.addSource< SeekerData >();
 }
 
 void SeekerSystem::execute(Core &core, double time_delta) {
@@ -128,7 +128,7 @@ LifetimeSystem::LifetimeSystem()
 LifetimeSystem::~LifetimeSystem() { }
 
 void LifetimeSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< LifetimeData >());
+    core.tracker.addSource< LifetimeData >();
 }
 
 void LifetimeSystem::execute(Core &core, double seconds) {
@@ -166,8 +166,8 @@ TurretSystem::TurretSystem()
 TurretSystem::~TurretSystem() { }
 
 void TurretSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< TurretData >());
-    core.tracker.addSource(std::make_unique< Turret2Data >());
+    core.tracker.addSource< TurretData >();
+    core.tracker.addSource< Turret2Data >();
 }
 
 template< typename TTurret >

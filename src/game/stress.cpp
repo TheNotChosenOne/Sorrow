@@ -18,7 +18,7 @@ GenerationSystem::GenerationSystem()
 GenerationSystem::~GenerationSystem() { }
 
 void GenerationSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< GenerationData >());
+    core.tracker.addSource< GenerationData >();
 }
 
 void GenerationSystem::execute(Core &core, double seconds) {
@@ -46,8 +46,8 @@ Stresser::Stresser() { }
 Stresser::~Stresser() { }
 
 void Stresser::registration(Core &core) {
-    core.tracker.addSource(std::make_unique< ColourData >());
-    core.tracker.addSource(std::make_unique< GenerationData >());
+    core.tracker.addSource< ColourData >();
+    core.tracker.addSource< GenerationData >();
     core.systems.addSystem(std::make_unique< ControllerSystem >());
     core.systems.addSystem(std::make_unique< PhysicsSystem >());
     core.systems.addSystem(std::make_unique< GenerationSystem >());

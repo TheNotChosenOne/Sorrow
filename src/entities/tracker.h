@@ -30,9 +30,14 @@ class Tracker {
     public:
         typedef std::vector< EntityID > EntityVec;
         typedef std::unique_ptr< BaseData > SourcePtr;
+        typedef std::map< TypeID, SourcePtr > Sources;
+        typedef std::unordered_map< Signature, EntityVec > Entities;
 
-        std::map< TypeID, SourcePtr > sources;
-        std::unordered_map< Signature, EntityVec > entities;
+        Sources sources;
+        Entities entities;
+
+        Sources nurserySources;
+        Entities nursery;
 
     private:
         mutable std::shared_mutex tex;
@@ -40,10 +45,8 @@ class Tracker {
         EntityID nextID = 1;
 
         template< typename T >
-        void addComponentForID(const EntityID id, const T &t) {
-            Data< T > &data = getSource< T >();
-            data.idToLow[id] = data.data.size();
-            data.data.push_back(t);
+        void addComponentForID(const EntityID id, const T &t, bool graduated) {
+            (graduated ? getSource< T >() : getNurserySource< T >()).addThis(id, t);
         }
 
         template< typename T >
@@ -58,7 +61,7 @@ class Tracker {
         bool aliveWithLock(const EntityID &eid) const;
         bool zombie(const EntityID &eid) const;
 
-        Signature getSignature(const EntityID &eid) const;
+        std::pair< Signature, bool > getSignature(const EntityID &eid) const;
 
         void withReadLock(const std::function< void() > &func);
 
@@ -74,14 +77,29 @@ class Tracker {
         }
 
         template< typename T >
-        Data< T > &getSource() { // TODO: Speedup
+        SourcePtr &getNurserySourcePtr() {
+            const auto loc = nurserySources.find(DataTypeID< T >());
+            rassert(loc != nurserySources.end(), "Data source is missing", DataTypeName< T >());
+            return loc->second;
+        }
+
+        template< typename T >
+        Data< T > &getSource() { // TODO: Speedup ?
             const auto loc = sources.find(DataTypeID< T >());
             rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
             return static_cast< Data< T > & >(*loc->second);
         }
 
         template< typename T >
+        Data< T > &getNurserySource() {
+            const auto loc = nurserySources.find(DataTypeID< T >());
+            rassert(loc != nurserySources.end(), "Data source is missing", DataTypeName< T >());
+            return static_cast< Data< T > & >(*loc->second);
+        }
+
+        template< typename T >
         bool hasComponent(const EntityID &eid) {
+            // Note: Does not support nursery entities
             std::shared_lock lock(tex);
             const auto typeID = DataTypeID< T >();
             for (const auto &pair : entities) {
@@ -114,22 +132,33 @@ class Tracker {
 
         template< typename T >
         void addComponent(Core &core, const EntityID &eid, T &&component) {
-            Signature sig = getSignature(eid); // Has its own lock
+            auto [sig, graduated] = getSignature(eid);
             std::unique_lock lock(tex);
-            auto &group = entities.at(sig);
+
+            Sources *whichSources;
+            Entities *whichEntities;
+            if (graduated) {
+                whichSources = &sources;
+                whichEntities = &entities;
+            } else {
+                whichSources = &nurserySources;
+                whichEntities = &nursery;
+            }
+
+            auto &group = whichEntities->at(sig);
             const auto pos = std::find(group.begin(), group.end(), eid);
             group.erase(pos);
             const auto res = sig.insert(DataTypeID< T >());
             rassert(res.second);
-            entities[sig].push_back(eid);
-            addComponentForID(eid, component);
-            auto &source = *sources.at(DataTypeID< T >());
+            (*whichEntities)[sig].push_back(eid);
+            addComponentForID(eid, component, graduated);
+            auto &source = *whichSources->at(DataTypeID< T >());
             source.initComponent(core, eid);
         }
 
         template< typename T >
         void removeComponent(Core &core, const EntityID &eid) {
-            Signature sig = getSignature(eid); // Has its own lock
+            Signature sig = getSignature(eid).first; // Has its own lock
             std::unique_lock lock(tex);
             auto &group = entities.at(sig);
             const auto pos = std::find(group.begin(), group.end(), eid);
@@ -158,15 +187,25 @@ class Tracker {
             rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
 
             const EntityID id = nextID++;
-            entities[sig].push_back(id);
+            nursery[sig].push_back(id);
 
-            (addComponentForID(id, args), ...);
+            (addComponentForID(id, args, false), ...);
             for (const auto tid : sig) {
-                sources[tid]->initComponent(core, id);
+                nurserySources[tid]->initComponent(core, id);
             }
 
-
             return id;
+        }
+
+        template< typename T >
+        void addSource() {
+            std::unique_lock lock(tex);
+
+            auto standard = std::make_unique< T >();
+            sources[standard->type()] = std::move(standard);
+
+            auto younger = std::make_unique< T >();
+            nurserySources[younger->type()] = std::move(younger);
         }
 
         void killEntity(Core &core, const EntityID id);
@@ -176,7 +215,7 @@ class Tracker {
 
         size_t count() const;
 
-        void addSource(SourcePtr &&ptr);
+        void graduate();
 };
 
 }

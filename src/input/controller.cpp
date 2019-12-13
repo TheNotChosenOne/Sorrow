@@ -52,8 +52,8 @@ ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getSignat
 ControllerSystem::~ControllerSystem() { }
 
 void ControllerSystem::init(Core &core) {
-    core.tracker.addSource(std::make_unique< ControllerData >());
-    core.tracker.addSource(std::make_unique< TeamData >());
+    core.tracker.addSource< ControllerData >();
+    core.tracker.addSource< TeamData >();
 }
 
 void ControllerSystem::execute(Core &core, double) {

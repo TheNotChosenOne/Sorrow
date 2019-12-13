@@ -13,7 +13,7 @@ HallGame::HallGame() { }
 HallGame::~HallGame() { }
 
 void HallGame::registration(Core &core) {
-    core.tracker.addSource(std::make_unique< ColourData >());
+    core.tracker.addSource< ColourData >();
     core.systems.addSystem(std::make_unique< ControllerSystem >());
     core.systems.addSystem(std::make_unique< PhysicsSystem >());
     core.systems.addSystem(std::make_unique< DamageSystem >());

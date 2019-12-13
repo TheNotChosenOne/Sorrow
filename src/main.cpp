@@ -147,6 +147,7 @@ static size_t mainLoop(Core &core, Game &game) {
 
     game.cleanup(core);
     game.create(core);
+    core.tracker.graduate();
 
     //createWalls(core);
     //gridWalls(core);
@@ -179,6 +180,7 @@ static size_t mainLoop(Core &core, Game &game) {
             }
             const auto time = logicUse.add([&](){
                 core.systems.execute(core, 1.0 / lps);
+                core.tracker.graduate();
             });
             logic.tick(time);
             ++logic_steps;
