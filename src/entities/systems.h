@@ -28,8 +28,8 @@ namespace Entity {
 class BaseSystem {
 public:
     const std::string name;
-    const Signature signature;
-    BaseSystem(const std::string &name, const Signature &sig);
+    const ConstySignature signature;
+    BaseSystem(const std::string &name, const ConstySignature &sig);
     virtual ~BaseSystem();
     virtual void execute(Core &core, double seconds) = 0;
     virtual void init(Core &core);

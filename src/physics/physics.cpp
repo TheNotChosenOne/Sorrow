@@ -65,7 +65,7 @@ void Entity::deleteComponent< PhysBody >(Core &core, const uint64_t, PhysBody &b
 }
 
 PhysicsSystem::PhysicsSystem()
-    : BaseSystem("Physics", Entity::getSignature< PhysBody, HitData >()) {
+    : BaseSystem("Physics", Entity::getConstySignature< PhysBody, HitData >()) {
 }
 
 PhysicsSystem::~PhysicsSystem() { }

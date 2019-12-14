@@ -23,7 +23,7 @@ b2Body *randomBall(Core &core, double rad) {
 }
 
 DamageSystem::DamageSystem()
-    : BaseSystem("Damage", Entity::getSignature< Health, const HitData, const Team, const Damage >()) {
+    : BaseSystem("Damage", Entity::getConstySignature< Health, const HitData, const Team, const Damage >()) {
 }
 
 DamageSystem::~DamageSystem() { }
@@ -78,7 +78,7 @@ void DamageSystem::execute(Core &core, double) {
 }
 
 SeekerSystem::SeekerSystem()
-    : BaseSystem("Seeker", Entity::getSignature< PhysBody, const Seeker >()) {
+    : BaseSystem("Seeker", Entity::getConstySignature< PhysBody, const Seeker >()) {
 }
 
 SeekerSystem::~SeekerSystem() { }
@@ -122,7 +122,7 @@ void SeekerSystem::execute(Core &core, double time_delta) {
 }
 
 LifetimeSystem::LifetimeSystem()
-    : BaseSystem("Lifetime", Entity::getSignature< Lifetime >()) {
+    : BaseSystem("Lifetime", Entity::getConstySignature< Lifetime >()) {
 }
 
 LifetimeSystem::~LifetimeSystem() { }
@@ -149,7 +149,7 @@ void LifetimeSystem::execute(Core &core, double seconds) {
 }
 
 TurretSystem::TurretSystem()
-    : BaseSystem("Turret", Entity::getSignature<
+    : BaseSystem("Turret", Entity::getConstySignature<
             const Colour,
             const PhysBody,
             const Team,

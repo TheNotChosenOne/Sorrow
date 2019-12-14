@@ -46,7 +46,7 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     }
 }
 
-ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getSignature< PhysBody, const Controller, const Team >()) {
+ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getConstySignature< PhysBody, const Controller, const Team >()) {
 }
 
 ControllerSystem::~ControllerSystem() { }

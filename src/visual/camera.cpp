@@ -10,7 +10,7 @@
 #include <memory>
 
 CameraSystem::CameraSystem()
-    : BaseSystem("Camera", Entity::getSignature< const PhysBody, const Seeker, Camera >()) {
+    : BaseSystem("Camera", Entity::getConstySignature< const PhysBody, const Seeker, Camera >()) {
 }
 
 CameraSystem::~CameraSystem() { }

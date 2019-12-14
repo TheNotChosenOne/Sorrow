@@ -13,7 +13,7 @@
 #include "game/stress.h"
 
 GenerationSystem::GenerationSystem()
-    : BaseSystem("Generation", Entity::getSignature< Generation >()) { }
+    : BaseSystem("Generation", Entity::getConstySignature< Generation >()) { }
 
 GenerationSystem::~GenerationSystem() { }
 

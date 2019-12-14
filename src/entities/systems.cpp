@@ -8,7 +8,7 @@
 #include <coz.h>
 
 namespace Entity {
-    BaseSystem::BaseSystem(const std::string &name, const Signature &sig): name(name), signature(sig) { }
+    BaseSystem::BaseSystem(const std::string &name, const ConstySignature &sig): name(name), signature(sig) { }
 
     BaseSystem::~BaseSystem() { }
 
@@ -99,14 +99,16 @@ namespace Entity {
             std::vector< BaseSystem* > notfit;
             stages.resize(stages.size() + 1);
             stage_timers.resize(stages.size());
-            std::set< TypeID > types;
+            std::set< ConstyTypeID > types;
 
             for (size_t i = 0; i < pile.size(); ++i) {
                 const auto sig = pile[i]->signature;
                 // Does this stage already operate on these types?
                 bool conflict = false;
-                for (TypeID tid : sig) {
-                    if (types.end() != types.find(tid)) {
+                for (ConstyTypeID tid : sig) {
+                    for (const auto &other : types) {
+                        if (other.second != tid.second) { continue; }
+                        if (other.first && tid.first) { continue; }
                         conflict = true;
                         break;
                     }
@@ -115,7 +117,7 @@ namespace Entity {
                 if (conflict) { // This needs to be dealt with in some later stage
                     notfit.push_back(pile[i]);
                 } else { // Add this to this stage
-                    for (TypeID tid : sig) {
+                    for (ConstyTypeID tid : sig) {
                         types.insert(tid);
                     }
                     stages[stages.size() - 1].push_back(pile[i]);

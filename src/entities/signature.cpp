@@ -13,6 +13,10 @@ std::ostream &operator<<(std::ostream &os, const Entity::Signature &sig) {
     return dumpContainer(os, sig);
 }
 
+std::ostream &operator<<(std::ostream &os, const Entity::ConstySignature &sig) {
+    return dumpContainer(os, sig);
+}
+
 std::ostream &operator<<(std::ostream &os, const Entity::OrderedSignature &sig) {
     return dumpContainer(os, sig);
 }
@@ -24,6 +28,12 @@ bool typesSubset(const Entity::Signature &super, const Entity::Signature &sub) {
 }
 
 std::string signatureString(const Entity::Signature &sig) {
+    std::stringstream ss;
+    ss << sig;
+    return ss.str();
+}
+
+std::string signatureString(const Entity::ConstySignature &sig) {
     std::stringstream ss;
     ss << sig;
     return ss.str();

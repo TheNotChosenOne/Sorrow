@@ -3,11 +3,13 @@
 #include <ctti/type_id.hpp>
 #include <string_view>
 #include <vector>
+#include <utility>
 #include <set>
 
 namespace Entity {
 
 typedef ctti::type_id_t TypeID;
+typedef std::pair< bool, TypeID > ConstyTypeID;
 
 }
 
@@ -17,16 +19,27 @@ constexpr bool operator<(const ctti::type_id_t &left, const ctti::type_id_t &rig
     return std::string_view(l.begin(), l.size()) < std::string_view(r.begin(), r.size());
 }
 
+namespace std {
+
+constexpr bool operator<(const ctti::type_id_t &left, const ctti::type_id_t &right) {
+    const auto &l = left.name();
+    const auto &r = right.name();
+    return std::string_view(l.begin(), l.size()) < std::string_view(r.begin(), r.size());
+}
+
+}
 
 namespace Entity {
 
 typedef std::set< TypeID > Signature;
+typedef std::set< ConstyTypeID > ConstySignature;
 typedef std::vector< TypeID > OrderedSignature;
 
 }
 
 std::ostream &operator<<(std::ostream &os, const Entity::TypeID &tid);
 std::ostream &operator<<(std::ostream &os, const Entity::Signature &sig);
+std::ostream &operator<<(std::ostream &os, const Entity::ConstySignature &sig);
 std::ostream &operator<<(std::ostream &os, const Entity::OrderedSignature &sig);
 
 template<>
@@ -81,6 +94,10 @@ struct SetSignature< T, Rest... > {
         sig.insert(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
     }
+    static inline void set(ConstySignature &sig) {
+        sig.insert(std::make_pair(std::is_const< T >::value, DataTypeID< T >()));
+        SetSignature< Rest... >::set(sig);
+    }
     static inline void set(OrderedSignature &sig) {
         sig.push_back(DataTypeID< T >());
         SetSignature< Rest... >::set(sig);
@@ -90,12 +107,20 @@ struct SetSignature< T, Rest... > {
 template<>
 struct SetSignature<> {
     static void set(Signature &) { }
+    static void set(ConstySignature &) { }
     static void set(OrderedSignature &) { }
 };
 
 template< typename ...Args >
 Signature getSignature() {
     Signature sig;
+    SetSignature< Args... >::set(sig);
+    return sig;
+}
+
+template< typename ...Args >
+ConstySignature getConstySignature() {
+    ConstySignature sig;
     SetSignature< Args... >::set(sig);
     return sig;
 }
@@ -111,5 +136,6 @@ bool typesSubset(const Signature &super, const Signature &sub);
 
 std::string signatureString(const Signature &sig);
 std::string signatureString(const OrderedSignature &sig);
+std::string signatureString(const ConstySignature &sig);
 
 }

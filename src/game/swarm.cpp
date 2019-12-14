@@ -86,7 +86,7 @@ void follow(Core &core, std::vector< PhysBody > &pbs, std::vector< Entity::Entit
 }
 
 SwarmSystem::SwarmSystem()
-    : BaseSystem("Swarm", Entity::getSignature< const SwarmTag, const MouseFollow, PhysBody, const HitData >()) {
+    : BaseSystem("Swarm", Entity::getConstySignature< const SwarmTag, const MouseFollow, PhysBody, const HitData >()) {
 }
 
 SwarmSystem::~SwarmSystem() { }
@@ -110,7 +110,7 @@ void SwarmSystem::execute(Core &core, double) {
 }
 
 HiveTrackerSystem::HiveTrackerSystem()
-    : BaseSystem("Hive Tracker", Entity::getSignature< Hive, const SwarmTag >()) {
+    : BaseSystem("Hive Tracker", Entity::getConstySignature< Hive, const SwarmTag >()) {
 }
 
 HiveTrackerSystem::~HiveTrackerSystem() { }
@@ -153,7 +153,7 @@ Entity::EntityID makeSwarmer(Core &core, uint16_t tag, Point3 colour) {
 
 HiveSpawnerSystem::HiveSpawnerSystem()
     : BaseSystem("Hive Spawner",
-        Entity::getSignature< Hive >()) {
+        Entity::getConstySignature< Hive >()) {
 }
 
 HiveSpawnerSystem::~HiveSpawnerSystem() { }
