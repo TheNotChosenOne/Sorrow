@@ -56,39 +56,6 @@ void SwarmGame::create(Core &core) {
             }
         );
     }
-
-    /*
-    static const size_t groupRoot = 2;
-    for (size_t i = 0; i < bugs; ++i) {
-        b2Body *body = randomBall(core, 500.0);
-        const double x = body->GetPosition().x;
-        const double y = body->GetPosition().y;
-
-        const double gx = ((x + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
-        const double gy = ((y + WORLD_SIZE / 2.0) / WORLD_SIZE) * groupRoot;
-
-        const int64_t gridX = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gx));
-        const int64_t gridY = clamp(int64_t(0), int64_t(groupRoot - 1), static_cast< int64_t >(gy));
-        const uint16_t tag = gridX * groupRoot + gridY;
-
-        const auto colour = colours[tag];
-        const auto pusher = 10000.0  * (body->GetPosition() - (b2Vec2(WORLD_SIZE / 2.0, WORLD_SIZE / 2.0)));
-        body->ApplyForceToCenter(pusher, true);
-
-        core.tracker.createWith(core,
-            PhysBody{ body },
-            Colour{ colour },
-            HitData{},
-            SwarmTag{ tag },
-            fullHealth(10.0),
-            Team{ tag },
-            Damage{ 0.2 },
-            Turret{  2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 2.0, 0.25, 0.01, true },
-            Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false },
-            MouseFollow{}
-        );
-    }
-    */
 }
 
 void SwarmGame::unregister(Core &) {
