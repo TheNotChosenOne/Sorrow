@@ -151,18 +151,23 @@ namespace Entity {
     void SystemManager::dumpTimes() {
         typedef std::tuple< double, std::string > Stat;
         typedef std::vector< Stat > Stats;
-        typedef std::tuple< double, std::string, Stats > StatGroup;
+        typedef std::tuple< double, std::string, Stats, double > StatGroup;
         std::vector< StatGroup > statgroups;
         statgroups.reserve(systems.size() + 1);
 
         double stage_times = 0.0;
+        double all_stage_system_times = 0.0;
         for (size_t i = 0; i < stages.size(); ++i) {
             Stats stats;
+            double systems_time = 0.0;
             const auto &stage = stages[i];
             for (const auto *system : stage) {
                 auto &timer = system_timers[system];
                 std::string text = system->name + ": " + signatureString(system->signature);
-                stats.emplace_back( timer.empty(), text );
+                const double system_time = timer.empty();
+                stats.emplace_back( system_time, text );
+                systems_time += system_time;
+                all_stage_system_times += system_time;
             }
             const double stage_time = stage_timers[i].empty();
             stage_times += stage_time;
@@ -171,7 +176,12 @@ namespace Entity {
                 return std::get< 0 >(l) > std::get< 0 >(r);
             });
 
-            statgroups.emplace_back(stage_time, "Stage " + std::to_string(i + 1), stats);
+            double parallelism = 1.0;
+            if (stage_time > 0) {
+                parallelism = systems_time / stage_time;
+            }
+
+            statgroups.emplace_back(stage_time, "Stage " + std::to_string(i + 1), stats, parallelism);
         }
 
         {
@@ -192,15 +202,19 @@ namespace Entity {
             std::sort(stats.begin(), stats.end(), [](const Stat &l, const Stat &r) -> bool {
                 return std::get< 0 >(l) > std::get< 0 >(r);
             });
-            statgroups.emplace_back(admin, "Admininstration", stats);
+            statgroups.emplace_back(admin, "Admininstration", stats, 1.0);
         }
 
         std::sort(statgroups.begin(), statgroups.end(), [](const StatGroup &l, const StatGroup &r) -> bool {
             return std::get< 0 >(l) > std::get< 0 >(r);
         });
 
+        const double parallelism = (stage_times > 0.0) ? all_stage_system_times / stage_times : 1.0;
+        std::cout << "\tParallelism: " << parallelism << '\n';
         for (const auto &group : statgroups) {
-            std::cout << "\t" << std::get< 1 >(group) << ": " << std::get< 0 >(group) << '\n';
+            std::cout << "\t" << std::get< 1 >(group);
+            std::cout << ": " << std::get< 0 >(group);
+            std::cout << " (" << std::get< 3 >(group) << ")\n";
             for (const auto &stat : std::get< 2 >(group)) {
                 std::cout << "\t\t" << std::get< 0 >(stat) << " " << std::get< 1 >(stat) << '\n';
             }
