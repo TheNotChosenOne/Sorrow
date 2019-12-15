@@ -16,6 +16,20 @@ std::string sigToStr(const Signature &sig, const Tracker &track) {
     return ss.str();
 }
 
+Signature Tracker::getDuplicates(const OrderedSignature &sig) const {
+    Signature dupes;
+    for (size_t i = 0; i < sig.size(); ++i) {
+        const auto tid = sig[i];
+        for (size_t j = i + 1; j < sig.size(); ++j) {
+            if (tid == sig[j]) {
+                dupes.insert(tid);
+                break;
+            }
+        }
+    }
+    return dupes;
+}
+
 void Tracker::withReadLock(const std::function< void() > &func) {
     std::shared_lock lock(tex);
     func();

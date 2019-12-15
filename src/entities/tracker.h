@@ -56,6 +56,8 @@ class Tracker {
             source.remove(id);
         }
 
+        Signature getDuplicates(const OrderedSignature &sig) const;
+
     public:
         bool alive(const EntityID &eid) const;
         bool aliveWithLock(const EntityID &eid) const;
@@ -175,7 +177,9 @@ class Tracker {
             std::unique_lock lock(tex);
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
-            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
+            for (const auto tid : getDuplicates(osig)) {
+                rassert(sources[tid]->isMulti(), "Duplicate single type in signature!")
+            }
             return createSigned(core, sig, count);
         }
 
@@ -184,7 +188,9 @@ class Tracker {
             std::unique_lock lock(tex);
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
-            rassert(sig.size() == osig.size(), "Duplicate signature", sig.size(), osig.size());
+            for (const auto tid : getDuplicates(osig)) {
+                rassert(sources[tid]->isMulti(), "Duplicate single type in signature!")
+            }
 
             const EntityID id = nextID++;
             nursery[sig].push_back(id);

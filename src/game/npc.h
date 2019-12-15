@@ -44,7 +44,7 @@ struct Turret {
     double bullet_health;
     bool bullet_seeking;
 };
-DeclareDataType(Turret);
+DeclareMultiDataType(Turret);
 
 struct Seeker {
     Entity::EntityID target;

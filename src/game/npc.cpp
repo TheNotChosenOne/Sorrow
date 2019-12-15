@@ -153,7 +153,7 @@ TurretSystem::TurretSystem()
             const Colour,
             const PhysBody,
             const Team,
-            Turret,
+            Turret
         >()) {
 }
 
