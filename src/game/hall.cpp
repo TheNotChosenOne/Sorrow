@@ -56,7 +56,7 @@ void HallGame::create(Core &core) {
         fullHealth(10.0),
         Team{ 1 },
         Turret{ 2.0, 0.0, 60.0, 0.4, 2.0, 0.25, 0.01, true },
-        Turret2{ 0.2, 0.0, 60.0, 0.4, 2.0, 0.25, 0.01, false }
+        Turret{ 0.2, 0.0, 60.0, 0.4, 2.0, 0.25, 0.01, false }
     );
 }
 

@@ -154,7 +154,6 @@ TurretSystem::TurretSystem()
             const PhysBody,
             const Team,
             Turret,
-            Turret2
         >()) {
 }
 
@@ -162,7 +161,6 @@ TurretSystem::~TurretSystem() { }
 
 void TurretSystem::init(Core &core) {
     core.tracker.addSource< TurretData >();
-    core.tracker.addSource< Turret2Data >();
 }
 
 template< typename TTurret >
@@ -286,13 +284,5 @@ void TurretSystem::execute(Core &core, double seconds) {
     >::run(core.tracker,
     [&](auto &noturrets, auto &turreters) {
         runGunners< Turret >(core, seconds, noturrets, turreters);
-    });
-
-    Entity::Exec<
-        Entity::Packs< const PhysBody, const Team >,
-        Entity::Packs< const PhysBody, const Team, Turret2 >
-    >::run(core.tracker,
-    [&](auto &noturrets, auto &turreters) {
-        runGunners< Turret2 >(core, seconds, noturrets, turreters);
     });
 }

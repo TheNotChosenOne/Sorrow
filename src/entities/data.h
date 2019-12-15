@@ -6,6 +6,7 @@
 #include <optional>
 #include <iostream>
 #include <typeindex>
+#include <functional>
 
 #include "utility/utility.h"
 #include "entities/signature.h"
@@ -17,7 +18,7 @@ namespace Entity {
 class BaseData {
     public:
         virtual ~BaseData() { }
-        virtual bool has(const uint64_t id) const = 0;
+        virtual size_t has(const uint64_t id) const = 0;
         virtual void add(const uint64_t id) = 0;
         virtual void reserve(const size_t more) = 0;
         virtual void remove(const uint64_t id) = 0;
@@ -64,8 +65,8 @@ class Data: public BaseData {
             other.data.clear();
         }
 
-        bool has(const uint64_t id) const override {
-            return idToLow.find(id) != idToLow.end();
+        size_t has(const uint64_t id) const override {
+            return idToLow.find(id) != idToLow.end() ? 1 : 0;
         }
 
         T &forID(const uint64_t id) {
@@ -84,7 +85,7 @@ class Data: public BaseData {
             return data.at(index);
         }
 
-        std::optional< std::reference_wrapper< T > > optForID(const uint64_t id) {
+        T &optForID(const uint64_t id) {
             const auto id_loc = idToLow.find(id);
             if (idToLow.end() == id_loc) {
                 return std::nullopt;
@@ -142,6 +143,125 @@ class Data: public BaseData {
         void deleteComponent(Core &core, const uint64_t id) override {
             T &t = data[idToLow[id]];
             Entity::deleteComponent< T >(core, id, t);
+        }
+};
+
+template< typename T >
+class MultiData: public BaseData {
+    public:
+        typedef T Type;
+        TypeID type() const override { return DataTypeID< T >(); }
+        std::map< uint64_t, std::vector< size_t > > idToLow; // Converts from id to data index
+        std::map< size_t, uint64_t > lowToid; // Converts from data index to id
+        std::vector< T > data;
+        virtual ~MultiData() { }
+
+        void graduateFrom(BaseData &baseOther) override {
+            // TODO
+            rassert(type() == baseOther.type(), "Cannot graduate from a different type!", type(), baseOther.type());
+            Data< T > &other = static_cast< Data< T > & >(baseOther);
+
+            data.reserve(data.size() + other.data.size());
+            for (size_t i = 0; i < other.data.size(); ++i) {
+                const uint64_t id = other.lowToid[i];
+                idToLow[id] = data.size();
+                lowToid[data.size()] = id;
+                data.emplace_back(other.data[i]);
+            }
+
+            other.idToLow.clear();
+            other.lowToid.clear();
+            other.data.clear();
+        }
+
+        size_t has(const uint64_t id) const override {
+            const auto loc = idToLow.find(id);
+            if (idToLow.end() == loc) { return 0; }
+            return loc->second.size();
+        }
+
+        std::vector< std::reference_wrapper< T > > forID(const uint64_t id) {
+            // TODO:
+            const auto id_loc = idToLow.find(id);
+            rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return data.at(index);
+        }
+
+        const T &forID(const uint64_t id) const {
+            // TODO
+            const auto id_loc = idToLow.find(id);
+            rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return data.at(index);
+        }
+
+        std::optional< std::reference_wrapper< T > > optForID(const uint64_t id) {
+            // TODO
+            const auto id_loc = idToLow.find(id);
+            if (idToLow.end() == id_loc) {
+                return std::nullopt;
+            }
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return std::optional< std::reference_wrapper< T > >{data.at(index)};
+        }
+
+        std::optional< std::reference_wrapper< const T > > optForID(const uint64_t id) const {
+            // TODO
+            const auto id_loc = idToLow.find(id);
+            if (idToLow.end() == id_loc) {
+                return std::nullopt;
+            }
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            return std::optional< std::reference_wrapper< const T > >{data.at(index)};
+        }
+
+        void reserve(const size_t more) override {
+            data.reserve(data.size() + more);
+        }
+
+        void add(const uint64_t id) override {
+            idToLow[id].push_back(data.size());
+            lowToid[data.size()] = id;
+            data.resize(data.size() + 1);
+        }
+
+        void addThis(const uint64_t id, const T &t) {
+            idToLow[id].push_back(data.size());
+            lowToid[data.size()] = id;
+            data.emplace_back(t);
+        }
+
+        void remove(const uint64_t id) override {
+            // Warning: This removes all of them for this id
+            // TODO
+            const size_t back = data.size() - 1;
+            const size_t backID = lowToid[back];
+            const size_t eraseAt = idToLow[id];
+            if (id != backID) {
+                data[eraseAt] = std::move(data[back]);
+                idToLow[backID] = eraseAt;
+                lowToid[eraseAt] = backID;
+            }
+            data.resize(data.size() - 1);
+            lowToid.erase(back);
+            idToLow.erase(id);
+        }
+
+        void initComponent(Core &core, const uint64_t id) override {
+            for (T &t : data[idToLow[id]]) {
+                Entity::initComponent< T >(core, id, t);
+            }
+        }
+
+        void deleteComponent(Core &core, const uint64_t id) override {
+            for (T &t : data[idToLow[id]]) {
+                Entity::deleteComponent< T >(core, id, t);
+            }
         }
 };
 

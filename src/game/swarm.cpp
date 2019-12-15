@@ -147,7 +147,7 @@ Entity::EntityID makeSwarmer(Core &core, uint16_t tag, Point3 colour) {
         Team{ tag },
         Damage{ 0.2 },
         Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 2.0, 0.25, 0.01, true },
-        Turret2{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false }
+        Turret{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false }
     );
 }
 

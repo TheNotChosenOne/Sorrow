@@ -46,18 +46,6 @@ struct Turret {
 };
 DeclareDataType(Turret);
 
-struct Turret2 {
-    double cooldown_length;
-    double cooldown;
-    double range;
-    double dmg;
-    double lifetime;
-    double bullet_radius;
-    double bullet_health;
-    bool bullet_seeking;
-};
-DeclareDataType(Turret2);
-
 struct Seeker {
     Entity::EntityID target;
 };
