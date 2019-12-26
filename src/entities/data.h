@@ -7,7 +7,9 @@
 #include <iostream>
 #include <typeindex>
 #include <functional>
+#include <type_traits>
 
+#include "utility/io.h"
 #include "utility/utility.h"
 #include "entities/signature.h"
 
@@ -30,11 +32,25 @@ class BaseData {
 };
 std::ostream &operator<<(std::ostream &os, const BaseData &bd);
 
+template< typename T >
+struct DataStorageType {
+    typedef void Type;
+    typedef std::false_type IsMulti;
+};
+
 #define DeclareDataType(T) \
     typedef Entity::Data< T > T ## Data; \
+    template<> struct Entity::DataStorageType< T > { \
+        typedef Entity::Data< T > Type; \
+        typedef std::false_type IsMulti; \
+    }; \
 
 #define DeclareMultiDataType(T) \
     typedef Entity::MultiData< T > T ## Data; \
+    template<> struct Entity::DataStorageType< T > { \
+        typedef Entity::MultiData< T > Type; \
+        typedef std::true_type IsMulti; \
+    }; \
 
 template< typename T >
 void initComponent(Core &, uint64_t, T &) { }
@@ -88,6 +104,19 @@ class Data: public BaseData {
             const size_t index = id_loc->second;
             rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
             return data.at(index);
+        }
+
+        void addForID(const uint64_t id, std::vector< T > &data) const {
+            data.push_back(forID(id));
+        }
+
+        void setForID(const uint64_t id, std::vector< T > &refs) {
+            rassert(1 == refs.size(), "You must exactly set one value", id, refs.size(), DataTypeName< T >());
+            const auto id_loc = idToLow.find(id);
+            rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            const size_t index = id_loc->second;
+            rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
+            data[index] = std::move(refs[0]);
         }
 
         std::optional< std::reference_wrapper< T > > optForID(const uint64_t id) {
@@ -185,19 +214,27 @@ class MultiData: public BaseData {
             return loc->second.size();
         }
 
-        std::vector< std::reference_wrapper< T > > forID(const uint64_t id) {
-            std::vector< std::reference_wrapper< T > > refs;
+        void addForID(const uint64_t id, std::vector< T > &refs) const {
             for (const size_t index : idToLow.at(id)) {
                 refs.push_back(data[index]);
             }
-            return refs;
         }
 
-        const T &forID(const uint64_t id) const {
-            std::vector< std::reference_wrapper< const T > > refs;
-            for (const size_t index : idToLow.at(id)) {
-                refs.push_back(data[index]);
+        void setForID(const uint64_t id, std::vector< T > &refs) {
+            rassert(!data.empty(), "You must exactly set at least one value", id, DataTypeName< T >());
+            const auto id_loc = idToLow.find(id);
+            rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            const auto &indices = id_loc->second;
+            rassert(indices.size() == refs.size(), "You must set as many components as the entity has",
+                    id, indices.size(), refs.size(), DataTypeName< T >());
+            for (size_t i = 0; i < refs.size(); ++i) {
+                data[indices[i]] = refs[i];
             }
+        }
+
+        std::vector< T > &forID(const uint64_t id) const {
+            std::vector< T > refs;
+            addForID(id, refs);
             return refs;
         }
 
@@ -262,13 +299,18 @@ class MultiData: public BaseData {
         }
 
         void initComponent(Core &core, const uint64_t id) override {
-            for (const size_t index : idToLow[id]) {
+            const auto loc = idToLow.find(id);
+            rassert(loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            //std::cout << loc->second << " " << data.size() << std::endl;
+            for (const size_t index : loc->second) {
                 Entity::initComponent< T >(core, id, data[index]);
             }
         }
 
         void deleteComponent(Core &core, const uint64_t id) override {
-            for (const size_t index : idToLow[id]) {
+            const auto loc = idToLow.find(id);
+            rassert(loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
+            for (const size_t index : loc->second) {
                 Entity::deleteComponent< T >(core, id, data[index]);
             }
         }

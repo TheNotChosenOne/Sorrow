@@ -29,9 +29,9 @@ struct Exec {
         v.reserve(ids.size());
 
         const BaseData &baseSource = tracker.getSource< Type >();
-        const Data< Type > &source = static_cast< const Data< Type > & >(baseSource);
+        const typename DataStorageType< Type >::Type &source = static_cast< const DataStorageType< Type >::Type & >(baseSource);
         for (const auto id : ids) {
-            v.push_back(source.forID(id)); // TODO: Hints ?
+            source.addForID(id, v);
         }
     }
 
@@ -90,11 +90,15 @@ struct Exec {
     template< typename Type >
     static typename std::enable_if< !std::is_const< Type >::value, void >::type
     setData(const std::vector< std::remove_const_t< Type > > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
-        BaseData &baseSource = tracker.getSource< Type >();
-        Data< Type > &source = static_cast< Data< Type > & >(baseSource);
+        std::map< EntityID, std::vector< std::remove_const_t< Type > > > byID;
         for (size_t i = 0; i < v.size(); ++i) {
-            //rassert(tracker.aliveWithLock(ids[i]), "Entity is dead during writeback", ids[i], DataTypeName< Type >());
-            source.forID(ids[i]) = std::move(v[i]);
+            byID[ids[i]].push_back(std::move(v[i]));
+        }
+
+        BaseData &baseSource = tracker.getSource< Type >();
+        typename DataStorageType< Type >::Type &source = static_cast< DataStorageType< Type >::Type & >(baseSource);
+        for (auto &[id, values] : byID) {
+            source.setForID(id, values);
         }
     }
 

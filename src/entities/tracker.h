@@ -86,17 +86,17 @@ class Tracker {
         }
 
         template< typename T >
-        Data< T > &getSource() { // TODO: Speedup ?
+        DataStorageType< T >::Type &getSource() { // TODO: Speedup ?
             const auto loc = sources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != sources.end(), "Data source is missing", DataTypeName< T >());
-            return static_cast< Data< T > & >(*loc->second);
+            return static_cast< DataStorageType< T >::Type & >(*loc->second);
         }
 
         template< typename T >
-        Data< T > &getNurserySource() {
+        DataStorageType< T >::Type &getNurserySource() {
             const auto loc = nurserySources.find(DataTypeID< std::remove_const_t< T > >());
             rassert(loc != nurserySources.end(), "Data source is missing", DataTypeName< T >());
-            return static_cast< Data< T > & >(*loc->second);
+            return static_cast< DataStorageType< T >::Type & >(*loc->second);
         }
 
         template< typename T >
