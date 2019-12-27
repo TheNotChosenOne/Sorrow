@@ -11,6 +11,7 @@
 
 #include "utility/io.h"
 #include "utility/utility.h"
+#include "utility/templates.h"
 #include "entities/signature.h"
 
 struct Core;
@@ -38,19 +39,57 @@ struct DataStorageType {
     typedef std::false_type IsMulti;
 };
 
+template< typename T >
+struct ConstyContainer {
+    using Type = void;
+};
+
+template< typename T >
+struct ConstySingle {
+    using Type = void;
+};
+
 #define DeclareDataType(T) \
     typedef Entity::Data< T > T ## Data; \
     template<> struct Entity::DataStorageType< T > { \
         typedef Entity::Data< T > Type; \
         typedef std::false_type IsMulti; \
+        typedef T Single; \
+        typedef std::vector< T > Container; \
     }; \
+    template<> struct Entity::ConstySingle< T > { \
+        using Type = T; \
+    }; \
+    template<> struct Entity::ConstySingle< const T > { \
+        using Type = const T; \
+    }; \
+    template<> struct Entity::ConstyContainer< T > { \
+        using Type = std::vector< T >; \
+    }; \
+    template<> struct Entity::ConstyContainer< const T > { \
+        using Type = const std::vector< T >; \
+    };
 
 #define DeclareMultiDataType(T) \
     typedef Entity::MultiData< T > T ## Data; \
     template<> struct Entity::DataStorageType< T > { \
         typedef Entity::MultiData< T > Type; \
         typedef std::true_type IsMulti; \
+        typedef std::vector< T > Single; \
+        typedef std::vector< std::vector< T > > Container; \
     }; \
+    template<> struct Entity::ConstySingle< T > { \
+        using Type = std::vector< T >; \
+    }; \
+    template<> struct Entity::ConstySingle< const T > { \
+        using Type = const std::vector< T >; \
+    }; \
+    template<> struct Entity::ConstyContainer< T > { \
+        using Type = std::vector< std::vector< T > >; \
+    }; \
+    template<> struct Entity::ConstyContainer< const T > { \
+        using Type = const std::vector< std::vector< T > >; \
+    };
 
 template< typename T >
 void initComponent(Core &, uint64_t, T &) { }
@@ -301,7 +340,6 @@ class MultiData: public BaseData {
         void initComponent(Core &core, const uint64_t id) override {
             const auto loc = idToLow.find(id);
             rassert(loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
-            //std::cout << loc->second << " " << data.size() << std::endl;
             for (const size_t index : loc->second) {
                 Entity::initComponent< T >(core, id, data[index]);
             }

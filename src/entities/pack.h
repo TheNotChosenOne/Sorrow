@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utility/templates.h"
+#include "entities/data.h"
 
 #include <tuple>
 #include <vector>
@@ -22,13 +23,16 @@ struct PackAccess< Index, Search, Search, Rest... > {
 template< typename ...Args >
 struct Pack {
     std::tuple< Args... > data;
+
     template< typename T >
-    T &get() {
+    typename std::enable_if< !std::is_const< T >::value, typename DataStorageType< T >::Single >::type
+    &get() {
         constexpr size_t i = PackAccess< 0, T, Args... >::type::index;
         return std::get< i >(data);
     }
+
     template< typename T >
-    const T &get() const {
+    const DataStorageType< std::remove_const_t< T > >::Single &get() const {
         constexpr size_t i = PackAccess< 0, T, Args... >::type::index;
         return std::get< i >(data);
     }
@@ -36,17 +40,18 @@ struct Pack {
 
 template< typename ...Args >
 struct Packs {
-    std::tuple< ConstLifted< std::vector, Args > ... > data;
-    using Mutable = std::tuple< std::vector< std::remove_const_t< Args > > ... >;
-    
+    std::tuple< typename ConstyContainer< Args >::Type ... > data;
+    using Mutable = typename std::tuple< typename ConstyContainer< Args >::Type ... >;
+
     template< typename T >
-    ConstLifted< std::vector, T > &get() {
+    typename std::enable_if< !std::is_const< T >::value, typename DataStorageType< T >::Container >::type
+    &get() {
         constexpr size_t i = PackAccess< 0, T, Args... >::type::index;
         return std::get< i >(data);
     }
 
     template< typename T >
-    const ConstLifted< std::vector, T > &get() const {
+    const DataStorageType< std::remove_const_t< T > >::Container &get() const {
         constexpr size_t i = PackAccess< 0, T, Args... >::type::index;
         return std::get< i >(data);
     }

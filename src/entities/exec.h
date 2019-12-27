@@ -50,7 +50,7 @@ struct Exec {
     template< typename ...Types >
     static void populateMain(std::pair< Packs< Types... >, IDMap > &pair, Tracker &tracker, std::set< EntityID > &ids) {
         pair.second = decltype(pair.second)(ids.begin(), ids.end());
-        using Muta = typename Packs< Types... >::Mutable;
+        using Muta = typename Packs< std::remove_const_t< Types > ... >::Mutable;
         using FI = FindIndices< Types... >;
         // This gets a non-const version of the data
         // I hope non-consts have the same alignments as consts
