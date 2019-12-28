@@ -26,10 +26,11 @@ struct Exec {
 
     template< typename Type >
     static void getData(std::vector< Type > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
+        using BaseType = BaseFromSingle< Type >::Type;
         v.reserve(ids.size());
 
-        const BaseData &baseSource = tracker.getSource< Type >();
-        const typename DataStorageType< Type >::Type &source = static_cast< const DataStorageType< Type >::Type & >(baseSource);
+        const BaseData &baseSource = tracker.getSource< BaseType >();
+        const typename DataStorageType< BaseType >::Type &source = static_cast< const DataStorageType< BaseType >::Type & >(baseSource);
         for (const auto id : ids) {
             source.addForID(id, v);
         }
@@ -75,30 +76,28 @@ struct Exec {
                 }
             }
         }
-        using Muta = typename Packs< Types... >::Mutable;
+        using Muta = typename Packs< std::remove_const_t< Types > ... >::Mutable;
         using FI = FindIndices< Types... >;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wstrict-aliasing"
         Muta &muta = reinterpret_cast< Muta & >(pair.first.data);
+        #pragma GCC diagnostic pop
         (..., getData(std::get< FI::template index< Types >() >(muta), pair.second, tracker));
     }
 
     template< typename Type >
     static typename std::enable_if< std::is_const< Type >::value, void >::type
-    setData(const std::vector< std::remove_const_t< Type > > &, const std::vector< EntityID > &, Tracker &) {
+    setData(const DataStorageType< std::remove_const_t< Type > >::Container &, const std::vector< EntityID > &, Tracker &) {
         // Do nothing
     }
 
     template< typename Type >
     static typename std::enable_if< !std::is_const< Type >::value, void >::type
-    setData(const std::vector< std::remove_const_t< Type > > &v, const std::vector< EntityID > &ids, Tracker &tracker) {
-        std::map< EntityID, std::vector< std::remove_const_t< Type > > > byID;
-        for (size_t i = 0; i < v.size(); ++i) {
-            byID[ids[i]].push_back(std::move(v[i]));
-        }
-
+    setData(DataStorageType< std::remove_const_t< Type > >::Container &v, const std::vector< EntityID > &ids, Tracker &tracker) {
         BaseData &baseSource = tracker.getSource< Type >();
         typename DataStorageType< Type >::Type &source = static_cast< DataStorageType< Type >::Type & >(baseSource);
-        for (auto &[id, values] : byID) {
-            source.setForID(id, values);
+        for  (size_t i = 0; i < ids.size(); ++i) {
+            source.setForID(ids[i], v[i]);
         }
     }
 

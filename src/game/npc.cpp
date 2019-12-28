@@ -163,113 +163,113 @@ void TurretSystem::init(Core &core) {
     core.tracker.addSource< TurretData >();
 }
 
-template< typename TTurret >
 void runGunners(
     Core &core,
     const double seconds,
     std::pair< Entity::Packs< const PhysBody, const Team >, const Entity::IDMap > &unarmed,
-    std::pair< Entity::Packs< const PhysBody, const Team, TTurret >, const Entity::IDMap > &armed
+    std::pair< Entity::Packs< const PhysBody, const Team, Turret >, const Entity::IDMap > &armed
 ) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    auto &turrets = armed.first.template get< TTurret >();
+    auto &turret_groups = armed.first.template get< Turret >();
     auto &armed_teams = armed.first.template get< const Team >();
     auto &armed_bodies = armed.first.template get< const PhysBody >();
 
     auto &unarmed_teams = unarmed.first.template get< const Team >();
     auto &unarmed_bodies = unarmed.first.template get< const PhysBody >();
 
-    for (size_t turret_index = 0; turret_index < turrets.size(); ++turret_index) {
-        auto &turret = turrets[turret_index];
-        if (0.0 != turret.cooldown) {
-            turret.cooldown = std::max(0.0, turret.cooldown - seconds);
-        }
-
-        if (0.0 != turret.cooldown) { continue; }
-
-        const auto team = armed_teams[turret_index].team;
-        const double range_square = turret.range * turret.range;
-        const auto body = armed_bodies[turret_index];
-        const auto source_at = VPC< Vec >(body.body->GetPosition());
-        const auto check_target =
-        [&](const PhysBody &target, const TeamNumber target_team, const Entity::EntityID tid) -> bool {
-            if (target_team == team) { return false; }
-            const auto centre = VPC< Vec >(target.body->GetPosition());
-            const Vec vec_to = centre - source_at;
-            if (vec_to.squared_length() > range_square) { return false; }
-
-            // Firing
-            turret.cooldown = turret.cooldown_length;
-            const b2Body *bd = body.body;
-            const b2Fixture *fixes = bd->GetFixtureList();
-            const b2Shape *shape = fixes->GetShape();
-            const b2CircleShape * circ = static_cast< const b2CircleShape * >(shape);
-
-            const auto offset = source_at + 1.5 * (turret.bullet_radius + circ->m_radius) * normalized(vec_to);
-            const auto pointy = Point( offset.x(), offset.y() );
-            auto bul_body = makeCircle(core, pointy, turret.bullet_radius);
-            const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
-            bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
-
-            auto bullet_colour = Colour{ { 0xFF, 0xFF, 0x99 } };
-            const auto turret_colour = core.tracker.optComponent< const Colour >(armed.second[turret_index]);
-            if (turret_colour) {
-                bullet_colour = *turret_colour;
+    for (size_t entity_index = 0; entity_index < turret_groups.size(); ++entity_index) {
+        for (auto &turret : turret_groups[entity_index]) {
+            if (0.0 != turret.cooldown) {
+                turret.cooldown = std::max(0.0, turret.cooldown - seconds);
             }
 
-            const auto id = core.tracker.createWith(core,
-                PhysBody{ bul_body },
-                bullet_colour,
-                Team({ team }),
-                Damage{ turret.dmg },
-                Lifetime{ turret.lifetime }
-            );
+            if (0.0 != turret.cooldown) { continue; }
 
-            if (turret.bullet_health > 0.0) {
-                core.tracker.addComponent(core, id, fullHealth(turret.bullet_health));
-                core.tracker.addComponent(core, id, HitData{});
-            }
+            const auto team = armed_teams[entity_index].team;
+            const double range_square = turret.range * turret.range;
+            const auto body = armed_bodies[entity_index];
+            const auto source_at = VPC< Vec >(body.body->GetPosition());
+            const auto check_target =
+            [&](const PhysBody &target, const TeamNumber target_team, const Entity::EntityID tid) -> bool {
+                if (target_team == team) { return false; }
+                const auto centre = VPC< Vec >(target.body->GetPosition());
+                const Vec vec_to = centre - source_at;
+                if (vec_to.squared_length() > range_square) { return false; }
 
-            if (turret.bullet_seeking) {
-                core.tracker.addComponent(core, id, Seeker{ tid });
-            }
-            return true;
-        };
+                // Firing
+                turret.cooldown = turret.cooldown_length;
+                const b2Body *bd = body.body;
+                const b2Fixture *fixes = bd->GetFixtureList();
+                const b2Shape *shape = fixes->GetShape();
+                const b2CircleShape * circ = static_cast< const b2CircleShape * >(shape);
 
-        bool shot = false;
-        if (!armed_bodies.empty()) {
-            const size_t start = std::uniform_int_distribution< size_t >(0, armed_bodies.size() - 1)(gen);
-            for (size_t j = start; j < armed_bodies.size(); ++j) {
-                if (check_target(armed_bodies[j], armed_teams[j].team, armed.second[j])) {
-                    shot = true;
-                    break;
+                const auto offset = source_at + 1.5 * (turret.bullet_radius + circ->m_radius) * normalized(vec_to);
+                const auto pointy = Point( offset.x(), offset.y() );
+                auto bul_body = makeCircle(core, pointy, turret.bullet_radius);
+                const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
+                bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
+
+                auto bullet_colour = Colour{ { 0xFF, 0xFF, 0x99 } };
+                const auto turret_colour = core.tracker.optComponent< const Colour >(armed.second[entity_index]);
+                if (turret_colour) {
+                    bullet_colour = *turret_colour;
                 }
-            }
 
-            if (!shot) {
-                for (size_t j = 0; j < start; ++j) {
+                const auto id = core.tracker.createWith(core,
+                    PhysBody{ bul_body },
+                    bullet_colour,
+                    Team({ team }),
+                    Damage{ turret.dmg },
+                    Lifetime{ turret.lifetime }
+                );
+
+                if (turret.bullet_health > 0.0) {
+                    core.tracker.addComponent(core, id, fullHealth(turret.bullet_health));
+                    core.tracker.addComponent(core, id, HitData{});
+                }
+
+                if (turret.bullet_seeking) {
+                    core.tracker.addComponent(core, id, Seeker{ tid });
+                }
+                return true;
+            };
+
+            bool shot = false;
+            if (!armed_bodies.empty()) {
+                const size_t start = std::uniform_int_distribution< size_t >(0, armed_bodies.size() - 1)(gen);
+                for (size_t j = start; j < armed_bodies.size(); ++j) {
                     if (check_target(armed_bodies[j], armed_teams[j].team, armed.second[j])) {
                         shot = true;
                         break;
                     }
                 }
-            }
-        }
 
-        if (!shot && !unarmed_bodies.empty()) {
-            const size_t start = std::uniform_int_distribution< size_t >(0, unarmed_bodies.size() - 1)(gen);
-            for (size_t j = start; j < unarmed_bodies.size(); ++j) {
-                if  (check_target(unarmed_bodies[j], unarmed_teams[j].team, unarmed.second[j])) {
-                    shot = true;
-                    break;
+                if (!shot) {
+                    for (size_t j = 0; j < start; ++j) {
+                        if (check_target(armed_bodies[j], armed_teams[j].team, armed.second[j])) {
+                            shot = true;
+                            break;
+                        }
+                    }
                 }
             }
-            if (!shot) {
-                for (size_t j = 0; j < start; ++j) {
+
+            if (!shot && !unarmed_bodies.empty()) {
+                const size_t start = std::uniform_int_distribution< size_t >(0, unarmed_bodies.size() - 1)(gen);
+                for (size_t j = start; j < unarmed_bodies.size(); ++j) {
                     if  (check_target(unarmed_bodies[j], unarmed_teams[j].team, unarmed.second[j])) {
                         shot = true;
                         break;
+                    }
+                }
+                if (!shot) {
+                    for (size_t j = 0; j < start; ++j) {
+                        if  (check_target(unarmed_bodies[j], unarmed_teams[j].team, unarmed.second[j])) {
+                            shot = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -283,6 +283,6 @@ void TurretSystem::execute(Core &core, double seconds) {
         Entity::Packs< const PhysBody, const Team, Turret >
     >::run(core.tracker,
     [&](auto &noturrets, auto &turreters) {
-        runGunners< Turret >(core, seconds, noturrets, turreters);
+        runGunners(core, seconds, noturrets, turreters);
     });
 }

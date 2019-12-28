@@ -49,6 +49,11 @@ struct ConstySingle {
     using Type = void;
 };
 
+template< typename T >
+struct BaseFromSingle {
+    using Type = void;
+};
+
 #define DeclareDataType(T) \
     typedef Entity::Data< T > T ## Data; \
     template<> struct Entity::DataStorageType< T > { \
@@ -68,6 +73,9 @@ struct ConstySingle {
     }; \
     template<> struct Entity::ConstyContainer< const T > { \
         using Type = const std::vector< T >; \
+    }; \
+    template<> struct Entity::BaseFromSingle< T > { \
+        using Type = T; \
     };
 
 #define DeclareMultiDataType(T) \
@@ -89,6 +97,9 @@ struct ConstySingle {
     }; \
     template<> struct Entity::ConstyContainer< const T > { \
         using Type = const std::vector< std::vector< T > >; \
+    }; \
+    template<> struct Entity::BaseFromSingle< std::vector< T > > { \
+        using Type = T; \
     };
 
 template< typename T >
@@ -149,13 +160,12 @@ class Data: public BaseData {
             data.push_back(forID(id));
         }
 
-        void setForID(const uint64_t id, std::vector< T > &refs) {
-            rassert(1 == refs.size(), "You must exactly set one value", id, refs.size(), DataTypeName< T >());
+        void setForID(const uint64_t id, T &ref) {
             const auto id_loc = idToLow.find(id);
             rassert(id_loc != idToLow.end(), "Entity does not have component", id, DataTypeName< T >());
             const size_t index = id_loc->second;
             rassert(index < data.size(), "Data chunk size is inconsistent", id, DataTypeName< T >());
-            data[index] = std::move(refs[0]);
+            data[index] = std::move(ref);
         }
 
         std::optional< std::reference_wrapper< T > > optForID(const uint64_t id) {
@@ -253,12 +263,6 @@ class MultiData: public BaseData {
             return loc->second.size();
         }
 
-        void addForID(const uint64_t id, std::vector< T > &refs) const {
-            for (const size_t index : idToLow.at(id)) {
-                refs.push_back(data[index]);
-            }
-        }
-
         void setForID(const uint64_t id, std::vector< T > &refs) {
             rassert(!data.empty(), "You must exactly set at least one value", id, DataTypeName< T >());
             const auto id_loc = idToLow.find(id);
@@ -271,10 +275,16 @@ class MultiData: public BaseData {
             }
         }
 
-        std::vector< T > &forID(const uint64_t id) const {
+        std::vector< T > forID(const uint64_t id) const {
             std::vector< T > refs;
-            addForID(id, refs);
+            for (const size_t index : idToLow.at(id)) {
+                refs.push_back(data[index]);
+            }
             return refs;
+        }
+
+        void addForID(const uint64_t id, std::vector< std::vector< T > > &refs) const {
+            refs.emplace_back(forID(id));
         }
 
         std::vector< std::reference_wrapper< T > > optForID(const uint64_t id) {
