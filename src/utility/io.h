@@ -39,6 +39,15 @@ std::ostream &dumpContainer(std::ostream &os, const C< T > &s) {
     return (os << ']');
 }
 
+template< template< typename ... > typename C, typename K, typename V >
+std::ostream &dumpKeyedContainer(std::ostream &os, const C< K, V > &s) {
+    os <<'(' << s.size() << ")[ ";
+    for (const auto &kv : s) {
+        os << "(" << kv.first << ": " << kv.second << ") ";
+    }
+    return (os << ']');
+}
+
 template< typename T >
 std::ostream &operator<<(std::ostream &os, const std::set< T > &s) {
     return dumpContainer(os, s);
@@ -51,24 +60,24 @@ std::ostream &operator<<(std::ostream &os, const std::unordered_set< T > &s) {
 
 template< typename K, typename V >
 std::ostream &operator<<(std::ostream &os, const std::map< K, V > &s) {
-    return dumpContainer(os, s);
+    return dumpKeyedContainer(os, s);
 }
 
 template< typename K, typename V >
 std::ostream &operator<<(std::ostream &os, const std::unordered_map< K, V > &s) {
-    return dumpContainer(os, s);
+    return dumpKeyedContainer(os, s);
 }
 
 template< typename T >
 std::ostream &operator<<(std::ostream &os, const std::unique_ptr< T > &ptr) {
     os << "unique {";
     if (ptr) { os << *ptr; }
-    return (os << ')');
+    return (os << '}');
 }
 
 template< typename T >
 std::ostream &operator<<(std::ostream &os, const std::shared_ptr< T > &ptr) {
     os << "shared {";
     if (ptr) { os << *ptr; }
-    return (os << ')');
+    return (os << '}');
 }
