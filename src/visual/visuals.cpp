@@ -3,6 +3,7 @@
 #include "entities/exec.h"
 #include "visual/renderer.h"
 #include "physics/physics.h"
+#include "input/input.h"
 #include "core/core.h"
 #include "game/npc.h"
 
@@ -53,8 +54,11 @@ void draw(Core &core, Entity::Tracker &tracker, Renderer &renderer, const Point 
         }
     });
 
-    const auto flag = core.getFlag< SeekerLinesFlag >();
-    if (flag && flag->get().drawSeekerLines) {
+    auto &flag = core.ensureFlag< SeekerLinesFlag >();
+    if (core.input.isReleased(SDLK_l)) {
+        flag.drawSeekerLines = !flag.drawSeekerLines;
+    }
+    if (flag.drawSeekerLines) {
         Entity::ExecSimple< const PhysBody, const Colour, const Seeker >::run(tracker,
         [&](const auto &, const auto &bodies, const auto &colours, const auto &seekers) {
             for (size_t i = 0; i < bodies.size(); ++i) {
