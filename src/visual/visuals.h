@@ -6,6 +6,10 @@
 struct Colour { Point3 colour; };
 DeclareDataType(Colour);
 
+struct SeekerLinesFlag {
+    bool drawSeekerLines;
+};
+
 namespace Entity { class Tracker; }
 class Renderer;
-void draw(Entity::Tracker &track, Renderer &renderer, const Point position, const double scale);
+void draw(Core &core, Entity::Tracker &track, Renderer &renderer, const Point position, const double scale);

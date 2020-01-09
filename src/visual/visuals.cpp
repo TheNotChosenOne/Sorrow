@@ -3,6 +3,7 @@
 #include "entities/exec.h"
 #include "visual/renderer.h"
 #include "physics/physics.h"
+#include "core/core.h"
 #include "game/npc.h"
 
 #include <Box2D.h>
@@ -19,7 +20,7 @@ struct MinVis {
 
 }
 
-void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, const double scale) {
+void draw(Core &core, Entity::Tracker &tracker, Renderer &renderer, const Point position, const double scale) {
     const auto shift = VPC< b2Vec2 >(position);
     Entity::ExecSimple< const PhysBody, const Colour >::run(tracker,
     [&](const auto &, const auto &pbs, const auto &colours) {
@@ -52,17 +53,18 @@ void draw(Entity::Tracker &tracker, Renderer &renderer, const Point position, co
         }
     });
 
-    /*
-    Entity::ExecSimple< const PhysBody, const Colour, const Seeker >::run(tracker,
-    [&](const auto &, const auto &bodies, const auto &colours, const auto &seekers) {
-        for (size_t i = 0; i < bodies.size(); ++i) {
-            const auto tid = seekers[i].target;
-            const auto optBody = tracker.optComponent< PhysBody >(tid);
-            if (!optBody) { continue; }
-            const auto src = scale * (bodies[i].body->GetPosition() - shift);
-            const auto dst = scale * (optBody->get().body->GetPosition() - shift);
-            renderer.drawLine(VPC< Point >(src), VPC< Point >(dst), colours[i].colour);
-        }
-    });
-    */
+    const auto flag = core.getFlag< SeekerLinesFlag >();
+    if (flag && flag->get().drawSeekerLines) {
+        Entity::ExecSimple< const PhysBody, const Colour, const Seeker >::run(tracker,
+        [&](const auto &, const auto &bodies, const auto &colours, const auto &seekers) {
+            for (size_t i = 0; i < bodies.size(); ++i) {
+                const auto tid = seekers[i].target;
+                const auto optBody = tracker.optComponent< PhysBody >(tid);
+                if (!optBody) { continue; }
+                const auto src = scale * (bodies[i].body->GetPosition() - shift);
+                const auto dst = scale * (optBody->get().body->GetPosition() - shift);
+                renderer.drawLine(VPC< Point >(src), VPC< Point >(dst), colours[i].colour);
+            }
+        });
+    }
 }

@@ -197,7 +197,7 @@ static size_t mainLoop(Core &core, Game &game) {
                     core.radius = cam.radius;
                     core.camera = VPC< Point >(bod.body->GetPosition());
                 }
-                draw(core.tracker, core.renderer, core.camera, core.scale());
+                draw(core, core.tracker, core.renderer, core.camera, core.scale());
                 core.renderer.update();
                 core.renderer.clear();
             });
@@ -285,7 +285,11 @@ static void run(boost::program_options::variables_map &options) {
 
     b2Vec2 gravity(0.0f, game->gravity());
     std::unique_ptr< b2World > world = std::make_unique< b2World >(gravity);
-    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0) };
+    Core core{ *input, tracker, *renderer, *systems, { std::mutex(), std::move(world) }, options, 128, Point(0.0, 0.0), Core::FlagMap() };
+
+    if (core.options.count("showSeeking")) {
+        core.setFlag(SeekerLinesFlag{ true });
+    }
 
     game->registration(core);
     core.systems.init(core);
@@ -324,6 +328,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
         ("group",  po::value< double >()->default_value(10.0), "Boid grouping factor")
         ("bubble", po::value< double >()->default_value( 2.0), "Boid personal space")
         ("mouse",  po::value< double >()->default_value( 0.0), "Boid mouse magnetism")
+        ("showSeeking", "Show seeker targets")
 
         ("walls", po::value< double >()->default_value(0.0), "Percentage of tiles that should be walls")
         ("help", "Ask and ye shall receive");
