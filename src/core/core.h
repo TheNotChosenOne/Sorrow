@@ -10,6 +10,7 @@
 
 #include <Box2D.h>
 
+#include "utility/utility.h"
 #include "core/geometry.h"
 #include "core/flags.h"
 
@@ -56,5 +57,16 @@ struct Core {
     template< typename T >
     void setFlag(const T &t) {
         flags[ctti::type_id< std::remove_const_t< T > >()] = std::make_unique< Flag< std::remove_const_t< T > > >(t);
+    }
+
+    template < typename T >
+    T &ensureFlag() {
+        using TypedFlag = Flag< std::remove_const_t< T > >;
+        const auto tid = ctti::type_id< std::remove_const_t< T > >();
+        const auto loc = flags.find(tid);
+        if (flags.end() != loc) { return static_cast< TypedFlag & >(*loc->second).value; }
+        setFlag(T());
+        rassert(flags.end() != flags.find(tid));
+        return static_cast< TypedFlag & >(*flags[tid]).value;
     }
 };
