@@ -163,6 +163,53 @@ void TurretSystem::init(Core &core) {
     core.tracker.addSource< TurretData >();
 }
 
+bool Turret::trigger() {
+    if (0.0 != cooldown) { return false; }
+    cooldown = cooldown_length;
+    return true;
+}
+
+Entity::EntityID standardBullet(Core &core, const BulletInfo &bi, Entity::EntityID sourceID,
+                                Point at, Vec to, std::optional< Entity::EntityID > target) {
+    auto body = makeCircle(core, at, bi.radius);
+    const auto go = 100.0 * VPC< b2Vec2 >(to);
+    body->ApplyLinearImpulse(go, body->GetPosition(), true);
+    auto colour = Colour{ { 0, 0, 0 } };
+    const auto source_colour = core.tracker.optComponent< const Colour >(sourceID);
+    if (source_colour) {
+        colour = *source_colour;
+    }
+
+    const auto id = core.tracker.createWith(core,
+        PhysBody{ body },
+        colour,
+        Damage{ bi.dmg },
+        Lifetime{ bi.lifetime }
+    );
+
+    const auto team = core.tracker.optComponent< const Team >(sourceID);
+    if (team) {
+        core.tracker.addComponent(core, id, Team{ team->get().team });
+    }
+
+    if (bi.health > 0.0) {
+        core.tracker.addComponent(core, id, fullHealth(bi.health));
+        core.tracker.addComponent(core, id, HitData{});
+    }
+
+    if (bi.seeking && target) {
+        core.tracker.addComponent(core, id, Seeker{ *target });
+    }
+
+    return id;
+}
+
+BulletCreator getStandardBulletCreator(BulletInfo bi) {
+    return [bi](Core &core, Entity::EntityID sourceID, Point at, Vec to, std::optional< Entity::EntityID > target) {
+        return standardBullet(core, bi, sourceID, at, to, target);
+    };
+}
+
 void runGunners(
     Core &core,
     const double seconds,
@@ -171,22 +218,17 @@ void runGunners(
 ) {
     std::random_device rd;
     std::mt19937 gen(rd());
-
     auto &turret_groups = armed.first.template get< Turret >();
     auto &armed_teams = armed.first.template get< const Team >();
     auto &armed_bodies = armed.first.template get< const PhysBody >();
-
     auto &unarmed_teams = unarmed.first.template get< const Team >();
     auto &unarmed_bodies = unarmed.first.template get< const PhysBody >();
-
     for (size_t entity_index = 0; entity_index < turret_groups.size(); ++entity_index) {
         for (auto &turret : turret_groups[entity_index]) {
             if (0.0 != turret.cooldown) {
                 turret.cooldown = std::max(0.0, turret.cooldown - seconds);
             }
-
-            if (0.0 != turret.cooldown) { continue; }
-
+            if (!turret.automatic || 0.0 != turret.cooldown) { continue; }
             const auto team = armed_teams[entity_index].team;
             const double range_square = turret.range * turret.range;
             const auto body = armed_bodies[entity_index];
@@ -205,34 +247,10 @@ void runGunners(
                 const b2Shape *shape = fixes->GetShape();
                 const b2CircleShape * circ = static_cast< const b2CircleShape * >(shape);
 
-                const auto offset = source_at + 1.5 * (turret.bullet_radius + circ->m_radius) * normalized(vec_to);
-                const auto pointy = Point( offset.x(), offset.y() );
-                auto bul_body = makeCircle(core, pointy, turret.bullet_radius);
-                const auto go = 100.0 * VPC< b2Vec2 >(normalized(vec_to));
-                bul_body->ApplyLinearImpulse(go, bul_body->GetPosition(), true);
+                const auto offset = source_at + 1.5 * (1.0 + circ->m_radius) * normalized(vec_to);
+                const auto at = Point( offset.x(), offset.y() );
 
-                auto bullet_colour = Colour{ { 0xFF, 0xFF, 0x99 } };
-                const auto turret_colour = core.tracker.optComponent< const Colour >(armed.second[entity_index]);
-                if (turret_colour) {
-                    bullet_colour = *turret_colour;
-                }
-
-                const auto id = core.tracker.createWith(core,
-                    PhysBody{ bul_body },
-                    bullet_colour,
-                    Team({ team }),
-                    Damage{ turret.dmg },
-                    Lifetime{ turret.lifetime }
-                );
-
-                if (turret.bullet_health > 0.0) {
-                    core.tracker.addComponent(core, id, fullHealth(turret.bullet_health));
-                    core.tracker.addComponent(core, id, HitData{});
-                }
-
-                if (turret.bullet_seeking) {
-                    core.tracker.addComponent(core, id, Seeker{ tid });
-                }
+                turret.bullet(core, armed.second[entity_index], at, normalized(vec_to), std::optional(tid));
                 return true;
             };
 

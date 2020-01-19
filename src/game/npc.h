@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <optional>
+
 #include "core/geometry.h"
 #include "entities/data.h"
 #include "entities/tracker.h"
@@ -34,17 +37,28 @@ struct Lifetime {
 };
 DeclareDataType(Lifetime);
 
+typedef std::function< Entity::EntityID(Core &, Entity::EntityID, Point at, Vec to, std::optional< Entity::EntityID > target) > BulletCreator;
 struct Turret {
+    std::string name;
+    BulletCreator bullet;
     double cooldown_length;
     double cooldown;
     double range;
-    double dmg;
-    double lifetime;
-    double bullet_radius;
-    double bullet_health;
-    bool bullet_seeking;
+    bool automatic;
+
+    bool trigger();
 };
 DeclareMultiDataType(Turret);
+
+struct BulletInfo {
+    double lifetime;
+    double radius;
+    double health;
+    double dmg;
+    bool seeking;
+};
+BulletCreator getStandardBulletCreator(BulletInfo bi);
+
 
 struct Seeker {
     Entity::EntityID target;

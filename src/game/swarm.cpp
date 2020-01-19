@@ -136,7 +136,7 @@ void HiveTrackerSystem::execute(Core &core, double) {
     });
 }
 
-Entity::EntityID makeSwarmer(Core &core, uint16_t tag, Point3 colour) {
+Entity::EntityID HiveSpawnerSystem::makeSwarmer(Core &core, uint16_t tag, Point3 colour) const {
     b2Body *body = randomBall(core, 500.0);
     return core.tracker.createWith(core,
         PhysBody{ body },
@@ -146,14 +146,20 @@ Entity::EntityID makeSwarmer(Core &core, uint16_t tag, Point3 colour) {
         fullHealth(10.0),
         Team{ tag },
         Damage{ 0.2 },
-        Turret{ 2.0, rnd_range(0.0, 2.0), 60.0, 0.4, 2.0, 0.25, 0.01, true },
-        Turret{ 0.2, rnd_range(0.0, 0.2), 15.0, 0.1, 0.25, 0.05, 0.0, false }
+        Turret{ "Missile", missiler, 2.0, rnd_range(0.0, 2.0), 60.0, true },
+        Turret{ "Turret", bulleter, 0.2, rnd_range(0.0, 0.2), 15.0, true }
     );
 }
 
 HiveSpawnerSystem::HiveSpawnerSystem()
     : BaseSystem("Hive Spawner",
-        Entity::getConstySignature< Hive >()) {
+        Entity::getConstySignature< Hive >()),
+        bulleter(getStandardBulletCreator(BulletInfo{
+            2.0, 0.25, 0.25, 1.0, false
+        })),
+        missiler(getStandardBulletCreator(BulletInfo{
+            10.0, 0.50, 0.5, 2.0, true
+        })) {
 }
 
 HiveSpawnerSystem::~HiveSpawnerSystem() { }

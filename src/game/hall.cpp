@@ -49,6 +49,7 @@ void HallGame::create(Core &core) {
     );
 
     // Make a turret
+    /*
     core.tracker.createWith(core,
         PhysBody{ makeCircle(core, Point(10.0, 10.0), 2.0, false) },
         Colour{ { 0xFF, 0, 0 } },
@@ -58,6 +59,7 @@ void HallGame::create(Core &core) {
         Turret{ 2.0, 0.0, 60.0, 0.4, 2.0, 0.25, 0.01, true },
         Turret{ 0.2, 0.0, 60.0, 0.4, 2.0, 0.25, 0.01, false }
     );
+    */
 }
 
 void HallGame::cleanup(Core &) {
