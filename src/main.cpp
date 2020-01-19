@@ -28,6 +28,7 @@
 #include "physics/physics.h"
 #include "visual/visuals.h"
 #include "game/swarm.h"
+#include "game/ash.h"
 #include "input/controller.h"
 #include "game/grid.h"
 #include "game/game.h"
@@ -278,6 +279,8 @@ static void run(boost::program_options::variables_map &options) {
         game = std::make_unique< SwarmGame >();
     } else if ("stress" == gameChoice) {
         game = std::make_unique< Stresser >();
+    } else if ("ash" == gameChoice) {
+        game = std::make_unique< ASHGame >();
     } else {
         std::cerr << "Not a known game: " << gameChoice << std::endl;
         return;
