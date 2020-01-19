@@ -172,7 +172,7 @@ bool Turret::trigger() {
 Entity::EntityID standardBullet(Core &core, const BulletInfo &bi, Entity::EntityID sourceID,
                                 Point at, Vec to, std::optional< Entity::EntityID > target) {
     auto body = makeCircle(core, at, bi.radius);
-    const auto go = 100.0 * VPC< b2Vec2 >(to);
+    const auto go = 1000.0 * VPC< b2Vec2 >(to);
     body->ApplyLinearImpulse(go, body->GetPosition(), true);
     auto colour = Colour{ { 0, 0, 0 } };
     const auto source_colour = core.tracker.optComponent< const Colour >(sourceID);
