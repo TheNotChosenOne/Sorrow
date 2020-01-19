@@ -31,7 +31,7 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     if (core.input.isHeld(SDLK_d)) {
         body->ApplyForce(b2Vec2(hSpeed, 0.0), centre, true);
     }
-    if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
+    if (false && core.input.mouseHeld(SDL_BUTTON_LEFT)) {
         const auto moused = core.input.mouseToWorld(core);
         const auto dir = normalized(moused - VPC< Point >(centre));
         b2Body *body = makeCircle(core, VPC< Point >(centre) + dir, 0.5);
@@ -46,13 +46,31 @@ void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
     }
 }
 
-ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getConstySignature< PhysBody, const Controller, const Team >()) {
+void KeyboardTurretController(Core &core, std::vector< Turret > &turrets, Entity::EntityID eid) {
+    if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
+        const auto phys = core.tracker.optComponent< PhysBody >(eid);
+        if (!phys) { return; }
+        const auto centre = phys->get().body->GetPosition();
+
+        const auto moused = core.input.mouseToWorld(core);
+        const auto dir = normalized(moused - VPC< Point >(centre));
+        const auto at = VPC< Point >(centre) + dir;
+        for (auto &turret : turrets) {
+            if (turret.trigger()) {
+                turret.bullet(core, eid, at, dir, std::nullopt);
+            }
+        }
+    }
+}
+
+ControllerSystem::ControllerSystem(): BaseSystem("Controller", Entity::getConstySignature< PhysBody, Turret, const TurretController, const Controller, const Team >()) {
 }
 
 ControllerSystem::~ControllerSystem() { }
 
 void ControllerSystem::init(Core &core) {
     core.tracker.addSource< ControllerData >();
+    core.tracker.addSource< TurretControllerData >();
     core.tracker.addSource< TeamData >();
 }
 
@@ -61,6 +79,14 @@ void ControllerSystem::execute(Core &core, double) {
     [&](auto &data) {
         auto &controllers = data.first.template get< const Controller >();
         auto &pbs = data.first.template get< PhysBody >();
+        for (size_t i = 0; i < pbs.size(); ++i) {
+            controllers[i].controller(core, pbs[i], data.second[i]);
+        }
+    });
+    Entity::Exec< Entity::Packs< Turret, const TurretController > >::run(core.tracker,
+    [&](auto &data) {
+        auto &controllers = data.first.template get< const TurretController >();
+        auto &pbs = data.first.template get< Turret >();
         for (size_t i = 0; i < pbs.size(); ++i) {
             controllers[i].controller(core, pbs[i], data.second[i]);
         }
