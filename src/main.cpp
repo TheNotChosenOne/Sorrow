@@ -48,70 +48,6 @@ namespace {
 std::mt19937_64 rng(0x88888888);
 std::uniform_real_distribution< double > distro(0.0, 1.0);
 
-// x, y is a corner, w, h are dimensions, can be negative to work with corner
-/*
-b2Body *makeWall(b2World *world, double x, double y, double w, double h) {
-    b2BodyDef def;
-    def.type = b2_staticBody;
-
-    b2PolygonShape box;
-
-    b2FixtureDef fixture;
-    fixture.density = 15.0f;
-    fixture.friction = 0.7f;
-    fixture.shape = &box;
-
-    if (w < 0.0) {
-        w = -w;
-        x -= w;
-    }
-    if (h < 0.0) {
-        h = -h;
-        y -= h;
-    }
-    w /= 2.0;
-    h /= 2.0;
-    x += w;
-    y += h;
-
-    box.SetAsBox(w, h);
-    def.position.Set(x, y);
-
-    b2Body *body = world->CreateBody(&def);
-    body->CreateFixture(&fixture);
-    return body;
-}
-*/
-
-Entity::EntityID makePlayer(Core &core) {
-    const Colour playerCol { { 0xAA, 0xAA, 0xAA } };
-    const auto playerID = core.tracker.createWith(core,
-        PhysBody{ randomBall(core, WORLD_SIZE / 2.0) }, playerCol, HitData{}, Controller{ KeyboardController }, Team{ 0 }, fullHealth( std::numeric_limits< double >::infinity())
-    );
-    rassert(core.tracker.optComponent< Team >(playerID));
-    std::cout << "Player ID: " << playerID << '\n';
-    return playerID;
-}
-
-Entity::EntityID makeCamera(Core &core) {
-    b2BodyDef def;
-    def.type = b2_staticBody;
-    def.position.Set(0.0, 0.0);
-
-    b2CircleShape circle;
-    circle.m_radius = 0.0;
-    b2FixtureDef fixture;
-    fixture.shape = &circle;
-    fixture.filter.categoryBits = 0;
-    fixture.filter.maskBits = 0;
-
-    b2Body *body = core.b2world.b2w->CreateBody(&def);
-    body->CreateFixture(&fixture);
-    const auto cid = core.tracker.createWith(core, PhysBody{ body }, Camera{ 1.0 });
-    std::cout << "Camera ID: " << cid << '\n';
-    return cid;
-}
-
 }
 
 static size_t mainLoop(Core &core, Game &game) {
@@ -173,11 +109,11 @@ static size_t mainLoop(Core &core, Game &game) {
             // Update input
             inputUse.add([&](){ core.input.update(); });
 
-            if (core.input.isReleased(SDLK_q)) {
+            if (core.input.isReleased(SDLK_t)) {
                 timescale *= 0.7;
                 logiTick.setTimeScale(timescale);
             }
-            if (core.input.isReleased(SDLK_e)) {
+            if (core.input.isReleased(SDLK_g)) {
                 timescale /= 0.7;
                 logiTick.setTimeScale(timescale);
             }
