@@ -35,7 +35,7 @@ void ASHGame::create(Core &core) {
         10.0, 1.0, 0.5, 2.0, true
     });
 
-    core.tracker.createWith(core,
+    player_1 = core.tracker.createWith(core,
         PhysBody{ makeCircle(core, Point(-64.0, 0.0), 3.0, PhysProperties{
             .dynamic = true, .rotates = false, .category = 0x0011
         } ) },
@@ -59,7 +59,7 @@ void ASHGame::create(Core &core) {
         Turret{ "primary", bul, 0.33, 0.0, 0.0, false }
     );
 
-    core.tracker.createWith(core,
+    player_2 = core.tracker.createWith(core,
         PhysBody{ makeCircle(core, Point(64.0, 0.0), 3.0, PhysProperties{
             .dynamic = true, .rotates = false, .category = 0x0011
         } ) },
@@ -126,6 +126,6 @@ void ASHGame::create(Core &core) {
 void ASHGame::cleanup(Core &) {
 }
 
-bool ASHGame::update(Core &) {
-    return false;
+bool ASHGame::update(Core &core) {
+    return !core.tracker.alive(player_1) || !core.tracker.alive(player_2);
 }

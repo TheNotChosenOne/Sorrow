@@ -85,6 +85,7 @@ static size_t mainLoop(Core &core, Game &game) {
     while (!core.input.shouldQuit()) {
 
     game.cleanup(core);
+    core.tracker.killAll(core);
     game.create(core);
     core.tracker.graduate();
 
