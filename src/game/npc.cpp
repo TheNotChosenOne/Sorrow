@@ -78,46 +78,117 @@ void DamageSystem::execute(Core &core, double) {
 }
 
 SeekerSystem::SeekerSystem()
-    : BaseSystem("Seeker", Entity::getConstySignature< PhysBody, const Seeker >()) {
+    : BaseSystem("Seeker", Entity::getConstySignature< PhysBody, const Seeker, const TargetValue, const Team >()) {
 }
 
 SeekerSystem::~SeekerSystem() { }
 
 void SeekerSystem::init(Core &core) {
     core.tracker.addSource< SeekerData >();
+    core.tracker.addSource< TargetValueData >();
+    core.tracker.addSource< TeamData >();
 }
 
 void SeekerSystem::execute(Core &core, double time_delta) {
     const double force = 10000.0;
     const double tick_velo = force / time_delta;
 
-    Entity::ExecSimple< PhysBody, const Seeker >::run(core.tracker,
-    [&](const auto &ids, auto &bodies, const auto &seekers) {
-        for (size_t i = 0; i < seekers.size(); ++i) {
-            Entity::EntityID tid = seekers[i].target;
-            if (!core.tracker.alive(tid)) {
-                core.tracker.killEntity(core, ids[i]);
-                continue;
+    std::vector< size_t > retargets;
+
+    const auto seek = [&](size_t index, PhysBody &pb, Seeker &seeker, bool teamed) {
+        const auto tid = seeker.target;
+        if (!core.tracker.alive(tid)) {
+            if (teamed && seeker.retargeting) {
+                retargets.push_back(index);
             }
-            const auto tbody = core.tracker.optComponent< PhysBody >(tid);
-            if (!tbody) {
-                continue;
-            }
-            const auto m_body = bodies[i].body;
-            const b2Body *target = tbody->get().body;
-
-            const auto target_at = VPC< Vec >(target->GetPosition());
-            const auto me_at = VPC< Vec >(m_body->GetPosition());
-            const double estimate_intercept_t = (target_at - me_at).squared_length() / tick_velo;
-
-            const auto target_velo = VPC< Vec >(target->GetLinearVelocity());
-            const auto target_predicted = target_at + target_velo * estimate_intercept_t * 2.0;
-
-            const auto vec_to = target_predicted - me_at;
-
-            const auto go = force * normalized(vec_to);
-            m_body->ApplyForceToCenter(VPC< b2Vec2 >(go), true);
+            return;
         }
+
+        const auto target_body = core.tracker.optComponent< PhysBody >(tid);
+        if (!target_body) {
+            return;
+        }
+
+        const auto body = pb.body;
+        const b2Body *target = target_body->get().body;
+
+        const auto target_at = VPC< Vec >(target->GetPosition());
+        const auto me_at = VPC< Vec >(body->GetPosition());
+        const double estimate_intercept_t = (target_at - me_at).squared_length() / tick_velo;
+
+        const auto target_velo = VPC< Vec >(target->GetLinearVelocity());
+        const auto target_predicted = target_at + target_velo * estimate_intercept_t * 2.0;
+
+        const auto vec_to = target_predicted - me_at;
+
+        const auto go = force * normalized(vec_to);
+        body->ApplyForceToCenter(VPC< b2Vec2 >(go), true);
+    };
+
+    Entity::Exec<
+        Entity::Packs< PhysBody, Seeker >,
+        Entity::Packs< PhysBody, Seeker, const Team >
+    >::run(core.tracker,
+    [&](auto &unteamed, auto &teamed) {
+        for (size_t i = 0; i < unteamed.second.size(); ++i) {
+            seek(i, unteamed.first.template get< PhysBody >()[i],
+                    unteamed.first.template get< Seeker >()[i],
+                    false);
+        }
+        for (size_t i = 0; i < teamed.second.size(); ++i) {
+            seek(i, teamed.first.template get< PhysBody >()[i],
+                    teamed.first.template get< Seeker >()[i],
+                    true);
+        }
+
+        if (retargets.empty()) {
+            return;
+        }
+        std::map< uint16_t, std::vector< size_t > > teamy;
+        for (size_t i = 0; i < retargets.size(); ++i) {
+            const auto team = teamed.first.template get< const Team >()[i];
+            teamy[team.team].push_back(i);
+        }
+
+        Entity::ExecSimple< const PhysBody, const TargetValue, const Team >::run(core.tracker,
+        [&](const auto &ids, const auto &tbodies, const auto &values, const auto &teams) {
+            for (const auto &pair : teamy) {
+                for (const size_t index : pair.second) {
+                    const auto &pb = teamed.first.template get< PhysBody >()[index];
+                    const auto &seeker = teamed.first.template get< Seeker >()[index];
+
+                    const auto body = pb.body;
+                    const auto seeker_at = VPC< Vec >(body->GetPosition());
+                    const auto square_range = seeker.retargetingRange * seeker.retargetingRange;
+
+                    Entity::EntityID new_id = 0;
+                    double best_value = 0.0;
+                    for (size_t i = 0; i < ids.size(); ++i) {
+                        if (teams[i].team == pair.first) {
+                            continue;
+                        }
+
+                        const auto value = values[i].value;
+                        if (value < best_value) {
+                            continue;
+                        }
+
+                        const auto at = VPC< Vec >(tbodies[i].body->GetPosition());
+                        const auto vec_to = seeker_at - at;
+                        if (vec_to.squared_length() > square_range) {
+                            continue;
+                        }
+
+                        best_value = value;
+                        new_id = ids[i];
+                    }
+
+                    if (best_value > 0.0) {
+                        teamed.first.template get< Seeker >()[index].target = new_id;
+                    }
+                }
+            }
+        });
     });
 }
 
@@ -198,7 +269,17 @@ Entity::EntityID standardBullet(Core &core, const BulletInfo &bi, Entity::Entity
     }
 
     if (bi.seeking && target) {
-        core.tracker.addComponent(core, id, Seeker{ *target });
+        core.tracker.addComponent(core, id, Seeker{
+            *target,
+            512.0,
+            true,
+        });
+    } else if (bi.seeking) {
+        core.tracker.addComponent(core, id, Seeker{
+            0,
+            512.0,
+            true,
+        });
     }
 
     return id;

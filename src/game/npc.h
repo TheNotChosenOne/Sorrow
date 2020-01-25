@@ -62,8 +62,15 @@ BulletCreator getStandardBulletCreator(BulletInfo bi);
 
 struct Seeker {
     Entity::EntityID target;
+    double retargetingRange = 0.0;
+    bool retargeting = false;
 };
 DeclareDataType(Seeker);
+
+struct TargetValue {
+    double value;
+};
+DeclareDataType(TargetValue);
 
 class DamageSystem: public Entity::BaseSystem {
     public:
