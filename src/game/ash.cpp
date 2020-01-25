@@ -37,30 +37,46 @@ void ASHGame::create(Core &core) {
 
     core.tracker.createWith(core,
         PhysBody{ makeCircle(core, Point(-64.0, 0.0), 3.0, true, false) },
-        Colour{ { 0xAA, 0xAA, 0xAA } },
+        Colour{ { 0x00, 0xAA, 0x00 } },
         HitData{},
-        Controller{ KeyboardController },
-        TurretController{ KeyboardTurretController },
+        Controller{ KeyboardController, Layout{
+            {"up", SDLK_w},
+            {"down", SDLK_s},
+            {"left", SDLK_a},
+            {"rite", SDLK_d},
+        } },
+        TurretController{ KeyboardTurretController, Layout{
+            { "fire", SDLK_e },
+            { "altFire", SDLK_q },
+        } },
         Team{ 1 },
         Damage{ std::numeric_limits< double >::infinity() },
         TargetValue{ 1.0 },
         fullHealth(3.0),
-        Turret{ "Missile", mis, 2.0, 0.0, 0.0, false },
-        Turret{ "Turret", bul, 0.01, 0.0, 0.0, false }
+        Turret{ "secondary", mis, 2.0, 0.0, 0.0, false },
+        Turret{ "primary", bul, 0.01, 0.0, 0.0, false }
     );
 
     core.tracker.createWith(core,
         PhysBody{ makeCircle(core, Point(64.0, 0.0), 3.0, true, false) },
-        Colour{ { 0xAA, 0xAA, 0xAA } },
+        Colour{ { 0x00, 0x00, 0xAA } },
         HitData{},
-        Controller{ KeyboardController },
-        TurretController{ KeyboardTurretController },
+        Controller{ KeyboardController, Layout{
+            {"up", SDLK_i},
+            {"down", SDLK_k},
+            {"left", SDLK_j},
+            {"rite", SDLK_l},
+        } },
+        TurretController{ KeyboardTurretController, Layout{
+            { "fire", SDLK_o },
+            { "altFire", SDLK_u },
+        } },
         Team{ 2 },
         Damage{ std::numeric_limits< double >::infinity() },
         TargetValue{ 1.0 },
         fullHealth(3.0),
-        Turret{ "Missile", mis, 2.0, 0.0, 0.0, false },
-        Turret{ "Turret", bul, 0.01, 0.0, 0.0, false }
+        Turret{ "secondary", mis, 2.0, 0.0, 0.0, false },
+        Turret{ "primary", bul, 0.01, 0.0, 0.0, false }
     );
 
     core.tracker.createWith(core,

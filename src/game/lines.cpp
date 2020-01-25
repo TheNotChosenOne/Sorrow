@@ -41,7 +41,12 @@ void Liner::create(Core &core) {
     core.tracker.createWith(core,
         PhysBody{ randomBall(core, 1.0) },
         Colour{ { 0xFF, 0xFF, 0xFF } },
-        Controller{ KeyboardController },
+        Controller{ KeyboardController, Layout{
+            {"up", SDLK_w},
+            {"down", SDLK_w},
+            {"left", SDLK_w},
+            {"rite", SDLK_w}
+        } },
         Seeker{ tid }
     );
 }

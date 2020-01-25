@@ -146,8 +146,8 @@ Entity::EntityID HiveSpawnerSystem::makeSwarmer(Core &core, uint16_t tag, Point3
         fullHealth(10.0),
         Team{ tag },
         Damage{ 0.2 },
-        Turret{ "Missile", missiler, 2.0, rnd_range(0.0, 2.0), 60.0, true },
-        Turret{ "Turret", bulleter, 0.2, rnd_range(0.0, 0.2), 15.0, true }
+        Turret{ "secondary", missiler, 2.0, rnd_range(0.0, 2.0), 60.0, true },
+        Turret{ "primary", bulleter, 0.2, rnd_range(0.0, 0.2), 15.0, true }
     );
 }
 

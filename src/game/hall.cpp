@@ -9,6 +9,8 @@
 #include "entities/tracker.h"
 #include "physics/geometry.h"
 
+#include <SDL2/SDL.h>
+
 HallGame::HallGame() { }
 HallGame::~HallGame() { }
 
@@ -43,7 +45,7 @@ void HallGame::create(Core &core) {
         Colour{ { 0xAA, 0xAA, 0xAA } },
         HitData{},
         Damage{ 0.2 },
-        Controller{ KeyboardController },
+        Controller{ KeyboardController, Layout{ {"up", SDLK_w } } },
         Team{ 0 },
         fullHealth( std::numeric_limits< double >::infinity() )
     );
