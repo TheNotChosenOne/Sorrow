@@ -11,53 +11,81 @@
 #include <SDL2/SDL.h>
 #include <memory>
 
-void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID eid) {
+namespace {
+
+bool keyHeld(Core &core, const Layout &layout, const std::string &key) {
+    const auto loc = layout.find(key);
+    if (loc == layout.end()) {
+        return false;
+    }
+
+    return core.input.isHeld(loc->second);
+}
+
+/*
+bool mouseHeld(Core &core, const Layout &layout, const std::string &key) {
+    const auto loc = layout.find(key);
+    if (loc == layout.end()) {
+        return false;
+    }
+
+    return core.input.mouseHeld(loc->second);
+}
+*/
+
+}
+
+// if (core.input.isHeld(SDLK_a)) {
+// SDL_BUTTON_LEFT
+void KeyboardController(Core &core, PhysBody &pb, Entity::EntityID, const Layout &layout) {
     b2Body *body = pb.body;
     const auto centre = body->GetPosition();
     const double mass = body->GetMass();
-    const double hSpeed = 100.0 * mass;
-    //const double vSpeed = 250.0 * mass;
-    if (core.input.isHeld(SDLK_w)) {
-        //body->ApplyForce(b2Vec2(0.0, vSpeed), centre, true);
-        body->ApplyForce(b2Vec2(0.0, hSpeed), centre, true);
-    }
-    if (core.input.isHeld(SDLK_s)) {
-        body->ApplyForce(b2Vec2(0.0, -hSpeed), centre, true);
-        // Nobody cares
-    }
-    if (core.input.isHeld(SDLK_a)) {
-        body->ApplyForce(b2Vec2(-hSpeed, 0.0), centre, true);
-    }
-    if (core.input.isHeld(SDLK_d)) {
-        body->ApplyForce(b2Vec2(hSpeed, 0.0), centre, true);
-    }
-    if (false && core.input.mouseHeld(SDL_BUTTON_LEFT)) {
-        const auto moused = core.input.mouseToWorld(core);
-        const auto dir = normalized(moused - VPC< Point >(centre));
-        b2Body *body = makeCircle(core, VPC< Point >(centre) + dir, 0.5);
-        body->SetLinearVelocity(VPC< b2Vec2 >(dir * 128.0));
+    const double speed = 100.0 * mass;
 
-        const auto optTeam = core.tracker.optComponent< const Team >(eid);
-        if (optTeam) {
-            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, Team{ optTeam->get().team }, fullHealth(0.1), HitData{} );
-        } else {
-            core.tracker.createWith(core, PhysBody{ body }, Colour{ { 0xFF, 165, 0 } }, Damage{ 1.0 }, Lifetime{ 2.0 }, fullHealth(1.0), HitData{} );
-        }
+    if (keyHeld(core, layout, "up")) {
+        body->ApplyForce(b2Vec2(0.0, speed), centre, true);
+    }
+    if (keyHeld(core, layout, "down")) {
+        body->ApplyForce(b2Vec2(0.0, -speed), centre, true);
+    }
+    if (keyHeld(core, layout, "left")) {
+        body->ApplyForce(b2Vec2(-speed, 0.0), centre, true);
+    }
+    if (keyHeld(core, layout, "rite")) {
+        body->ApplyForce(b2Vec2(speed, 0.0), centre, true);
     }
 }
 
-void KeyboardTurretController(Core &core, std::vector< Turret > &turrets, Entity::EntityID eid) {
-    if (core.input.mouseHeld(SDL_BUTTON_LEFT)) {
-        const auto phys = core.tracker.optComponent< PhysBody >(eid);
-        if (!phys) { return; }
-        const auto centre = phys->get().body->GetPosition();
+void KeyboardTurretController(Core &core, std::vector< Turret > &turrets, Entity::EntityID eid, const Layout &layout) {
+    const bool fire = keyHeld(core, layout, "fire");
+    const bool alt = keyHeld(core, layout, "altFire");
 
-        const auto moused = core.input.mouseToWorld(core);
-        const auto dir = normalized(moused - VPC< Point >(centre));
-        const auto at = VPC< Point >(centre) + dir;
+    if (!fire && !alt) {
+        return;
+    }
+
+    const auto phys = core.tracker.optComponent< PhysBody >(eid);
+    if (!phys) { return; }
+
+    const auto centre = phys->get().body->GetPosition();
+    const auto direction = (centre.x > 0) ? Vec(-1.0, 0.0) : Vec(1.0, 0.0);
+    const auto at = VPC< Point >(centre) + direction;
+
+    if (fire) {
         for (auto &turret : turrets) {
+            if (turret.name != "primary") { continue; }
             if (turret.trigger()) {
-                turret.bullet(core, eid, at, dir, std::nullopt);
+                turret.bullet(core, eid, at, direction, std::nullopt);
+            }
+        }
+    }
+
+    if (alt) {
+        for (auto &turret : turrets) {
+            if (turret.name != "secondary") { continue; }
+            if (turret.trigger()) {
+                turret.bullet(core, eid, at, direction, std::nullopt);
             }
         }
     }
@@ -80,7 +108,7 @@ void ControllerSystem::execute(Core &core, double) {
         auto &controllers = data.first.template get< const Controller >();
         auto &pbs = data.first.template get< PhysBody >();
         for (size_t i = 0; i < pbs.size(); ++i) {
-            controllers[i].controller(core, pbs[i], data.second[i]);
+            controllers[i].controller(core, pbs[i], data.second[i], controllers[i].layout);
         }
     });
     Entity::Exec< Entity::Packs< Turret, const TurretController > >::run(core.tracker,
@@ -88,7 +116,7 @@ void ControllerSystem::execute(Core &core, double) {
         auto &controllers = data.first.template get< const TurretController >();
         auto &pbs = data.first.template get< Turret >();
         for (size_t i = 0; i < pbs.size(); ++i) {
-            controllers[i].controller(core, pbs[i], data.second[i]);
+            controllers[i].controller(core, pbs[i], data.second[i], controllers[i].layout);
         }
     });
 }
