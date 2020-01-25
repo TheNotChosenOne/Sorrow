@@ -42,6 +42,8 @@ void ASHGame::create(Core &core) {
         Controller{ KeyboardController },
         TurretController{ KeyboardTurretController },
         Team{ 1 },
+        Damage{ std::numeric_limits< double >::infinity() },
+        TargetValue{ 1.0 },
         fullHealth(3.0),
         Turret{ "Missile", mis, 2.0, 0.0, 0.0, false },
         Turret{ "Turret", bul, 0.01, 0.0, 0.0, false }
@@ -54,6 +56,8 @@ void ASHGame::create(Core &core) {
         Controller{ KeyboardController },
         TurretController{ KeyboardTurretController },
         Team{ 2 },
+        Damage{ std::numeric_limits< double >::infinity() },
+        TargetValue{ 1.0 },
         fullHealth(3.0),
         Turret{ "Missile", mis, 2.0, 0.0, 0.0, false },
         Turret{ "Turret", bul, 0.01, 0.0, 0.0, false }
