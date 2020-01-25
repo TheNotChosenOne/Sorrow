@@ -36,7 +36,9 @@ void ASHGame::create(Core &core) {
     });
 
     core.tracker.createWith(core,
-        PhysBody{ makeCircle(core, Point(-64.0, 0.0), 3.0, true, false) },
+        PhysBody{ makeCircle(core, Point(-64.0, 0.0), 3.0, PhysProperties{
+            .dynamic = true, .rotates = false, .category = 0x0011
+        } ) },
         Colour{ { 0x00, 0xAA, 0x00 } },
         HitData{},
         Controller{ KeyboardController, Layout{
@@ -54,11 +56,13 @@ void ASHGame::create(Core &core) {
         TargetValue{ 1.0 },
         fullHealth(3.0),
         Turret{ "secondary", mis, 2.0, 0.0, 0.0, false },
-        Turret{ "primary", bul, 0.01, 0.0, 0.0, false }
+        Turret{ "primary", bul, 0.33, 0.0, 0.0, false }
     );
 
     core.tracker.createWith(core,
-        PhysBody{ makeCircle(core, Point(64.0, 0.0), 3.0, true, false) },
+        PhysBody{ makeCircle(core, Point(64.0, 0.0), 3.0, PhysProperties{
+            .dynamic = true, .rotates = false, .category = 0x0011
+        } ) },
         Colour{ { 0x00, 0x00, 0xAA } },
         HitData{},
         Controller{ KeyboardController, Layout{
@@ -76,29 +80,43 @@ void ASHGame::create(Core &core) {
         TargetValue{ 1.0 },
         fullHealth(3.0),
         Turret{ "secondary", mis, 2.0, 0.0, 0.0, false },
-        Turret{ "primary", bul, 0.01, 0.0, 0.0, false }
+        Turret{ "primary", bul, 0.33, 0.0, 0.0, false }
+    );
+
+    const double widths = 4.0;
+
+    PhysProperties divider {
+        .dynamic = false,
+        .rotates = false,
+        .category = 0x0010,
+        .mask = 0x0010
+    };
+    core.tracker.createWith(core,
+        PhysBody{ makeRect(core, Point(0, 0), 2, 256 + widths, divider) },
+        Colour{ { 0x33, 0, 0 } },
+        Damage{ std::numeric_limits< double >::infinity() }
     );
 
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(-128, 0), 16.0, 256 + 16, false, false) },
+        PhysBody{ makeRect(core, Point(-128, 0), widths, 256 + widths, PhysProperties{ .dynamic = false, .rotates = false}) },
         Colour{ { 0xFF, 0, 0 } },
         Damage{ std::numeric_limits< double >::infinity() }
     );
 
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(128, 0), 16.0, 256 + 16, false, false) },
+        PhysBody{ makeRect(core, Point(128, 0), widths, 256 + widths, PhysProperties{ .dynamic = false, .rotates = false}) },
         Colour{ { 0xFF, 0, 0 } },
         Damage{ std::numeric_limits< double >::infinity() }
     );
 
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(0, 128.0), 256 + 16.0, 16, false, false) },
+        PhysBody{ makeRect(core, Point(0, 128.0), 256 + widths, widths, PhysProperties{ .dynamic = false, .rotates = false}) },
         Colour{ { 0xFF, 0, 0 } },
         Damage{ std::numeric_limits< double >::infinity() }
     );
 
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(0, -128.0), 256 + 16.0, 16, false, false) },
+        PhysBody{ makeRect(core, Point(0, -128.0), 256 + widths, widths, PhysProperties{ .dynamic = false, .rotates = false}) },
         Colour{ { 0xFF, 0, 0 } },
         Damage{ std::numeric_limits< double >::infinity() }
     );

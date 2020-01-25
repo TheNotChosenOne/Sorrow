@@ -271,13 +271,13 @@ Entity::EntityID standardBullet(Core &core, const BulletInfo &bi, Entity::Entity
     if (bi.seeking && target) {
         core.tracker.addComponent(core, id, Seeker{
             *target,
-            512.0,
+            1024.0,
             true,
         });
     } else if (bi.seeking) {
         core.tracker.addComponent(core, id, Seeker{
             0,
-            512.0,
+            1024.0,
             true,
         });
     }

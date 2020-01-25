@@ -35,13 +35,13 @@ void HallGame::unregister(Core &) {
 void HallGame::create(Core &core) {
     // Make the floor
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(0.0, -5.0), 128.0, 5.0, false) },
+        PhysBody{ makeRect(core, Point(0.0, -5.0), 128.0, 5.0, PhysProperties{.dynamic = false}) },
         Colour{ { 0, 0xFF, 0 } }
     );
 
     // Make the player
     core.tracker.createWith(core,
-        PhysBody{ makeRect(core, Point(0.0, 5.0), 3.0, 8.0, true, false) },
+        PhysBody{ makeRect(core, Point(0.0, 5.0), 3.0, 8.0, PhysProperties{.dynamic = true, .rotates=false}) },
         Colour{ { 0xAA, 0xAA, 0xAA } },
         HitData{},
         Damage{ 0.2 },
