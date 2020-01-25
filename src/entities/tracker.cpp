@@ -40,6 +40,14 @@ void Tracker::withWriteLock(const std::function< void() > &func) {
     func();
 }
 
+Signature Tracker::getRegisteredTypes() const {
+    Signature sig;
+    for (const auto &pair: sources) {
+        sig.insert(pair.first);
+    }
+    return sig;
+}
+
 void Tracker::killEntity(Core &, const EntityID id) {
     std::unique_lock lock(tex);
     doomed.insert(id);

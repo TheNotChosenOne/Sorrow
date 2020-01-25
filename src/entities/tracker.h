@@ -69,6 +69,8 @@ class Tracker {
 
         void withWriteLock(const std::function< void() > &func);
 
+        Signature getRegisteredTypes() const;
+
         size_t sourceCount() const;
 
         template< typename T >
@@ -189,6 +191,7 @@ class Tracker {
             const OrderedSignature osig = getOrderedSignature< Args... >();
             const Signature sig(osig.begin(), osig.end());
             for (const auto tid : getDuplicates(osig)) {
+                rassert(sources.end() != sources.find(tid), "Missing type used!", osig);
                 rassert(sources[tid]->isMulti(), "Duplicate single type in signature!")
             }
 
@@ -208,6 +211,11 @@ class Tracker {
             std::unique_lock lock(tex);
 
             auto standard = std::make_unique< T >();
+
+            if (sources.end() != sources.find(standard->type())) {
+                return;
+            }
+
             sources[standard->type()] = std::move(standard);
 
             auto younger = std::make_unique< T >();
