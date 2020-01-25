@@ -142,6 +142,8 @@ static size_t mainLoop(Core &core, Game &game) {
     size_t logicCount = 0;
     size_t logic_steps = 0;
 
+    std::cout << "Core types: " << core.tracker.getRegisteredTypes() << std::endl;
+
     std::chrono::duration< double > busyTime(0);
     auto start = std::chrono::high_resolution_clock::now();
     while (!core.input.shouldQuit()) {
