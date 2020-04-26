@@ -248,7 +248,7 @@ bool getOptions(boost::program_options::variables_map &options, int argc, char *
     namespace po = boost::program_options;
     po::options_description desc("Options");
     desc.add_options()
-        ("game", po::value< std::string >()->default_value("hall"), "What game to use")
+        ("game", po::value< std::string >()->default_value("swarm"), "What game to use")
         ("headless",
          po::value< bool >()->default_value(RUNNING_ON_VALGRIND),
          "disable rendering and input")
