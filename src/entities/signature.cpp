@@ -5,6 +5,14 @@
 
 #include <sstream>
 
+namespace {
+
+bool typeLessThan(const Entity::TypeID left, const Entity::TypeID right) {
+    return left < right;
+}
+
+}
+
 std::ostream &operator<<(std::ostream &os, const Entity::TypeID &tid) {
     return (os << tid.name());
 }
@@ -24,7 +32,7 @@ std::ostream &operator<<(std::ostream &os, const Entity::OrderedSignature &sig) 
 namespace Entity {
 
 bool typesSubset(const Entity::Signature &super, const Entity::Signature &sub) {
-    return std::includes(super.begin(), super.end(), sub.begin(), sub.end(), ::operator<); // TODO: Speedup
+    return std::includes(super.begin(), super.end(), sub.begin(), sub.end(), typeLessThan); // TODO: Speedup
 }
 
 std::string signatureString(const Entity::Signature &sig) {
