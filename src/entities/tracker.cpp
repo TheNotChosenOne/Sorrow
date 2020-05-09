@@ -57,21 +57,28 @@ void Tracker::finalizeKills(Core &core) {
     const auto killGroup = [&](Entities &ents, Sources &srcs) {
         for (auto &pair : ents) {
             auto &ids = pair.second;
-            for (size_t i = 0; i < ids.size(); ++i) {
-                if (doomed.end() == doomed.find(ids[i])) { continue; }
+            for (size_t i = 0; i < ids.size();) {
+                const EntityID eid = ids[i];
+                if (doomed.end() == doomed.find(eid)) {
+                    ++i;
+                    continue;
+                }
                 const Signature &sig = pair.first;
                 for (const TypeID tid : sig) {
-                    srcs.at(tid)->deleteComponent(core, ids[i]);
+                    srcs.at(tid)->deleteComponent(core, eid);
                 }
                 for (const TypeID tid : sig) {
-                    srcs.at(tid)->remove(ids[i]);
+                    srcs.at(tid)->remove(eid);
                 }
-                ids.erase(ids.begin() + i);
+                ids[i] = ids[ids.size() - 1];
+                ids.resize(ids.size() - 1);
             }
         }
     };
+
     killGroup(entities, sources);
     killGroup(nursery, nurserySources);
+
     doomed.clear();
 }
 
