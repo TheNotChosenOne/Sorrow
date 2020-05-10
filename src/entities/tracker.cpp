@@ -83,21 +83,8 @@ void Tracker::finalizeKills(Core &core) {
 }
 
 void Tracker::killAll(Core &core) {
-    std::vector< EntityID > all;
-    {
-        std::shared_lock lock(tex);
-        for (auto &pair : entities) {
-            for (auto &eid : pair.second) {
-                all.push_back(eid);
-            }
-        }
-        for (auto &pair : nursery) {
-            for (auto &eid : pair.second) {
-                all.push_back(eid);
-            }
-        }
-    }
-    for (const auto eid : all) {
+    std::vector< EntityID > eids = all();
+    for (const auto eid : eids) {
         killEntity(core, eid);
     }
 }
@@ -190,6 +177,22 @@ void Tracker::graduate() {
         graduated.insert(graduated.end(), list.begin(), list.end());
     }
     nursery.clear();
+}
+
+std::vector< EntityID > Tracker::all() const {
+    std::vector< EntityID > out;
+    std::shared_lock lock(tex);
+    for (auto &pair : entities) {
+        for (auto &eid : pair.second) {
+            out.push_back(eid);
+        }
+    }
+    for (auto &pair : nursery) {
+        for (auto &eid : pair.second) {
+            out.push_back(eid);
+        }
+    }
+    return out;
 }
 
 }

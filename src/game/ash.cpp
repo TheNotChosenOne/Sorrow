@@ -9,10 +9,24 @@
 #include "entities/tracker.h"
 #include "physics/geometry.h"
 
+namespace {
+
+std::vector< Entity::EntityID > findScores(Core &core) {
+    std::vector< Entity::EntityID > out;
+    Entity::Exec< Entity::Packs< const Score > >::run(core.tracker,
+    [&](const auto &scores) {
+        out = scores.second;
+    });
+    return out;
+}
+
+}
+
 ASHGame::ASHGame() { }
 ASHGame::~ASHGame() { }
 
 void ASHGame::registration(Core &core) {
+    core.tracker.addSource< ScoreData >();
     core.tracker.addSource< ColourData >();
     core.systems.addSystem(std::make_unique< ControllerSystem >());
     core.systems.addSystem(std::make_unique< PhysicsSystem >());
@@ -26,6 +40,17 @@ void ASHGame::unregister(Core &) {
 }
 
 void ASHGame::create(Core &core) {
+    if (findScores(core).empty()) {
+        core.tracker.createWith(core,
+            Team{ 1 },
+            Score{ 0 }
+        );
+
+        core.tracker.createWith(core,
+            Team{ 2 },
+            Score{ 0 }
+        );
+    }
 
     const auto bul = getStandardBulletCreator(BulletInfo{
         2.0, 0.50, 0.25, 1.0, false
@@ -123,9 +148,37 @@ void ASHGame::create(Core &core) {
 
 }
 
-void ASHGame::cleanup(Core &) {
+void ASHGame::cleanup(Core &core) {
+    std::vector< Entity::EntityID > ids = core.tracker.all();
+
+    for (const auto &scoreID : findScores(core)) {
+        ids.erase(std::remove(ids.begin(), ids.end(), scoreID), ids.end());
+    }
+
+    for (const auto &eid : ids) {
+        core.tracker.killEntity(core, eid);
+    }
 }
 
 bool ASHGame::update(Core &core) {
-    return !core.tracker.alive(player_1) || !core.tracker.alive(player_2);
+    const bool p1 = core.tracker.alive(player_1);
+    const bool p2 = core.tracker.alive(player_2);
+    if (!p1 || !p2) {
+        Entity::ExecSimple< const Team, Score >::run(core.tracker,
+        [&](const auto &, const auto &teams, auto &scores) {
+            for (size_t i = 0; i < teams.size(); i++) {
+                if (teams[i].team == 1 && p1) {
+                    ++scores[i].score;
+                    std::cout << "Player 1: " << scores[i].score << std::endl;
+                }
+                if (teams[i].team == 2 && p2) {
+                    ++scores[i].score;
+                    std::cout << "Player 2: " << scores[i].score << std::endl;
+                }
+            }
+        });
+        cleanup(core);
+        create(core);
+    }
+    return false;
 }

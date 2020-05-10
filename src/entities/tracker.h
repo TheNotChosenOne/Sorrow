@@ -63,6 +63,8 @@ class Tracker {
         bool aliveWithLock(const EntityID &eid) const;
         bool zombie(const EntityID &eid) const;
 
+        std::vector< EntityID > all() const;
+
         std::pair< Signature, bool > getSignature(const EntityID &eid) const;
 
         void withReadLock(const std::function< void() > &func);
