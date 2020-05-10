@@ -50,10 +50,7 @@ std::uniform_real_distribution< double > distro(0.0, 1.0);
 
 }
 
-static size_t mainLoop(Core &core, Game &game) {
-    AccumulateTimer entityUse;
-    Entity::k_entity_timer = &entityUse;
-
+static size_t mainLoop(Core &core, Game &game, AccumulateTimer &entityUse) {
     AccumulateTimer visualsUse;
     AccumulateTimer inputUse;
     AccumulateTimer logicUse;
@@ -206,6 +203,8 @@ static void run(boost::program_options::variables_map &options) {
     input->update();
 
     Entity::Tracker tracker;
+    AccumulateTimer entityUse;
+    Entity::k_entity_timer = &entityUse;
 
     std::unique_ptr< Entity::SystemManager > systems = std::make_unique< Entity::SystemManager >(options);
 
@@ -239,7 +238,7 @@ static void run(boost::program_options::variables_map &options) {
     if (core.options.count("verbose")) {
         std::cout << "Using " << core.tracker.sourceCount() << " sources" << std::endl;
     }
-    const auto steps = mainLoop(core, *game);
+    const auto steps = mainLoop(core, *game, entityUse);
     std::cout << "Ran " << steps << " logical steps." << std::endl;
 
     game->cleanup(core);
